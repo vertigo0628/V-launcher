@@ -52,6 +52,21 @@ class VisualSettingsActivity : AppCompatActivity() {
         previewContainer = findViewById(R.id.previewContainer)
     }
     
+    private val wallpaperLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                try {
+                    val inputStream = contentResolver.openInputStream(uri)
+                    android.app.WallpaperManager.getInstance(this).setStream(inputStream)
+                    Toast.makeText(this, "Wallpaper updated!", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Failed to set wallpaper: ${e.message}", Toast.LENGTH_SHORT).show()
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
     private fun setupWallpaperButton() {
         btnChangeWallpaper.setOnClickListener {
             try {
@@ -63,7 +78,7 @@ class VisualSettingsActivity : AppCompatActivity() {
                 Toast.makeText(this, "Opening gallery...", Toast.LENGTH_SHORT).show()
                 val intent = android.content.Intent(android.content.Intent.ACTION_PICK)
                 intent.type = "image/*"
-                startActivity(intent)
+                wallpaperLauncher.launch(intent)
             }
         }
     }

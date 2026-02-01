@@ -93,7 +93,13 @@ class MainActivity : AppCompatActivity() {
         // Setup UI
         initializeViews()
         setupNeuralHub() // Initialize Hub
-        setupGestureDetector()
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Refresh colors in case wallpaper changed
+        extractWallpaperColors()
+    }    setupGestureDetector()
         setupSearch()
         setupCategoryChips()
         setupFlowerGrid()
