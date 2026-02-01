@@ -15,7 +15,7 @@
         android:layout_width="32dp"
         android:layout_height="32dp"
         android:layout_gravity="center"
-        android:src="@mipmap/ic_launcher"
+        android:src="@drawable/ic_category_home"
         android:tint="#000000" /> <!-- Better to use app:tint in real apps but android:tint works for system compatibility check -->
 
 </FrameLayout>
