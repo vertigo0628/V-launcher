@@ -108,7 +108,6 @@ class MainActivity : AppCompatActivity() {
         setupCategoryChips()
         setupFlowerGrid()
         setupAppDrawer()
-    }
         setupWidgets()
         setupDock()
         
