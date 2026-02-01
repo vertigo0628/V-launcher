@@ -121,7 +121,7 @@ class FlowerGridView @JvmOverloads constructor(
         }
         
         // Ring 1: 6 icons around center (primary size)
-        val ring1Radius = centerIconSize / 2f + primaryIconSize / 2f + 12.dpToPx()
+        val ring1Radius = centerIconSize * 0.55f + primaryIconSize * 0.55f + 8.dpToPx()
         val ring1Offsets = listOf(0f, 2f, -3f, 1f, -2f, 3f) 
         for (i in 0 until 6) {
             if (idx >= apps.size) break
@@ -139,7 +139,7 @@ class FlowerGridView @JvmOverloads constructor(
         }
         
         // Ring 2: 12 icons in outer ring (secondary size)
-        val ring2Radius = ring1Radius + primaryIconSize / 2f + secondaryIconSize / 2f + 8.dpToPx()
+        val ring2Radius = ring1Radius + primaryIconSize * 0.55f + secondaryIconSize * 0.55f + 6.dpToPx()
         for (i in 0 until 12) {
             if (idx >= apps.size) break
             val angle = Math.toRadians((30.0 * i) - 90) // 30 degree intervals
@@ -156,7 +156,7 @@ class FlowerGridView @JvmOverloads constructor(
         }
         
         // Ring 3: 18 icons in outermost ring (tertiary size)
-        val ring3Radius = ring2Radius + secondaryIconSize / 2f + tertiaryIconSize / 2f + 6.dpToPx()
+        val ring3Radius = ring2Radius + secondaryIconSize * 0.55f + tertiaryIconSize * 0.55f + 4.dpToPx()
         for (i in 0 until 18) {
             if (idx >= apps.size) break
             val angle = Math.toRadians((20.0 * i) - 90) // 20 degree intervals (360/18)
@@ -168,6 +168,23 @@ class FlowerGridView @JvmOverloads constructor(
                 RectF(x - halfIcon, y - halfIcon, x + halfIcon, y + halfIcon),
                 tertiaryIconSize,
                 3
+            ))
+            idx++
+        }
+        
+        // Ring 4: 24 icons (outermost)
+        val ring4Radius = ring3Radius + tertiaryIconSize + 4.dpToPx()
+        for (i in 0 until 24) {
+            if (idx >= apps.size) break
+            val angle = Math.toRadians((15.0 * i) - 90) // 15 degree intervals (360/24)
+            val x = centerX + (ring4Radius * cos(angle)).toFloat()
+            val y = centerY + (ring4Radius * sin(angle)).toFloat()
+            val halfIcon = tertiaryIconSize / 2f
+            
+            iconPositions.add(IconPosition(
+                RectF(x - halfIcon, y - halfIcon, x + halfIcon, y + halfIcon),
+                tertiaryIconSize,
+                4
             ))
             idx++
         }
@@ -202,12 +219,17 @@ class FlowerGridView @JvmOverloads constructor(
             canvas.drawCircle(pos.rect.centerX(), pos.rect.centerY(), circleRadius, glowP)
             canvas.drawCircle(pos.rect.centerX(), pos.rect.centerY(), circleRadius, borderP)
             
-            // Draw icon
+            // Draw icon scaled down to fit in circle
+            val drawSize = pos.size * iconScaleFactor
+            val halfDrawSize = drawSize / 2f
+            val cx = pos.rect.centerX()
+            val cy = pos.rect.centerY()
+            
             app.icon.setBounds(
-                pos.rect.left.toInt(),
-                pos.rect.top.toInt(),
-                pos.rect.right.toInt(),
-                pos.rect.bottom.toInt()
+                (cx - halfDrawSize).toInt(),
+                (cy - halfDrawSize).toInt(),
+                (cx + halfDrawSize).toInt(),
+                (cy + halfDrawSize).toInt()
             )
             app.icon.draw(canvas)
         }
