@@ -11,8 +11,13 @@
         tools:ignore="ProtectedPermissions" />
     
     <!-- Required to read wallpapers from storage -->
+    <!-- Required to read wallpapers from storage -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    
+    <!-- Required to set the wallpaper -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+
     
     <!-- Optional: for contact search -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
