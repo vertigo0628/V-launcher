@@ -47,9 +47,35 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
     }
 
+    private val wallpaperLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                try {
+                    val context = requireContext()
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    android.app.WallpaperManager.getInstance(context).setStream(inputStream)
+                    Toast.makeText(context, "Wallpaper updated!", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(requireContext(), "Failed to set wallpaper: ${e.message}", Toast.LENGTH_SHORT).show()
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
     private fun setupWallpaperPreference() {
         findPreference<Preference>("wallpaper_picker")?.setOnPreferenceClickListener {
-            startActivity(Intent(Intent.ACTION_SET_WALLPAPER))
+            try {
+                // Try to launch specific wallpaper chooser
+                val intent = Intent(Intent.ACTION_SET_WALLPAPER)
+                startActivity(Intent.createChooser(intent, "Select Wallpaper"))
+            } catch (e: Exception) {
+                // Fallback to generic image picker
+                Toast.makeText(requireContext(), "Opening gallery...", Toast.LENGTH_SHORT).show()
+                val intent = Intent(Intent.ACTION_PICK)
+                intent.type = "image/*"
+                wallpaperLauncher.launch(intent)
+            }
             true
         }
     }
