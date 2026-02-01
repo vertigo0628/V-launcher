@@ -167,7 +167,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupNeuralHub() {
-        val rootLayout = findViewById<androidx.constraintlayout.widget.ConstraintLayout>(R.id.rootLayout)
+        val rootLayout = findViewById<android.widget.FrameLayout>(R.id.rootLayout)
         
         // Inflate Neural Hub layout and add it to root
         val inflater = android.view.LayoutInflater.from(this)
