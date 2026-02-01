@@ -117,11 +117,7 @@ class MainActivity : AppCompatActivity() {
         continueSetup()
     }
     
-    override fun onDestroy() {
-        super.onDestroy()
-        getSharedPreferences("launcher_prefs", android.content.Context.MODE_PRIVATE)
-            .unregisterOnSharedPreferenceChangeListener(prefsListener)
-    }
+
     
     override fun onResume() {
         super.onResume()
@@ -977,6 +973,11 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         clockHandler.removeCallbacksAndMessages(null)
+        SmartFeaturesManager.unregister(this)
+        
+        // Unregister prefs listener
+        getSharedPreferences("launcher_prefs", android.content.Context.MODE_PRIVATE)
+            .unregisterOnSharedPreferenceChangeListener(prefsListener)
         widgetManager.stopListening()
     }
     
