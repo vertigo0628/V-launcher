@@ -63,19 +63,56 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
     }
 
+    private val storagePermissionLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (isGranted) {
+            openGalleryPicker()
+        } else {
+            Toast.makeText(requireContext(), "Permission denied to read storage", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun checkStoragePermissionAndOpenGallery() {
+        val permission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        
+        if (androidx.core.content.ContextCompat.checkSelfPermission(requireContext(), permission) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            openGalleryPicker()
+        } else {
+            storagePermissionLauncher.launch(permission)
+        }
+    }
+
+    private fun openGalleryPicker() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT)
+        intent.type = "image/*"
+        wallpaperLauncher.launch(Intent.createChooser(intent, "Select Picture"))
+    }
+
     private fun setupWallpaperPreference() {
         findPreference<Preference>("wallpaper_picker")?.setOnPreferenceClickListener {
-            try {
-                // Try to launch specific wallpaper chooser
-                val intent = Intent(Intent.ACTION_SET_WALLPAPER)
-                startActivity(Intent.createChooser(intent, "Select Wallpaper"))
-            } catch (e: Exception) {
-                // Fallback to generic image picker
-                Toast.makeText(requireContext(), "Opening gallery...", Toast.LENGTH_SHORT).show()
-                val intent = Intent(Intent.ACTION_PICK)
-                intent.type = "image/*"
-                wallpaperLauncher.launch(intent)
-            }
+            val options = arrayOf("System Wallpapers", "Pick from Gallery/Files")
+            
+            android.app.AlertDialog.Builder(requireContext())
+                .setTitle("Change Wallpaper")
+                .setItems(options) { _, which ->
+                    when (which) {
+                        0 -> {
+                            try {
+                                val intent = Intent(Intent.ACTION_SET_WALLPAPER)
+                                startActivity(Intent.createChooser(intent, "Select Wallpaper"))
+                            } catch (e: Exception) {
+                                Toast.makeText(requireContext(), "System wallpaper picker not found", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        1 -> {
+                            checkStoragePermissionAndOpenGallery()
+                        }
+                    }
+                }
+                .show()
             true
         }
     }

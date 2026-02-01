@@ -76,6 +76,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+    
+    // Neural Hub Realtime Updates
+    private val hubUpdateHandler = Handler(Looper.getMainLooper())
+    private val hubUpdateRunnable = object : Runnable {
+        override fun run() {
+            if (isHubOpen) {
+                updateNeuralHubVitals()
+                hubUpdateHandler.postDelayed(this, 1000)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -171,6 +182,14 @@ class MainActivity : AppCompatActivity() {
         categoryContainer = findViewById(R.id.categoryContainer)
         widgetContainer = findViewById(R.id.widgetContainer)
         dockContainer = findViewById(R.id.dockContainer)
+        
+        // Setup Dock Shortcuts
+        dockContainer.findViewById<View>(R.id.btnDockNeural).setOnClickListener {
+            openNeuralHub()
+        }
+        dockContainer.findViewById<View>(R.id.btnDockSettings).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
 
         // Apply WindowInsets to avoid system bar overlap
         val rootLayout = findViewById<View>(R.id.rootLayout)
@@ -203,9 +222,26 @@ class MainActivity : AppCompatActivity() {
         flowerGridView = FlowerGridView(this)
         flowerGridContainer.addView(flowerGridView)
         
-        // Long press clock for settings
+        // Long press clock for options
         clockWidget.setOnLongClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+            val popup = android.widget.PopupMenu(this, clockWidget)
+            popup.menu.add("Settings")
+            popup.menu.add("Neural Hub")
+            popup.menu.add("Edit Layout")
+            
+            popup.setOnMenuItemClickListener { item ->
+                when (item.title) {
+                    "Settings" -> startActivity(Intent(this, SettingsActivity::class.java))
+                    "Neural Hub" -> openNeuralHub()
+                    "Edit Layout" -> {
+                        // Enter edit mode visual cue
+                        Toast.makeText(this, "Edit Mode Active", Toast.LENGTH_SHORT).show()
+                        flowerGridView.toggleEditMode()
+                    }
+                }
+                true
+            }
+            popup.show()
             true
         }
         
@@ -270,11 +306,17 @@ class MainActivity : AppCompatActivity() {
                 .setDuration(300)
                 .start()
         }
+        
+        // Start Realtime Updates
+        hubUpdateHandler.post(hubUpdateRunnable)
     }
     
     private fun closeNeuralHub() {
         if (!isHubOpen) return
         isHubOpen = false
+        
+        // Stop Realtime Updates
+        hubUpdateHandler.removeCallbacks(hubUpdateRunnable)
         
         // Slide out Hub
         neuralHubRoot.animate()

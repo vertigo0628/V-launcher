@@ -9,6 +9,29 @@
     android:paddingVertical="8dp"
     android:paddingHorizontal="16dp">
 
+    <!-- Neural Hub Shortcut -->
+    <ImageButton
+        android:id="@+id/btnDockNeural"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginHorizontal="12dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_neural_hub"
+        android:contentDescription="Neural Hub" />
+
     <!-- Dock apps will be added programmatically -->
+    <!-- The DockManager fills this space, or we wrap it in another layout if mixed -->
+    
+    <!-- Launcher Settings Shortcut -->
+    <ImageButton
+        android:id="@+id/btnDockSettings"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginHorizontal="12dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_v_settings"
+        android:contentDescription="V-Launcher Settings" />
 
 </LinearLayout>

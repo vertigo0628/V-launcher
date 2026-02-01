@@ -78,6 +78,14 @@ class FlowerGridView @JvmOverloads constructor(
     private var onAppClickListener: ((AppModel) -> Unit)? = null
     private var onAppLongClickListener: ((AppModel) -> Unit)? = null
     
+    // Edit Mode
+    private var isEditMode = false
+    
+    fun toggleEditMode() {
+        isEditMode = !isEditMode
+        invalidate()
+    }
+    
     // Store icon positions and their sizes
     private data class IconPosition(val rect: RectF, val size: Float, val ring: Int)
     private val iconPositions = mutableListOf<IconPosition>()
@@ -206,8 +214,12 @@ class FlowerGridView @JvmOverloads constructor(
             
             // Draw glass background circle
             val circleRadius = pos.size / 2f + 6.dpToPx()
+            
+            // Edit Mode Visual Cue: Red pulsing border
+            val activeBorderPaint = if (isEditMode) borderPaintSecondary else borderP
+            
             canvas.drawCircle(pos.rect.centerX(), pos.rect.centerY(), circleRadius, glowP)
-            canvas.drawCircle(pos.rect.centerX(), pos.rect.centerY(), circleRadius, borderP)
+            canvas.drawCircle(pos.rect.centerX(), pos.rect.centerY(), circleRadius, activeBorderPaint)
             
             // Draw icon scaled down to fit in circle
             val drawSize = pos.size * iconScaleFactor
