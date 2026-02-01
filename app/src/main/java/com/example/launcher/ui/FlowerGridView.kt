@@ -112,45 +112,70 @@ class FlowerGridView @JvmOverloads constructor(
         calculatePositions()
     }
 
+    private var globalScale = 1.0f
+
     private fun calculatePositions() {
         iconPositions.clear()
         
         if (apps.isEmpty()) return
         
-        // Define spacing based on icon size
-        val spacing = primaryIconSize * 0.95f // Tighter packing
-        val hSpacing = spacing
+        // Determine how many rings we are using based on app count
+        // Ring 0: 1 app (1 total)
+        // Ring 1: +6 apps (7 total)
+        // Ring 2: +12 apps (19 total)
+        // Ring 3: +18 apps (37 total)
+        val maxRing = when {
+            apps.size > 19 -> 3
+            apps.size > 7 -> 2
+            apps.size > 1 -> 1
+            else -> 0
+        }
+        
+        // Calculate required radius at scale 1.0
+        val baseSpacing = primaryIconSize * 0.95f
+        
+        // The farthest edge is roughly at: (maxRing * spacing) + (iconSize / 2)
+        // We add some padding factor just to be safe
+        val requiredRadius = (maxRing * baseSpacing) + (primaryIconSize / 2f) + 16.dpToPx()
+        
+        // Available space
+        val availableRadius = min(width / 2f, height / 2f)
+        
+        // Calculate scale (max 1.0, shrink if needed)
+        globalScale = if (availableRadius > 0 && requiredRadius > 0) {
+            min(1.0f, availableRadius / requiredRadius)
+        } else {
+            1.0f
+        }
+        
+        // Apply scale to spacing
+        val spacing = baseSpacing * globalScale
         val vSpacing = spacing * 0.866f // sqrt(3)/2
         
         var iter = apps.iterator()
         
         // Center icon (0, 0)
         if (iter.hasNext()) {
-            addIconAt(0f, 0f, centerIconSize, 0)
+            addIconAt(0f, 0f, centerIconSize * globalScale, 0)
             iter.next()
         }
         
         // Generate rings
         var ring = 1
         while (iter.hasNext()) {
-            // In a hexagonal grid, ring N has 6*N positions
-            // We start at (0, -ring) or similar and trace the hexagon
-            
             // Start walking the hexagonal perimeter from the top
             for (side in 0 until 6) {
                 for (step in 0 until ring) {
                     if (!iter.hasNext()) break
                     
                     // Angle for "side" start and end
-                    // Start is -90 (Top), then +60 degrees per side
                     val angle1Deg = -90.0 + 60 * side
                     val angle2Deg = -90.0 + 60 * (side + 1)
                     
                     val angle1 = Math.toRadians(angle1Deg)
                     val angle2 = Math.toRadians(angle2Deg)
                     
-                    // Corner positions (radius = circumradius = ring * spacing)
-                    // In a hexagonal grid, the distance from center to ring corner is essentially linear
+                    // Corner positions
                     val cornerRadius = ring * spacing
                     
                     val x1 = (cornerRadius * cos(angle1)).toFloat()
@@ -165,10 +190,10 @@ class FlowerGridView @JvmOverloads constructor(
                     val py = y1 + (y2 - y1) * fraction
                     
                     // Use larger icons for inner rings
-                    val size = if (ring <= 1) primaryIconSize else 
+                    val rawSize = if (ring <= 1) primaryIconSize else 
                                if (ring == 2) secondaryIconSize else tertiaryIconSize
                     
-                    addIconAt(px, py, size, ring)
+                    addIconAt(px, py, rawSize * globalScale, ring)
                     iter.next()
                 }
                 if (!iter.hasNext()) break
