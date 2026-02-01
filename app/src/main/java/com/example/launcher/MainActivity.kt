@@ -31,6 +31,7 @@ import com.example.launcher.ui.AppAdapter
 import com.example.launcher.ui.FlowerGridView
 import com.example.launcher.ui.HomeViewModel
 import com.example.launcher.utils.ThemeEngine
+import com.example.launcher.utils.SmartFeaturesManager
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
