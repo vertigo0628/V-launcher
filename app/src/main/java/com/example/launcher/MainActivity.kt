@@ -31,7 +31,6 @@ import com.example.launcher.ui.AppAdapter
 import com.example.launcher.ui.FlowerGridView
 import com.example.launcher.ui.HomeViewModel
 import com.example.launcher.utils.ThemeEngine
-import com.example.launcher.utils.SmartFeaturesManager
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -974,7 +973,6 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         clockHandler.removeCallbacksAndMessages(null)
-        SmartFeaturesManager.unregister(this)
         
         // Unregister prefs listener
         getSharedPreferences("launcher_prefs", android.content.Context.MODE_PRIVATE)
