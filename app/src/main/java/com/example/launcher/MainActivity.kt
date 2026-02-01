@@ -190,6 +190,10 @@ class MainActivity : AppCompatActivity() {
         dockContainer.findViewById<View>(R.id.btnDockSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+        dockContainer.findViewById<View>(R.id.btnDockEdit).setOnClickListener {
+            Toast.makeText(this, "Edit Mode Active", Toast.LENGTH_SHORT).show()
+            flowerGridView.toggleEditMode()
+        }
 
         // Apply WindowInsets to avoid system bar overlap
         val rootLayout = findViewById<View>(R.id.rootLayout)
@@ -401,6 +405,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun extractWallpaperColors() {
+
         try {
             val wallpaperManager = WallpaperManager.getInstance(this)
             val wallpaperDrawable = wallpaperManager.drawable

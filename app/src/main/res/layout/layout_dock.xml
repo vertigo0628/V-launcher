@@ -23,12 +23,24 @@
     <!-- Dock apps will be added programmatically -->
     <!-- The DockManager fills this space, or we wrap it in another layout if mixed -->
     
+    <!-- Custom Shortcuts -->
+    
     <!-- Launcher Settings Shortcut -->
+    <ImageButton
+        android:id="@+id/btnDockEdit"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginHorizontal="6dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_edit_layout"
+        android:contentDescription="Edit Layout" />
+        
     <ImageButton
         android:id="@+id/btnDockSettings"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:layout_marginHorizontal="12dp"
+        android:layout_marginHorizontal="6dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:scaleType="fitCenter"
         android:src="@drawable/ic_v_settings"
