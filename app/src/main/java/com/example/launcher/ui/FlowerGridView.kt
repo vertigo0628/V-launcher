@@ -26,11 +26,11 @@ class FlowerGridView @JvmOverloads constructor(
 
     private val apps = mutableListOf<AppModel>()
     
-    // Icon sizes - center is larger, outer icons smaller
-    private val centerIconSize = 72.dpToPx()
-    private val primaryIconSize = 64.dpToPx()
-    private val secondaryIconSize = 56.dpToPx()
-    private val tertiaryIconSize = 48.dpToPx()
+    // Icon sizes - larger for better visibility
+    private val centerIconSize = 88.dpToPx()
+    private val primaryIconSize = 76.dpToPx()
+    private val secondaryIconSize = 66.dpToPx()
+    private val tertiaryIconSize = 56.dpToPx()
     
     // Neon theme paints
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -45,7 +45,7 @@ class FlowerGridView @JvmOverloads constructor(
     private val outerGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         color = 0x1A00F0FF.toInt() // Subtle outer glow
-        maskFilter = android.graphics.BlurMaskFilter(16f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        maskFilter = android.graphics.BlurMaskFilter(20f, android.graphics.BlurMaskFilter.Blur.NORMAL)
     }
     
     // Second ring uses pink accent
@@ -83,7 +83,7 @@ class FlowerGridView @JvmOverloads constructor(
     
     fun setApps(appList: List<AppModel>) {
         apps.clear()
-        apps.addAll(appList.take(19)) // Max 19 apps (1 + 6 + 12 pattern)
+        apps.addAll(appList.take(37)) // Max 37 apps (1 + 6 + 12 + 18 pattern)
         calculatePositions()
         invalidate()
     }
@@ -102,14 +102,11 @@ class FlowerGridView @JvmOverloads constructor(
         centerY = h / 2f
         calculatePositions()
     }
-    
+
     private fun calculatePositions() {
         iconPositions.clear()
         
         if (apps.isEmpty()) return
-        
-        // Calculate available space
-        val maxRadius = min(width, height) / 2f - 20.dpToPx()
         
         // Ring 0: Center icon (largest)
         var idx = 0
@@ -124,12 +121,11 @@ class FlowerGridView @JvmOverloads constructor(
         }
         
         // Ring 1: 6 icons around center (primary size)
-        // Positioned with slight organic offset for natural look
-        val ring1Radius = centerIconSize / 2f + primaryIconSize / 2f + 20.dpToPx()
-        val ring1Offsets = listOf(0f, 2f, -3f, 1f, -2f, 3f) // Subtle random offsets
+        val ring1Radius = centerIconSize / 2f + primaryIconSize / 2f + 12.dpToPx()
+        val ring1Offsets = listOf(0f, 2f, -3f, 1f, -2f, 3f) 
         for (i in 0 until 6) {
             if (idx >= apps.size) break
-            val angle = Math.toRadians((60.0 * i) - 90 + ring1Offsets[i]) // Start from top with offsets
+            val angle = Math.toRadians((60.0 * i) - 90 + ring1Offsets[i])
             val x = centerX + (ring1Radius * cos(angle)).toFloat()
             val y = centerY + (ring1Radius * sin(angle)).toFloat()
             val halfIcon = primaryIconSize / 2f
@@ -142,11 +138,11 @@ class FlowerGridView @JvmOverloads constructor(
             idx++
         }
         
-        // Ring 2: 12 icons in outer ring (secondary size) - positioned between ring 1 icons
-        val ring2Radius = ring1Radius + primaryIconSize / 2f + secondaryIconSize / 2f + 12.dpToPx()
+        // Ring 2: 12 icons in outer ring (secondary size)
+        val ring2Radius = ring1Radius + primaryIconSize / 2f + secondaryIconSize / 2f + 8.dpToPx()
         for (i in 0 until 12) {
             if (idx >= apps.size) break
-            val angle = Math.toRadians((30.0 * i) - 90) // 30 degree intervals, offset from ring 1
+            val angle = Math.toRadians((30.0 * i) - 90) // 30 degree intervals
             val x = centerX + (ring2Radius * cos(angle)).toFloat()
             val y = centerY + (ring2Radius * sin(angle)).toFloat()
             val halfIcon = secondaryIconSize / 2f
@@ -155,6 +151,23 @@ class FlowerGridView @JvmOverloads constructor(
                 RectF(x - halfIcon, y - halfIcon, x + halfIcon, y + halfIcon),
                 secondaryIconSize,
                 2
+            ))
+            idx++
+        }
+        
+        // Ring 3: 18 icons in outermost ring (tertiary size)
+        val ring3Radius = ring2Radius + secondaryIconSize / 2f + tertiaryIconSize / 2f + 6.dpToPx()
+        for (i in 0 until 18) {
+            if (idx >= apps.size) break
+            val angle = Math.toRadians((20.0 * i) - 90) // 20 degree intervals (360/18)
+            val x = centerX + (ring3Radius * cos(angle)).toFloat()
+            val y = centerY + (ring3Radius * sin(angle)).toFloat()
+            val halfIcon = tertiaryIconSize / 2f
+            
+            iconPositions.add(IconPosition(
+                RectF(x - halfIcon, y - halfIcon, x + halfIcon, y + halfIcon),
+                tertiaryIconSize,
+                3
             ))
             idx++
         }
