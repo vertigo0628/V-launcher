@@ -21,13 +21,6 @@ class VisualSettingsActivity : AppCompatActivity() {
     private lateinit var amoledSwitch: Switch
     private lateinit var previewContainer: FrameLayout
     
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_visual_settings)
-        
-        iconCustomizer = IconCustomizer(this)
-        blurManager = BlurManager(this)
-        
     private lateinit var btnChangeWallpaper: Button
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,7 +57,7 @@ class VisualSettingsActivity : AppCompatActivity() {
             try {
                 // Try to launch specific wallpaper chooser
                 val intent = android.content.Intent(android.content.Intent.ACTION_SET_WALLPAPER)
-                startActivity(intent.createChooser(intent, "Select Wallpaper"))
+                startActivity(android.content.Intent.createChooser(intent, "Select Wallpaper"))
             } catch (e: Exception) {
                 // Fallback to generic image picker
                 Toast.makeText(this, "Opening gallery...", Toast.LENGTH_SHORT).show()

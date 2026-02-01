@@ -31,6 +31,7 @@ class FlowerGridView @JvmOverloads constructor(
     private val primaryIconSize = 76.dpToPx()
     private val secondaryIconSize = 66.dpToPx()
     private val tertiaryIconSize = 56.dpToPx()
+    private val iconScaleFactor = 0.72f // Scale icons to fit circle
     
     // Neon theme paints
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
