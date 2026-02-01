@@ -1,21 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="64dp"
-    android:layout_height="64dp"
-    android:padding="8dp">
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="6dp">
 
-    <View
-        android:id="@+id/categoryBackground"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#00000000" />
+    <LinearLayout
+        android:id="@+id/categoryItemContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_glass_card"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp">
 
-    <ImageView
-        android:id="@+id/categoryIcon"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_gravity="center"
-        android:src="@drawable/ic_category_home"
-        android:tint="#000000" /> <!-- Better to use app:tint in real apps but android:tint works for system compatibility check -->
+        <ImageView
+            android:id="@+id/categoryIcon"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:tint="@color/text_primary" />
+
+        <TextView
+            android:id="@+id/categoryName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium" />
+
+    </LinearLayout>
 
 </FrameLayout>

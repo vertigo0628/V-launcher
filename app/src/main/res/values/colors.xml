@@ -1,11 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Base Colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- Smart Launcher 6 Premium Palette -->
+    <color name="sl_primary">#6366F1</color>
+    <color name="sl_primary_dark">#4F46E5</color>
+    <color name="sl_primary_light">#818CF8</color>
+    <color name="sl_accent">#EC4899</color>
+    <color name="sl_accent_light">#F472B6</color>
+    
+    <!-- Ambient Theme Colors (extracted from wallpaper) -->
+    <color name="ambient_primary">#6366F1</color>
+    <color name="ambient_secondary">#8B5CF6</color>
+    <color name="ambient_tertiary">#EC4899</color>
+    
+    <!-- Glass/Blur Effects -->
+    <color name="glass_background">#1AFFFFFF</color>
+    <color name="glass_background_dark">#33000000</color>
+    <color name="glass_border">#33FFFFFF</color>
+    <color name="glass_highlight">#4DFFFFFF</color>
+    
+    <!-- Surface Colors -->
+    <color name="surface_dark">#0F0F23</color>
+    <color name="surface_card">#1A1A2E</color>
+    <color name="surface_elevated">#16213E</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B8B8D1</color>
+    <color name="text_tertiary">#6B6B8A</color>
+    
+    <!-- Category Colors -->
+    <color name="category_communication">#3B82F6</color>
+    <color name="category_internet">#8B5CF6</color>
+    <color name="category_games">#EF4444</color>
+    <color name="category_media">#F59E0B</color>
+    <color name="category_utilities">#10B981</color>
+    <color name="category_settings">#6B7280</color>
+    
+    <!-- Gradient Colors -->
+    <color name="gradient_start">#667EEA</color>
+    <color name="gradient_end">#764BA2</color>
+    <color name="gradient_accent_start">#F093FB</color>
+    <color name="gradient_accent_end">#F5576C</color>
+    
+    <!-- Notification Badge -->
+    <color name="badge_background">#EF4444</color>
+    <color name="badge_text">#FFFFFF</color>
+    
+    <!-- Launcher Icon Background -->
+    <color name="ic_launcher_background">#6366F1</color>
+    
+    <!-- Legacy Colors -->
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>
     <color name="teal_200">#FF03DAC5</color>
     <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
-    <color name="ic_launcher_background">#3DDC84</color>
 </resources>

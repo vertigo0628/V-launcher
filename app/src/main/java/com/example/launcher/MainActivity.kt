@@ -1,244 +1,308 @@
 package com.example.launcher
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.app.WallpaperManager
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.View
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.launcher.model.AppCategory
 import com.example.launcher.model.AppModel
 import com.example.launcher.ui.AppAdapter
+import com.example.launcher.ui.FlowerGridView
 import com.example.launcher.ui.HomeViewModel
+import com.example.launcher.utils.ThemeEngine
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var viewModel: HomeViewModel
-    private lateinit var adapter: AppAdapter
-    private lateinit var gestureDetector: android.view.GestureDetector
-    private lateinit var widgetHost: android.appwidget.AppWidgetHost
-    private lateinit var widgetManager: android.appwidget.AppWidgetManager
+    private lateinit var themeEngine: ThemeEngine
+    private lateinit var gestureDetector: GestureDetector
     
-    companion object {
-        const val REQUEST_PICK_APPWIDGET = 1001
-        const val REQUEST_CREATE_APPWIDGET = 1002
-        const val HOST_ID = 1024
-    }
-
+    // UI Components
+    private lateinit var clockWidget: TextView
+    private lateinit var dateWidget: TextView
+    private lateinit var searchBar: EditText
+    private lateinit var flowerGridContainer: FrameLayout
+    private lateinit var flowerGridView: FlowerGridView
+    private lateinit var appDrawerContainer: FrameLayout
+    private lateinit var drawerAppGrid: RecyclerView
+    private lateinit var categoryContainer: LinearLayout
+    
+    private var isDrawerOpen = false
+    private val clockHandler = Handler(Looper.getMainLooper())
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        viewModel = ViewModelProvider(this)[HomeViewModel::class.java]
         
-        // Setup gesture detector
-        gestureDetector = android.view.GestureDetector(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
-            override fun onDoubleTap(e: android.view.MotionEvent): Boolean {
-                // Double tap to focus search
-                val searchBar = findViewById<android.widget.EditText>(R.id.searchBar)
+        // Make status bar transparent
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+        )
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        
+        setContentView(R.layout.activity_main)
+        
+        // Initialize
+        viewModel = ViewModelProvider(this)[HomeViewModel::class.java]
+        themeEngine = ThemeEngine(this)
+        
+        // Extract colors from wallpaper
+        extractWallpaperColors()
+        
+        // Setup UI
+        initializeViews()
+        setupGestureDetector()
+        setupSearch()
+        setupCategoryChips()
+        setupFlowerGrid()
+        setupAppDrawer()
+        
+        // Start clock
+        updateClockAndDate()
+        startClockUpdates()
+        
+        // Observe apps
+        observeApps()
+    }
+    
+    private fun initializeViews() {
+        clockWidget = findViewById(R.id.clockWidget)
+        dateWidget = findViewById(R.id.dateWidget)
+        searchBar = findViewById(R.id.searchBar)
+        flowerGridContainer = findViewById(R.id.flowerGridContainer)
+        appDrawerContainer = findViewById(R.id.appDrawerContainer)
+        drawerAppGrid = findViewById(R.id.drawerAppGrid)
+        categoryContainer = findViewById(R.id.categoryContainer)
+        
+        // Create and add FlowerGridView programmatically
+        flowerGridView = FlowerGridView(this)
+        flowerGridContainer.addView(flowerGridView)
+        
+        // Long press clock for settings
+        clockWidget.setOnLongClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+            true
+        }
+    }
+    
+    private fun extractWallpaperColors() {
+        try {
+            val wallpaperManager = WallpaperManager.getInstance(this)
+            val wallpaperDrawable = wallpaperManager.drawable
+            themeEngine.extractColorsFromDrawable(wallpaperDrawable)
+        } catch (e: Exception) {
+            // Use default colors
+        }
+    }
+    
+    private fun setupGestureDetector() {
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean {
                 searchBar.requestFocus()
-                val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                imm.showSoftInput(searchBar, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
                 return true
             }
             
             override fun onFling(
-                e1: android.view.MotionEvent?,
-                e2: android.view.MotionEvent,
+                e1: MotionEvent?,
+                e2: MotionEvent,
                 velocityX: Float,
                 velocityY: Float
             ): Boolean {
-                // Swipe up gesture (can be expanded for app drawer)
-                if (e1 != null && e2.y < e1.y && Math.abs(velocityY) > 1000) {
-                    // Placeholder: Could open separate app drawer here
+                if (e1 != null && velocityY < -1500 && !isDrawerOpen) {
+                    openAppDrawer()
+                    return true
+                }
+                if (e1 != null && velocityY > 1500 && isDrawerOpen) {
+                    closeAppDrawer()
                     return true
                 }
                 return false
             }
         })
         
-        // Apply gesture to main layout
-        val mainLayout = findViewById<android.view.View>(R.id.mainLayout)
-        mainLayout?.setOnTouchListener { _, event ->
+        val rootLayout = findViewById<View>(R.id.rootLayout)
+        rootLayout.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
             false
         }
-        
-        // Initialize widget host
-        widgetHost = android.appwidget.AppWidgetHost(this, HOST_ID)
-        widgetManager = android.appwidget.AppWidgetManager.getInstance(this)
-        widgetHost.startListening()
-        
-        // Long-press on widgets area to add widget
-        val widgetContainer = findViewById<android.widget.FrameLayout>(R.id.widgetContainer)
-        widgetContainer.setOnLongClickListener {
-            pickWidget()
-            true
-        }
-
-        viewModel = ViewModelProvider(this)[HomeViewModel::class.java]
-
-        val categoryRecyclerView = findViewById<RecyclerView>(R.id.categoryRecyclerView)
-        categoryRecyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
-        
-        categoryRecyclerView.adapter = com.example.launcher.ui.CategoryAdapter { category ->
-            viewModel.selectCategory(category)
-        }
-
-        val recyclerView = findViewById<RecyclerView>(R.id.appRecyclerView)
-        val prefsManager = com.example.launcher.utils.PreferencesManager(this)
-        recyclerView.layoutManager = GridLayoutManager(this, prefsManager.getGridSize())
-        
-        adapter = AppAdapter(emptyList()) { app ->
-            launchApp(app)
-        }
-        recyclerView.adapter = adapter
-        
-        val searchBar = findViewById<android.widget.EditText>(R.id.searchBar)
-        searchBar.addTextChangedListener(object : android.text.TextWatcher {
-            override fun afterTextChanged(s: android.text.Editable?) {
-                viewModel.searchApps(s.toString())
-            }
+    }
+    
+    private fun setupSearch() {
+        searchBar.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
-
-        lifecycleScope.launch {
-            viewModel.apps.collect { apps ->
-                adapter.updateApps(apps)
+            override fun afterTextChanged(s: Editable?) {
+                viewModel.searchApps(s.toString())
+                if (s?.isNotEmpty() == true && !isDrawerOpen) {
+                    openAppDrawer()
+                }
             }
-        }
+        })
+    }
+    
+    private fun setupCategoryChips() {
+        val categories = listOf(
+            null to "All",
+            AppCategory.COMMUNICATION to "Chat",
+            AppCategory.INTERNET to "Web",
+            AppCategory.GAMES to "Games",
+            AppCategory.MEDIA to "Media",
+            AppCategory.UTILITIES to "Tools",
+            AppCategory.SETTINGS to "Settings"
+        )
         
-        // Initialize and update clock/date widgets
-        updateClockAndDate()
-        startClockUpdates()
-        
-        // Apply theme
-        applyTheme()
-        
-        // Add long-press on clock to open settings
-        val clockWidget = findViewById<android.widget.TextView>(R.id.clockWidget)
-        clockWidget.setOnLongClickListener {
-            startActivity(android.content.Intent(this, SettingsActivity::class.java))
-            true
+        categories.forEach { (category, name) ->
+            val chipView = layoutInflater.inflate(R.layout.item_category, categoryContainer, false)
+            val nameView = chipView.findViewById<TextView>(R.id.categoryName)
+            val iconView = chipView.findViewById<android.widget.ImageView>(R.id.categoryIcon)
+            
+            nameView.text = name
+            iconView.setImageResource(getCategoryIcon(category))
+            
+            chipView.setOnClickListener {
+                viewModel.selectCategory(category)
+                if (!isDrawerOpen) openAppDrawer()
+            }
+            
+            categoryContainer.addView(chipView)
         }
     }
     
-    private fun applyTheme() {
-        val themeManager = com.example.launcher.utils.ThemeManager(this)
+    private fun getCategoryIcon(category: AppCategory?): Int {
+        return when (category) {
+            null -> R.drawable.ic_category_home
+            AppCategory.COMMUNICATION -> R.drawable.ic_category_communication
+            AppCategory.INTERNET -> R.drawable.ic_category_internet
+            AppCategory.GAMES -> R.drawable.ic_category_games
+            AppCategory.MEDIA -> R.drawable.ic_category_media
+            AppCategory.UTILITIES -> R.drawable.ic_category_utilities
+            AppCategory.SETTINGS -> R.drawable.ic_category_settings
+            else -> R.drawable.ic_category_home
+        }
+    }
+    
+    private fun setupFlowerGrid() {
+        flowerGridView.setOnAppClickListener { app ->
+            launchApp(app)
+        }
         
-        val mainLayout = findViewById<android.view.View>(R.id.mainLayout)
-        mainLayout.setBackgroundColor(themeManager.getBackgroundColor())
+        flowerGridView.setOnAppLongClickListener { app ->
+            // Show context menu
+        }
+    }
+    
+    private fun setupAppDrawer() {
+        drawerAppGrid.layoutManager = GridLayoutManager(this, 4)
         
-        val clockWidget = findViewById<android.widget.TextView>(R.id.clockWidget)
-        val dateWidget = findViewById<android.widget.TextView>(R.id.dateWidget)
+        val adapter = AppAdapter(emptyList()) { app ->
+            launchApp(app)
+        }
+        drawerAppGrid.adapter = adapter
         
-        clockWidget.setTextColor(themeManager.getTextColor())
-        dateWidget.setTextColor(themeManager.getSecondaryTextColor())
+        // Pull down to close
+        val drawerHandle = findViewById<View>(R.id.drawerHandle)
+        drawerHandle.setOnClickListener {
+            closeAppDrawer()
+        }
+    }
+    
+    private fun observeApps() {
+        lifecycleScope.launch {
+            viewModel.apps.collect { apps ->
+                // Update flower grid with first 7 apps
+                flowerGridView.setApps(apps.take(7))
+                
+                // Update drawer
+                (drawerAppGrid.adapter as? AppAdapter)?.updateApps(apps)
+            }
+        }
+    }
+    
+    private fun openAppDrawer() {
+        if (isDrawerOpen) return
+        isDrawerOpen = true
+        
+        appDrawerContainer.visibility = View.VISIBLE
+        appDrawerContainer.animate()
+            .translationY(0f)
+            .setDuration(400)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+    }
+    
+    private fun closeAppDrawer() {
+        if (!isDrawerOpen) return
+        isDrawerOpen = false
+        
+        appDrawerContainer.animate()
+            .translationY(appDrawerContainer.height.toFloat())
+            .setDuration(300)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                appDrawerContainer.visibility = View.GONE
+            }
+            .start()
+    }
+    
+    private fun launchApp(app: AppModel) {
+        val intent = packageManager.getLaunchIntentForPackage(app.packageName)
+        if (intent != null) {
+            // Scale down animation would go here
+            startActivity(intent)
+        }
     }
     
     private fun updateClockAndDate() {
-        val clockWidget = findViewById<android.widget.TextView>(R.id.clockWidget)
-        val dateWidget = findViewById<android.widget.TextView>(R.id.dateWidget)
+        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
+        val now = Date()
         
-        val currentTime = java.util.Calendar.getInstance()
-        val timeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-        val dateFormat = java.text.SimpleDateFormat("EEEE, MMMM d", java.util.Locale.getDefault())
-        
-        clockWidget.text = timeFormat.format(currentTime.time)
-        dateWidget.text = dateFormat.format(currentTime.time)
+        clockWidget.text = timeFormat.format(now)
+        dateWidget.text = dateFormat.format(now)
     }
     
     private fun startClockUpdates() {
-        // Update clock every minute
-        val handler = android.os.Handler(android.os.Looper.getMainLooper())
-        val runnable = object : Runnable {
+        clockHandler.postDelayed(object : Runnable {
             override fun run() {
                 updateClockAndDate()
-                handler.postDelayed(this, 60000) // Update every 60 seconds
+                clockHandler.postDelayed(this, 60000) // Update every minute
             }
-        }
-        handler.post(runnable)
-    }
-
-    private fun launchApp(app: AppModel) {
-        val launchIntent = packageManager.getLaunchIntentForPackage(app.packageName)
-        if (launchIntent != null) {
-            startActivity(launchIntent)
-        } else {
-            Toast.makeText(this, "Cannot launch app", Toast.LENGTH_SHORT).show()
-        }
-    }
-    
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        // Do nothing on back press to behave like a launcher home screen
+        }, 60000)
     }
     
     override fun onDestroy() {
         super.onDestroy()
-        widgetHost.stopListening()
-    }
-    
-    private fun pickWidget() {
-        val appWidgetId = widgetHost.allocateAppWidgetId()
-        val pickIntent = Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_PICK)
-        pickIntent.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-        startActivityForResult(pickIntent, REQUEST_PICK_APPWIDGET)
+        clockHandler.removeCallbacksAndMessages(null)
     }
     
     @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        
-        if (resultCode == RESULT_OK) {
-            when (requestCode) {
-                REQUEST_PICK_APPWIDGET -> {
-                    configureWidget(data)
-                }
-                REQUEST_CREATE_APPWIDGET -> {
-                    createWidget(data)
-                }
-            }
-        } else if (resultCode == RESULT_CANCELED && data != null) {
-            val appWidgetId = data.getIntExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
-            if (appWidgetId != -1) {
-                widgetHost.deleteAppWidgetId(appWidgetId)
-            }
+    override fun onBackPressed() {
+        if (isDrawerOpen) {
+            closeAppDrawer()
         }
-    }
-    
-    private fun configureWidget(data: Intent?) {
-        val extras = data?.extras
-        val appWidgetId = extras?.getInt(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
-        val appWidgetInfo = widgetManager.getAppWidgetInfo(appWidgetId)
-        
-        if (appWidgetInfo?.configure != null) {
-            val intent = Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
-            intent.component = appWidgetInfo.configure
-            intent.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            startActivityForResult(intent, REQUEST_CREATE_APPWIDGET)
-        } else {
-            createWidget(data)
-        }
-    }
-    
-    private fun createWidget(data: Intent?) {
-        val extras = data?.extras
-        val appWidgetId = extras?.getInt(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
-        
-        if (appWidgetId == -1) return
-        
-        val appWidgetInfo = widgetManager.getAppWidgetInfo(appWidgetId)
-        val hostView = widgetHost.createView(this, appWidgetId, appWidgetInfo)
-        hostView.setAppWidget(appWidgetId, appWidgetInfo)
-        
-        val widgetContainer = findViewById<android.widget.FrameLayout>(R.id.widgetContainer)
-        widgetContainer.removeAllViews()
-        widgetContainer.addView(hostView)
-        
-        Toast.makeText(this, "Widget added", Toast.LENGTH_SHORT).show()
+        // Don't call super - behave like home
     }
 }

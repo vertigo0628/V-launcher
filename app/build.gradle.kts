@@ -44,4 +44,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("io.coil-kt:coil:2.5.0")
+    
+    // Palette for wallpaper color extraction (Smart Launcher ambient theme)
+    implementation("androidx.palette:palette-ktx:1.0.0")
+    
+    // Local Broadcast Manager for notifications
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
 }

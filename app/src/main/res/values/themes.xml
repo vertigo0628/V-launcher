@@ -1,10 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.MyCustomLauncher" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+<resources>
+
+    <!-- Smart Launcher 6 Premium Theme -->
+    <style name="Theme.VLauncher" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary colors -->
+        <item name="colorPrimary">@color/sl_primary</item>
+        <item name="colorPrimaryDark">@color/sl_primary_dark</item>
+        <item name="colorPrimaryVariant">@color/sl_primary_light</item>
+        <item name="colorOnPrimary">@color/white</item>
+        
+        <!-- Accent colors -->
+        <item name="colorSecondary">@color/sl_accent</item>
+        <item name="colorSecondaryVariant">@color/sl_accent_light</item>
+        <item name="colorOnSecondary">@color/white</item>
+        
+        <!-- Surface colors -->
+        <item name="colorSurface">@color/surface_dark</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        
+        <!-- Background -->
+        <item name="android:colorBackground">@color/surface_dark</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowShowWallpaper">true</item>
+        
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+        
+        <!-- Text -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        
+        <!-- Ripple -->
+        <item name="android:colorControlHighlight">@color/glass_highlight</item>
     </style>
 
-    <style name="Theme.MyCustomLauncher" parent="Base.Theme.MyCustomLauncher" />
+    <!-- Legacy theme for compatibility -->
+    <style name="Theme.MyCustomLauncher" parent="Theme.VLauncher" />
+
 </resources>
