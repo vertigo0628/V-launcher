@@ -60,6 +60,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
             android:stateNotNeeded="true"
             android:theme="@style/Theme.MyCustomLauncher">
             <intent-filter>
