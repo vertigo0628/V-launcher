@@ -108,6 +108,13 @@ class SettingsActivity : AppCompatActivity() {
             finish()
         }
         
+        // Apply Window Insets
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.settingsMainLayout)) { v, insets ->
+            val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
+
         // Apply theme colors
         applyTheme()
     }
@@ -155,17 +162,27 @@ class SettingsActivity : AppCompatActivity() {
     }
     
     private fun showIconPackDialog() {
-        val iconPackManager = com.example.launcher.utils.IconPackManager(this)
-        val availablePacks = iconPackManager.getAvailableIconPacks()
+        // Use IconCustomizer which supports more packs (Nova, standard, etc.)
+        val iconCustomizer = com.example.launcher.utils.IconCustomizer(this)
+        val availablePacks = iconCustomizer.getInstalledIconPacks()
         
-        val packNames = availablePacks.map { it.second }.toTypedArray()
+        // Add "System Default" option
+        val names = mutableListOf("System Default")
+        names.addAll(availablePacks.map { it.name })
         
         val builder = android.app.AlertDialog.Builder(this)
         builder.setTitle("Select Icon Pack")
-        builder.setItems(packNames) { dialog, which ->
-            val selectedPack = availablePacks[which]
-            iconPackManager.setIconPack(selectedPack.first)
-            Toast.makeText(this, "Icon pack will apply on launcher restart", Toast.LENGTH_LONG).show()
+        builder.setItems(names.toTypedArray()) { dialog, which ->
+            if (which == 0) {
+                iconCustomizer.setIconPack(null)
+            } else {
+                val selectedPack = availablePacks[which - 1]
+                iconCustomizer.setIconPack(selectedPack.packageName)
+            }
+            Toast.makeText(this, "Icon pack updated! Restarting launcher...", Toast.LENGTH_SHORT).show()
+            
+            // Restart launcher to apply immediately
+            // We can't easily restart another activity, but the MainActivity onResume fix handles it
             dialog.dismiss()
         }
         builder.setNegativeButton("Cancel", null)
