@@ -64,6 +64,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var widgetContainer: com.example.launcher.ui.FluidWidgetLayout
     private lateinit var widgetManager: com.example.launcher.utils.WidgetManager
     private lateinit var dockContainer: LinearLayout
+    private lateinit var dockAppsContainer: LinearLayout
     
     private var isDrawerOpen = false
     private val clockHandler = Handler(Looper.getMainLooper())
@@ -130,8 +131,6 @@ class MainActivity : AppCompatActivity() {
         continueSetup()
     }
     
-
-    
     override fun onResume() {
         super.onResume()
         // Refresh colors in case wallpaper changed
@@ -169,7 +168,9 @@ class MainActivity : AppCompatActivity() {
         // Observe apps
         observeApps()
     }
-    
+
+
+
     private fun initializeViews() {
         clockWidget = findViewById(R.id.clockWidget)
         dateWidget = findViewById(R.id.dateWidget)
@@ -182,6 +183,7 @@ class MainActivity : AppCompatActivity() {
         categoryContainer = findViewById(R.id.categoryContainer)
         widgetContainer = findViewById(R.id.widgetContainer)
         dockContainer = findViewById(R.id.dockContainer)
+        dockAppsContainer = findViewById(R.id.dockAppsContainer)
         
         // Setup Dock Shortcuts
         dockContainer.findViewById<View>(R.id.btnDockNeural).setOnClickListener {
@@ -917,7 +919,9 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun populateDock() {
-        dockContainer.removeAllViews()
+        if (!::dockAppsContainer.isInitialized) return
+        
+        dockAppsContainer.removeAllViews()
         
         val dockApps = dockManager.getDockApps()
         val showLabels = dockManager.showDockLabels()
@@ -936,7 +940,7 @@ class MainActivity : AppCompatActivity() {
                 continue
             }
             
-            val itemView = layoutInflater.inflate(R.layout.item_dock_app, dockContainer, false)
+            val itemView = layoutInflater.inflate(R.layout.item_dock_app, dockAppsContainer, false)
             val iconView = itemView.findViewById<android.widget.ImageView>(R.id.dockAppIcon)
             val labelView = itemView.findViewById<TextView>(R.id.dockAppLabel)
             
@@ -953,7 +957,7 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             
-            dockContainer.addView(itemView)
+            dockAppsContainer.addView(itemView)
         }
     }
     

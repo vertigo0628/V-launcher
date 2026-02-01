@@ -20,8 +20,14 @@
         android:src="@drawable/ic_neural_hub"
         android:contentDescription="Neural Hub" />
 
-    <!-- Dock apps will be added programmatically -->
-    <!-- The DockManager fills this space, or we wrap it in another layout if mixed -->
+    <!-- Dock Apps Container (Dynamic) -->
+    <LinearLayout
+        android:id="@+id/dockAppsContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="horizontal" />
     
     <!-- Custom Shortcuts -->
     
