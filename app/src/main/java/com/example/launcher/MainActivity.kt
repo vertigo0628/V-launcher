@@ -68,7 +68,13 @@ class MainActivity : AppCompatActivity() {
     private val clockHandler = Handler(Looper.getMainLooper())
     
     private lateinit var themeManager: com.example.launcher.utils.ThemeManager
-    private var lastThemeHash: Int = 0
+    private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            "theme", "grid_size", "icon_pack", "amoled_mode" -> {
+                recreate()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,8 +89,11 @@ class MainActivity : AppCompatActivity() {
         // Initialize managers
         themeManager = com.example.launcher.utils.ThemeManager(this)
         
-        // Capture initial state
-        lastThemeHash = getCurrentThemeHash()
+        // Register prefs listener
+        getSharedPreferences("launcher_prefs", android.content.Context.MODE_PRIVATE)
+            .registerOnSharedPreferenceChangeListener(prefsListener)
+        getSharedPreferences("theme_prefs", android.content.Context.MODE_PRIVATE) // Old file used by some toggles
+            .registerOnSharedPreferenceChangeListener(prefsListener)
 
         setContentView(R.layout.activity_main)
         
@@ -108,27 +117,16 @@ class MainActivity : AppCompatActivity() {
         continueSetup()
     }
     
+    override fun onDestroy() {
+        super.onDestroy()
+        getSharedPreferences("launcher_prefs", android.content.Context.MODE_PRIVATE)
+            .unregisterOnSharedPreferenceChangeListener(prefsListener)
+    }
+    
     override fun onResume() {
         super.onResume()
-        
-        // Check if theme or settings changed significantly
-        if (getCurrentThemeHash() != lastThemeHash) {
-            recreate()
-            return
-        }
-        
         // Refresh colors in case wallpaper changed
         extractWallpaperColors()
-    }
-
-    private fun getCurrentThemeHash(): Int {
-        val theme = themeManager.getCurrentTheme()
-        val iconPack = com.example.launcher.utils.IconCustomizer(this).getCurrentIconPack()
-        val iconShape = com.example.launcher.utils.IconCustomizer(this).getIconShape()
-        val gridSize = com.example.launcher.utils.PreferencesManager(this).getGridSize()
-        val amoled = getSharedPreferences("theme_prefs", android.content.Context.MODE_PRIVATE).getBoolean("amoled_mode", false)
-        
-        return "$theme-$iconPack-$iconShape-$gridSize-$amoled".hashCode()
     }
 
     private fun applyTheme() {
