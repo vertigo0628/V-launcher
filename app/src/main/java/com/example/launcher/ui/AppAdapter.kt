@@ -26,6 +26,12 @@ class AppAdapter(
         return AppViewHolder(view)
     }
 
+    private var onItemLongClickListener: ((AppModel) -> Boolean)? = null
+
+    fun setOnItemLongClickListener(listener: (AppModel) -> Boolean) {
+        onItemLongClickListener = listener
+    }
+
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
         val app = apps[position]
         holder.name.text = app.label
@@ -45,8 +51,12 @@ class AppAdapter(
         
         // Long-press menu
         holder.itemView.setOnLongClickListener {
-            showAppContextMenu(holder.itemView, app)
-            true
+            if (onItemLongClickListener != null) {
+                onItemLongClickListener?.invoke(app) ?: false
+            } else {
+                showAppContextMenu(holder.itemView, app)
+                true
+            }
         }
     }
 
