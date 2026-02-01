@@ -26,11 +26,11 @@ class FlowerGridView @JvmOverloads constructor(
 
     private val apps = mutableListOf<AppModel>()
     
-    // Icon sizes - adjusted for better spacing
-    private val centerIconSize = 80.dpToPx()
-    private val primaryIconSize = 68.dpToPx()
-    private val secondaryIconSize = 60.dpToPx()
-    private val tertiaryIconSize = 50.dpToPx()
+    // Icon sizes - standardized for evenness
+    private val centerIconSize = 72.dpToPx()
+    private val primaryIconSize = 64.dpToPx() // Ring 1
+    private val secondaryIconSize = 64.dpToPx() // Ring 2 - Same size
+    private val tertiaryIconSize = 64.dpToPx() // Ring 3 - Same size
     private val iconScaleFactor = 0.72f // Scale icons to fit circle
     
     // Neon theme paints

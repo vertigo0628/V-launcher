@@ -6,14 +6,6 @@
     android:clickable="true"
     android:focusable="true">
 
-    <!-- Glass Background -->
-    <View
-        android:id="@+id/appBackground"
-        android:layout_width="72dp"
-        android:layout_height="72dp"
-        android:layout_gravity="center"
-        android:background="@drawable/ripple_circle" />
-
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -21,9 +13,18 @@
         android:orientation="vertical"
         android:padding="8dp">
 
+        <!-- Icon Container with Background -->
         <FrameLayout
-            android:layout_width="52dp"
-            android:layout_height="52dp">
+            android:layout_width="72dp"
+            android:layout_height="72dp">
+
+            <!-- Background aligned with Icon Container -->
+            <View
+                android:id="@+id/appBackground"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:background="@drawable/ripple_circle" />
 
             <ImageView
                 android:id="@+id/appIcon"
