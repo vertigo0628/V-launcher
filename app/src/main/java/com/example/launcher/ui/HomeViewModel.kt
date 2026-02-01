@@ -14,12 +14,16 @@ import kotlinx.coroutines.launch
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = AppRepository(application)
+    private val flowerGridManager = com.example.launcher.utils.FlowerGridManager(application)
     
     // Original full list
     private var allApps: List<AppModel> = emptyList()
     
     private val _apps = MutableStateFlow<List<AppModel>>(emptyList())
     val apps: StateFlow<List<AppModel>> = _apps.asStateFlow()
+    
+    private val _flowerApps = MutableStateFlow<List<AppModel>>(emptyList())
+    val flowerApps: StateFlow<List<AppModel>> = _flowerApps.asStateFlow()
     
     private val _selectedCategory = MutableStateFlow<AppCategory?>(null)
     val selectedCategory: StateFlow<AppCategory?> = _selectedCategory.asStateFlow()
@@ -31,10 +35,45 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun loadApps() {
         viewModelScope.launch {
             allApps = repository.getInstalledApps()
-            // Default to showing all apps or a specific category if needed. 
-            // For now, let's show all apps initially, or we can filter by selected category.
             updateAppList()
+            updateFlowerGrid()
         }
+    }
+    
+    fun updateFlowerGrid() {
+        val gridPackages = flowerGridManager.getGridApps()
+        
+        if (gridPackages.isEmpty()) {
+            // Default behavior: show first 37 apps if no custom grid set
+            // Wait, we should migrate or just show default?
+            // Let's just show top apps but NOT persist them as "pinned" yet to keep it clean,
+            // OR auto-populate logic. 
+            // For now, let's auto-populate if empty to ensure it's not blank on first run.
+            val defaults = allApps.take(37)
+            _flowerApps.value = defaults
+            
+            // Optionally auto-populate persistence so removal works immediately
+            if (allApps.isNotEmpty()) {
+                flowerGridManager.setGridApps(defaults.map { it.packageName })
+            }
+        } else {
+            // Map packages to actual AppModels
+            val mappedApps = gridPackages.mapNotNull { pkg ->
+                allApps.find { it.packageName == pkg }
+            }
+            _flowerApps.value = mappedApps
+        }
+    }
+    
+    fun addToGrid(app: AppModel) {
+        if (flowerGridManager.addToGrid(app.packageName)) {
+            updateFlowerGrid()
+        }
+    }
+    
+    fun removeFromGrid(app: AppModel) {
+        flowerGridManager.removeFromGrid(app.packageName)
+        updateFlowerGrid()
     }
     
     fun selectCategory(category: AppCategory?) {

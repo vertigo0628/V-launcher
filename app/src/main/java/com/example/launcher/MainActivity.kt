@@ -475,22 +475,41 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private fun observeApps() {
+        lifecycleScope.launch {
+            launch {
+                viewModel.apps.collect { apps ->
+                    // Update drawer
+                    (drawerAppGrid.adapter as? AppAdapter)?.updateApps(apps)
+                }
+            }
+            
+            launch {
+                viewModel.flowerApps.collect { flowerApps ->
+                    // Update flower grid
+                    flowerGridView.setApps(flowerApps)
+                }
+            }
+        }
+    }
+
     private fun showAppContextMenu(app: AppModel) {
-        val dialog = android.app.AlertDialog.Builder(this)
+        val dialog = android.app.AlertDialog.Builder(this, R.style.NeonAlertDialog)
             .setTitle(app.label)
-            .setItems(arrayOf("App Info", "Uninstall", "Hide App")) { _, which ->
+            .setItems(arrayOf("Remove from Home", "App Info", "Uninstall", "Hide App")) { _, which ->
                 when (which) {
-                    0 -> { // App Info
+                    0 -> viewModel.removeFromGrid(app) // Remove from Home
+                    1 -> { // App Info
                         val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                         intent.data = android.net.Uri.parse("package:${app.packageName}")
                         startActivity(intent)
                     }
-                    1 -> { // Uninstall
+                    2 -> { // Uninstall
                         val intent = Intent(Intent.ACTION_DELETE)
                         intent.data = android.net.Uri.parse("package:${app.packageName}")
                         startActivity(intent)
                     }
-                    2 -> { // Hide App
+                    3 -> { // Hide App
                         val prefsManager = com.example.launcher.utils.PreferencesManager(this)
                         prefsManager.hideApp(app.packageName)
                         Toast.makeText(this, "${app.label} hidden", Toast.LENGTH_SHORT).show()
@@ -503,31 +522,37 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
     
-    private fun setupAppDrawer() {
-        drawerAppGrid.layoutManager = GridLayoutManager(this, 4)
-        
-        val adapter = AppAdapter(emptyList()) { app ->
-            launchApp(app)
-        }
-        drawerAppGrid.adapter = adapter
-        
-        // Pull down to close
-        val drawerHandle = findViewById<View>(R.id.drawerHandle)
-        drawerHandle.setOnClickListener {
-            closeAppDrawer()
-        }
-    }
-    
-    private fun observeApps() {
-        lifecycleScope.launch {
-            viewModel.apps.collect { apps ->
-                // Update flower grid with first 7 apps
-                flowerGridView.setApps(apps.take(7))
-                
-                // Update drawer
-                (drawerAppGrid.adapter as? AppAdapter)?.updateApps(apps)
+    private fun showDrawerAppContextMenu(app: AppModel) {
+        val dialog = android.app.AlertDialog.Builder(this, R.style.NeonAlertDialog)
+            .setTitle(app.label)
+            .setItems(arrayOf("Add to Home", "App Info", "Uninstall", "Hide App")) { _, which ->
+                when (which) {
+                    0 -> { // Add to Home
+                        viewModel.addToGrid(app)
+                        Toast.makeText(this, "Added to Home Screen", Toast.LENGTH_SHORT).show()
+                        closeAppDrawer()
+                    }
+                    1 -> { // App Info
+                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        intent.data = android.net.Uri.parse("package:${app.packageName}")
+                        startActivity(intent)
+                    }
+                    2 -> { // Uninstall
+                        val intent = Intent(Intent.ACTION_DELETE)
+                        intent.data = android.net.Uri.parse("package:${app.packageName}")
+                        startActivity(intent)
+                    }
+                    3 -> { // Hide App
+                        val prefsManager = com.example.launcher.utils.PreferencesManager(this)
+                        prefsManager.hideApp(app.packageName)
+                        Toast.makeText(this, "${app.label} hidden", Toast.LENGTH_SHORT).show()
+                        viewModel.refreshApps()
+                    }
+                }
             }
-        }
+            .setNegativeButton("Cancel", null)
+            .create()
+        dialog.show()
     }
     
     private fun openAppDrawer() {
