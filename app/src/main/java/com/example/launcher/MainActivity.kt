@@ -8,6 +8,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModelProvider
 import com.example.launcher.compose.HomeScreen
 import com.example.launcher.model.AppModel
@@ -37,6 +39,19 @@ class MainActivity : AppCompatActivity() {
             val flowerApps by viewModel.flowerApps.collectAsState(initial = emptyList())
             val allApps by viewModel.apps.collectAsState(initial = emptyList())
             val showDrawer by viewModel.isDrawerOpen.collectAsState(initial = false)
+            val neuralHubState by viewModel.neuralHubState.collectAsState()
+            
+            // Neural Hub visibility state
+            var showNeuralHub by remember { androidx.compose.runtime.mutableStateOf(false) }
+            
+            // Start/stop hub updates based on visibility
+            androidx.compose.runtime.LaunchedEffect(showNeuralHub) {
+                if (showNeuralHub) {
+                    viewModel.startHubUpdates()
+                } else {
+                    viewModel.stopHubUpdates()
+                }
+            }
             
             MaterialTheme {
                 HomeScreen(
@@ -45,6 +60,9 @@ class MainActivity : AppCompatActivity() {
                     onAppClick = { launchApp(it) },
                     showDrawer = showDrawer,
                     onDrawerToggle = { viewModel.setDrawerOpen(it) },
+                    neuralHubState = neuralHubState,
+                    showNeuralHub = showNeuralHub,
+                    onNeuralHubToggle = { showNeuralHub = it },
                     onSettings = { 
                         startActivity(Intent(this, LauncherSettingsActivity::class.java))
                     }

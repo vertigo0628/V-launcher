@@ -37,6 +37,9 @@ fun HomeScreen(
     onAppClick: (AppModel) -> Unit,
     showDrawer: Boolean,
     onDrawerToggle: (Boolean) -> Unit,
+    neuralHubState: com.example.launcher.ui.HomeViewModel.NeuralHubState,
+    showNeuralHub: Boolean,
+    onNeuralHubToggle: (Boolean) -> Unit,
     onSettings: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
@@ -98,7 +101,11 @@ fun HomeScreen(
                 
                 // Bottom: Search & Dock
                 SearchBar(onSearchClick = { onDrawerToggle(true) })
-                Dock(onSettings, onDrawer = { onDrawerToggle(true) })
+                Dock(
+                    onSettings = onSettings,
+                    onDrawer = { onDrawerToggle(true) },
+                    onNeuralHub = { onNeuralHubToggle(true) }
+                )
             }
         }
         
@@ -108,6 +115,14 @@ fun HomeScreen(
                 apps = allApps,
                 onAppClick = onAppClick,
                 onClose = { onDrawerToggle(false) }
+            )
+        }
+        
+        // Neural Hub Overlay
+        if (showNeuralHub) {
+            NeuralHub(
+                state = neuralHubState,
+                onClose = { onNeuralHubToggle(false) }
             )
         }
     }
@@ -248,7 +263,7 @@ fun SearchBar(onSearchClick: () -> Unit) {
 }
 
 @Composable
-fun Dock(onSettings: () -> Unit, onDrawer: () -> Unit) {
+fun Dock(onSettings: () -> Unit, onDrawer: () -> Unit, onNeuralHub: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -256,6 +271,7 @@ fun Dock(onSettings: () -> Unit, onDrawer: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         DockItem(R.drawable.ic_category_settings, onSettings)
+        DockItem(R.drawable.launcher, onNeuralHub) // Neural Hub (using launcher icon as placeholder)
         DockItem(R.drawable.ic_category_home, onDrawer)
     }
 }
