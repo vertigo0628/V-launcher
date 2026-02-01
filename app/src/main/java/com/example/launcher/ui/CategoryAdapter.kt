@@ -28,7 +28,8 @@ class CategoryAdapter(
 
     class CategoryViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val icon: ImageView = view.findViewById(R.id.categoryIcon)
-        val background: View = view.findViewById(R.id.categoryBackground)
+        val name: android.widget.TextView = view.findViewById(R.id.categoryName)
+        val container: View = view.findViewById(R.id.categoryItemContainer)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {
@@ -54,8 +55,21 @@ class CategoryAdapter(
         
         holder.icon.setImageResource(iconRes)
         
+        // Set category name
+        val categoryName = when (category) {
+            null -> "All"
+            AppCategory.COMMUNICATION -> "Chat"
+            AppCategory.INTERNET -> "Web"
+            AppCategory.GAMES -> "Games"
+            AppCategory.MEDIA -> "Media"
+            AppCategory.UTILITIES -> "Tools"
+            AppCategory.SETTINGS -> "Settings"
+            else -> "All"
+        }
+        holder.name.text = categoryName
+        
         val isSelected = category == selectedCategory
-        holder.background.setBackgroundColor(if (isSelected) Color.LTGRAY else Color.TRANSPARENT)
+        holder.container.alpha = if (isSelected) 1.0f else 0.7f
         
         holder.itemView.setOnClickListener {
             selectedCategory = category
