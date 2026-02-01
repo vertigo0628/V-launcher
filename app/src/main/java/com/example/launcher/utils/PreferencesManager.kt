@@ -41,4 +41,26 @@ class PreferencesManager(context: Context) {
     fun isAppHidden(packageName: String): Boolean {
         return getHiddenApps().contains(packageName)
     }
+    
+    // PIN Protection
+    private val PREF_PIN = "hidden_apps_pin"
+    
+    fun isPinSet(): Boolean {
+        return prefs.getString(PREF_PIN, null) != null
+    }
+    
+    fun setPin(pin: String) {
+        // Simple hash for storage (not cryptographically secure, but adequate for app hiding)
+        val hashedPin = pin.hashCode().toString()
+        prefs.edit().putString(PREF_PIN, hashedPin).apply()
+    }
+    
+    fun verifyPin(pin: String): Boolean {
+        val storedHash = prefs.getString(PREF_PIN, null) ?: return false
+        return pin.hashCode().toString() == storedHash
+    }
+    
+    fun clearPin() {
+        prefs.edit().remove(PREF_PIN).apply()
+    }
 }

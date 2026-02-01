@@ -40,4 +40,13 @@
     <!-- Legacy theme for compatibility -->
     <style name="Theme.MyCustomLauncher" parent="Theme.VLauncher" />
 
+    <!-- Neon styled dialogs -->
+    <style name="NeonAlertDialog" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="android:background">@color/dark_bg_secondary</item>
+        <item name="colorPrimary">@color/neon_cyan</item>
+        <item name="colorAccent">@color/neon_pink</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+    </style>
+
 </resources>

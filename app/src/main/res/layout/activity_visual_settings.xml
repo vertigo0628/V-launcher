@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/dark_bg_primary"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Header -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:text="Visual Settings"
+            android:textColor="@color/neon_cyan"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <!-- Icon Pack Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Icon Pack"
+            android:textColor="@color/neon_pink"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/iconPackSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_glass_card"
+            android:padding="12dp" />
+
+        <!-- Icon Shape Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Icon Shape"
+            android:textColor="@color/neon_pink"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/shapeContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <!-- Icon Size Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Icon Size"
+            android:textColor="@color/neon_pink"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <SeekBar
+            android:id="@+id/iconSizeSeekBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:max="4"
+            android:progress="2"
+            android:progressTint="@color/neon_cyan"
+            android:thumbTint="@color/neon_cyan" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Tiny"
+                android:textColor="@color/text_tertiary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:text="Huge"
+                android:textColor="@color/text_tertiary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Blur Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Background Blur"
+            android:textColor="@color/neon_pink"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <SeekBar
+            android:id="@+id/blurSeekBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:max="25"
+            android:progress="15"
+            android:progressTint="@color/neon_purple"
+            android:thumbTint="@color/neon_purple" />
+
+        <TextView
+            android:id="@+id/blurValueText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:gravity="center"
+            android:text="15"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+
+        <!-- Toggle Options -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_glass_card"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Show Icon Labels"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp" />
+
+            <Switch
+                android:id="@+id/showLabelsSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:thumbTint="@color/neon_cyan"
+                android:trackTint="@color/neon_cyan" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_glass_card"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Force Adaptive Icons"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp" />
+
+            <Switch
+                android:id="@+id/forceAdaptiveSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:thumbTint="@color/neon_purple"
+                android:trackTint="@color/neon_purple" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:background="@drawable/bg_glass_card"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="AMOLED Black Mode"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp" />
+
+            <Switch
+                android:id="@+id/amoledSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:thumbTint="@color/neon_pink"
+                android:trackTint="@color/neon_pink" />
+        </LinearLayout>
+
+        <!-- Preview Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Preview"
+            android:textColor="@color/neon_pink"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <FrameLayout
+            android:id="@+id/previewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:background="@drawable/bg_glass_card" />
+
+    </LinearLayout>
+</ScrollView>

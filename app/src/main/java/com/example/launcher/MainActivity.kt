@@ -39,10 +39,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewModel: HomeViewModel
     private lateinit var themeEngine: ThemeEngine
     private lateinit var gestureDetector: GestureDetector
+    private lateinit var gestureManager: com.example.launcher.utils.GestureManager
+    private lateinit var dockManager: com.example.launcher.utils.DockManager
     
     // UI Components
     private lateinit var clockWidget: TextView
     private lateinit var dateWidget: TextView
+    private lateinit var alarmWidget: TextView
+    private lateinit var alarmContainer: View
     private lateinit var searchBar: EditText
     private lateinit var flowerGridContainer: FrameLayout
     private lateinit var flowerGridView: FlowerGridView
@@ -51,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var categoryContainer: LinearLayout
     private lateinit var widgetContainer: com.example.launcher.ui.FluidWidgetLayout
     private lateinit var widgetManager: com.example.launcher.utils.WidgetManager
+    private lateinit var dockContainer: LinearLayout
     
     private var isDrawerOpen = false
     private val clockHandler = Handler(Looper.getMainLooper())
@@ -71,6 +76,8 @@ class MainActivity : AppCompatActivity() {
         viewModel = ViewModelProvider(this)[HomeViewModel::class.java]
         themeEngine = ThemeEngine(this)
         widgetManager = com.example.launcher.utils.WidgetManager(this)
+        gestureManager = com.example.launcher.utils.GestureManager(this)
+        dockManager = com.example.launcher.utils.DockManager(this)
         
         // Extract colors from wallpaper
         extractWallpaperColors()
@@ -83,6 +90,7 @@ class MainActivity : AppCompatActivity() {
         setupFlowerGrid()
         setupAppDrawer()
         setupWidgets()
+        setupDock()
         
         // Start clock
         updateClockAndDate()
@@ -95,12 +103,15 @@ class MainActivity : AppCompatActivity() {
     private fun initializeViews() {
         clockWidget = findViewById(R.id.clockWidget)
         dateWidget = findViewById(R.id.dateWidget)
+        alarmWidget = findViewById(R.id.alarmWidget)
+        alarmContainer = findViewById(R.id.alarmContainer)
         searchBar = findViewById(R.id.searchBar)
         flowerGridContainer = findViewById(R.id.flowerGridContainer)
         appDrawerContainer = findViewById(R.id.appDrawerContainer)
         drawerAppGrid = findViewById(R.id.drawerAppGrid)
         categoryContainer = findViewById(R.id.categoryContainer)
         widgetContainer = findViewById(R.id.widgetContainer)
+        dockContainer = findViewById(R.id.dockContainer)
         
         // Create and add FlowerGridView programmatically
         flowerGridView = FlowerGridView(this)
@@ -170,6 +181,7 @@ class MainActivity : AppCompatActivity() {
                 searchBar.requestFocus()
                 // Haptic feedback
                 window.decorView.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK)
+                executeGestureAction(gestureManager.getGestureAction(com.example.launcher.utils.GestureManager.GESTURE_DOUBLE_TAP))
                 return true
             }
             
@@ -181,28 +193,189 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 if (e1 == null) return false
                 
-                // Lower velocity threshold (was 1500) and added distance check
                 val distanceY = e2.y - e1.y
+                val distanceX = e2.x - e1.x
                 val velocityThreshold = 800f
                 val distanceThreshold = 100f
                 
-                if (velocityY < -velocityThreshold && distanceY < -distanceThreshold && !isDrawerOpen) {
-                    openAppDrawer()
-                    return true
-                }
-                if (velocityY > velocityThreshold && distanceY > distanceThreshold && isDrawerOpen) {
-                    closeAppDrawer()
-                    return true
+                // Determine swipe direction
+                if (kotlin.math.abs(distanceY) > kotlin.math.abs(distanceX)) {
+                    // Vertical swipe
+                    if (velocityY < -velocityThreshold && distanceY < -distanceThreshold) {
+                        // Swipe up
+                        executeGestureAction(gestureManager.getGestureAction(com.example.launcher.utils.GestureManager.GESTURE_SWIPE_UP))
+                        return true
+                    }
+                    if (velocityY > velocityThreshold && distanceY > distanceThreshold) {
+                        // Swipe down
+                        if (isDrawerOpen) {
+                            closeAppDrawer()
+                        } else {
+                            executeGestureAction(gestureManager.getGestureAction(com.example.launcher.utils.GestureManager.GESTURE_SWIPE_DOWN))
+                        }
+                        return true
+                    }
+                } else {
+                    // Horizontal swipe
+                    if (velocityX < -velocityThreshold && distanceX < -distanceThreshold) {
+                        executeGestureAction(gestureManager.getGestureAction(com.example.launcher.utils.GestureManager.GESTURE_SWIPE_LEFT))
+                        return true
+                    }
+                    if (velocityX > velocityThreshold && distanceX > distanceThreshold) {
+                        executeGestureAction(gestureManager.getGestureAction(com.example.launcher.utils.GestureManager.GESTURE_SWIPE_RIGHT))
+                        return true
+                    }
                 }
                 return false
+            }
+            
+            override fun onLongPress(e: MotionEvent) {
+                window.decorView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                executeGestureAction(gestureManager.getGestureAction(com.example.launcher.utils.GestureManager.GESTURE_LONG_PRESS))
             }
         })
         
         val rootLayout = findViewById<View>(R.id.rootLayout)
         rootLayout.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
-            // Need to return false to let clicks pass through, but true if handled
             false 
+        }
+    }
+    
+    private fun executeGestureAction(action: String) {
+        when (action) {
+            com.example.launcher.utils.GestureManager.ACTION_NONE -> { }
+            com.example.launcher.utils.GestureManager.ACTION_OPEN_DRAWER -> openAppDrawer()
+            com.example.launcher.utils.GestureManager.ACTION_OPEN_SEARCH -> {
+                searchBar.requestFocus()
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(searchBar, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            }
+            com.example.launcher.utils.GestureManager.ACTION_LOCK_SCREEN -> lockScreen()
+            com.example.launcher.utils.GestureManager.ACTION_OPEN_NOTIFICATIONS -> openNotifications()
+            com.example.launcher.utils.GestureManager.ACTION_OPEN_QUICK_SETTINGS -> openQuickSettings()
+            com.example.launcher.utils.GestureManager.ACTION_OPEN_SETTINGS -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+            }
+            com.example.launcher.utils.GestureManager.ACTION_OPEN_HIDDEN_APPS -> showHiddenApps()
+            com.example.launcher.utils.GestureManager.ACTION_TOGGLE_WIDGETS -> toggleWidgetVisibility()
+            else -> {
+                // Check if it's an app launch action
+                if (action.startsWith(com.example.launcher.utils.GestureManager.ACTION_OPEN_APP)) {
+                    val packageName = action.removePrefix(com.example.launcher.utils.GestureManager.ACTION_OPEN_APP)
+                    launchAppByPackage(packageName)
+                }
+            }
+        }
+    }
+    
+    private fun lockScreen() {
+        try {
+            val devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+            devicePolicyManager.lockNow()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Screen lock requires device admin permission", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    @Suppress("DEPRECATION")
+    private fun openNotifications() {
+        try {
+            val statusBarService = getSystemService("statusbar")
+            val statusBarManager = Class.forName("android.app.StatusBarManager")
+            val expand = statusBarManager.getMethod("expandNotificationsPanel")
+            expand.invoke(statusBarService)
+        } catch (e: Exception) {
+            // Fallback
+        }
+    }
+    
+    @Suppress("DEPRECATION")
+    private fun openQuickSettings() {
+        try {
+            val statusBarService = getSystemService("statusbar")
+            val statusBarManager = Class.forName("android.app.StatusBarManager")
+            val expand = statusBarManager.getMethod("expandSettingsPanel")
+            expand.invoke(statusBarService)
+        } catch (e: Exception) {
+            // Fallback
+        }
+    }
+    
+    private fun showHiddenApps() {
+        val prefsManager = com.example.launcher.utils.PreferencesManager(this)
+        
+        val pinDialog = com.example.launcher.ui.PinDialog(
+            this,
+            prefsManager,
+            onSuccess = {
+                showHiddenAppsDialog(prefsManager)
+            }
+        )
+        pinDialog.show()
+    }
+    
+    private fun showHiddenAppsDialog(prefsManager: com.example.launcher.utils.PreferencesManager) {
+        val hiddenApps = prefsManager.getHiddenApps().toList()
+        
+        if (hiddenApps.isEmpty()) {
+            Toast.makeText(this, "No hidden apps", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val appNames = hiddenApps.mapNotNull { pkg ->
+            try {
+                packageManager.getApplicationLabel(
+                    packageManager.getApplicationInfo(pkg, 0)
+                ).toString()
+            } catch (e: Exception) {
+                null
+            }
+        }.toTypedArray()
+        
+        android.app.AlertDialog.Builder(this, R.style.NeonAlertDialog)
+            .setTitle("Hidden Apps")
+            .setItems(appNames) { _, which ->
+                val packageName = hiddenApps[which]
+                showHiddenAppOptions(packageName, prefsManager)
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+    
+    private fun showHiddenAppOptions(packageName: String, prefsManager: com.example.launcher.utils.PreferencesManager) {
+        val appName = try {
+            packageManager.getApplicationLabel(
+                packageManager.getApplicationInfo(packageName, 0)
+            ).toString()
+        } catch (e: Exception) {
+            packageName
+        }
+        
+        android.app.AlertDialog.Builder(this, R.style.NeonAlertDialog)
+            .setTitle(appName)
+            .setItems(arrayOf("Launch", "Unhide")) { _, which ->
+                when (which) {
+                    0 -> launchAppByPackage(packageName)
+                    1 -> {
+                        prefsManager.unhideApp(packageName)
+                        viewModel.refreshApps()
+                        Toast.makeText(this, "$appName unhidden", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+    
+    private fun toggleWidgetVisibility() {
+        widgetContainer.visibility = if (widgetContainer.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+    }
+    
+    private fun launchAppByPackage(packageName: String) {
+        val intent = packageManager.getLaunchIntentForPackage(packageName)
+        if (intent != null) {
+            startActivity(intent)
         }
     }
     
@@ -377,6 +550,27 @@ class MainActivity : AppCompatActivity() {
         
         clockWidget.text = timeFormat.format(now)
         dateWidget.text = dateFormat.format(now)
+        
+        // Update next alarm
+        updateNextAlarm()
+    }
+    
+    private fun updateNextAlarm() {
+        try {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val nextAlarm = alarmManager.nextAlarmClock
+            
+            if (nextAlarm != null) {
+                val alarmTime = Date(nextAlarm.triggerTime)
+                val alarmFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+                alarmWidget.text = "Alarm · ${alarmFormat.format(alarmTime)}"
+                alarmContainer.visibility = View.VISIBLE
+            } else {
+                alarmContainer.visibility = View.GONE
+            }
+        } catch (e: Exception) {
+            alarmContainer.visibility = View.GONE
+        }
     }
     
     private fun startClockUpdates() {
@@ -386,6 +580,103 @@ class MainActivity : AppCompatActivity() {
                 clockHandler.postDelayed(this, 60000) // Update every minute
             }
         }, 60000)
+    }
+    
+    private fun setupDock() {
+        if (!dockManager.isDockEnabled()) {
+            dockContainer.visibility = View.GONE
+            return
+        }
+        
+        dockContainer.visibility = View.VISIBLE
+        populateDock()
+    }
+    
+    private fun populateDock() {
+        dockContainer.removeAllViews()
+        
+        val dockApps = dockManager.getDockApps()
+        val showLabels = dockManager.showDockLabels()
+        
+        // If no dock apps saved, use default frequently used apps
+        val appsToShow = if (dockApps.isEmpty()) {
+            getDefaultDockApps()
+        } else {
+            dockApps
+        }
+        
+        for (packageName in appsToShow) {
+            val appInfo = try {
+                packageManager.getApplicationInfo(packageName, 0)
+            } catch (e: Exception) {
+                continue
+            }
+            
+            val itemView = layoutInflater.inflate(R.layout.item_dock_app, dockContainer, false)
+            val iconView = itemView.findViewById<android.widget.ImageView>(R.id.dockAppIcon)
+            val labelView = itemView.findViewById<TextView>(R.id.dockAppLabel)
+            
+            iconView.setImageDrawable(packageManager.getApplicationIcon(appInfo))
+            labelView.text = packageManager.getApplicationLabel(appInfo)
+            labelView.visibility = if (showLabels) View.VISIBLE else View.GONE
+            
+            itemView.setOnClickListener {
+                launchAppByPackage(packageName)
+            }
+            
+            itemView.setOnLongClickListener {
+                showDockAppContextMenu(packageName, it)
+                true
+            }
+            
+            dockContainer.addView(itemView)
+        }
+    }
+    
+    private fun getDefaultDockApps(): List<String> {
+        // Common default apps
+        val defaults = listOf(
+            "com.android.dialer",
+            "com.google.android.dialer", 
+            "com.android.messaging",
+            "com.google.android.apps.messaging",
+            "com.android.chrome",
+            "com.google.android.gm",
+            "com.android.camera",
+            "com.google.android.camera"
+        )
+        
+        // Filter to only installed apps
+        return defaults.filter { pkg ->
+            try {
+                packageManager.getApplicationInfo(pkg, 0)
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }.take(dockManager.getDockSize())
+    }
+    
+    private fun showDockAppContextMenu(packageName: String, anchor: View) {
+        val popup = android.widget.PopupMenu(this, anchor)
+        popup.menu.add("Remove from Dock")
+        popup.menu.add("App Info")
+        
+        popup.setOnMenuItemClickListener { item ->
+            when (item.title) {
+                "Remove from Dock" -> {
+                    dockManager.removeFromDock(packageName)
+                    populateDock()
+                }
+                "App Info" -> {
+                    val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    intent.data = android.net.Uri.parse("package:$packageName")
+                    startActivity(intent)
+                }
+            }
+            true
+        }
+        popup.show()
     }
     
     
