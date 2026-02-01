@@ -30,6 +30,13 @@ class VisualSettingsActivity : AppCompatActivity() {
         iconCustomizer = IconCustomizer(this)
         blurManager = BlurManager(this)
         
+        // Apply Window Insets
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.visualSettingsRoot)) { v, insets ->
+            val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left + v.paddingLeft, systemBars.top + v.paddingTop, systemBars.right + v.paddingRight, systemBars.bottom + v.paddingBottom)
+            insets
+        }
+        
         initViews()
         setupWallpaperButton()
         setupIconPackSpinner()
