@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="oval">
-    <solid android:color="@color/glass_background" />
-    <stroke
-        android:width="2dp"
-        android:color="@color/glass_border" />
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Outer glow -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/glow_cyan_50" />
+        </shape>
+    </item>
+    <!-- Main circle -->
+    <item android:inset="4dp">
+        <shape android:shape="oval">
+            <solid android:color="@color/glass_background_dark" />
+            <stroke
+                android:width="2dp"
+                android:color="@color/neon_cyan" />
+        </shape>
+    </item>
+</layer-list>

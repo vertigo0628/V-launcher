@@ -48,6 +48,9 @@ dependencies {
     // Palette for wallpaper color extraction (Smart Launcher ambient theme)
     implementation("androidx.palette:palette-ktx:1.0.0")
     
+    // Spring Physics Animations
+    implementation("androidx.dynamicanimation:dynamicanimation:1.0.0")
+    
     // Local Broadcast Manager for notifications
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
 }

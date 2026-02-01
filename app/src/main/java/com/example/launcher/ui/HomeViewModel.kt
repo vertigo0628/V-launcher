@@ -61,4 +61,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _apps.value = allApps
         }
     }
+    
+    fun refreshApps() {
+        loadApps()
+    }
 }

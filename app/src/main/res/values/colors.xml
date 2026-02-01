@@ -1,53 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Base Colors -->
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <!-- Neon Cyberpunk Theme -->
     
-    <!-- Smart Launcher 6 Premium Palette -->
-    <color name="sl_primary">#6366F1</color>
-    <color name="sl_primary_dark">#4F46E5</color>
-    <color name="sl_primary_light">#818CF8</color>
-    <color name="sl_accent">#EC4899</color>
-    <color name="sl_accent_light">#F472B6</color>
+    <!-- Primary Neon Colors -->
+    <color name="neon_cyan">#00F0FF</color>
+    <color name="neon_pink">#FF006E</color>
+    <color name="neon_purple">#BD00FF</color>
+    <color name="neon_blue">#0038FF</color>
+    <color name="neon_green">#00FF85</color>
+    <color name="neon_orange">#FF5E00</color>
+    <color name="neon_yellow">#FFF500</color>
     
-    <!-- Ambient Theme Colors (extracted from wallpaper) -->
-    <color name="ambient_primary">#6366F1</color>
-    <color name="ambient_secondary">#8B5CF6</color>
-    <color name="ambient_tertiary">#EC4899</color>
+    <!-- Dark Backgrounds -->
+    <color name="dark_bg">#0A0A0F</color>
+    <color name="dark_bg_secondary">#12121A</color>
+    <color name="dark_bg_tertiary">#1A1A25</color>
     
-    <!-- Glass/Blur Effects -->
-    <color name="glass_background">#1AFFFFFF</color>
-    <color name="glass_background_dark">#33000000</color>
-    <color name="glass_border">#33FFFFFF</color>
-    <color name="glass_highlight">#4DFFFFFF</color>
+    <!-- Glow Variations -->
+    <color name="glow_cyan_30">#4D00F0FF</color>
+    <color name="glow_cyan_50">#8000F0FF</color>
+    <color name="glow_pink_30">#4DFF006E</color>
+    <color name="glow_pink_50">#80FF006E</color>
+    <color name="glow_purple_30">#4DBD00FF</color>
+    <color name="glow_purple_50">#80BD00FF</color>
+    
+    <!-- Legacy mappings for compatibility -->
+    <color name="sl_primary">#BD00FF</color>
+    <color name="sl_primary_dark">#0A0A0F</color>
+    <color name="sl_primary_light">#FF006E</color>
+    <color name="sl_accent">#00F0FF</color>
+    <color name="sl_accent_light">#00FF85</color>
     
     <!-- Surface Colors -->
-    <color name="surface_dark">#0F0F23</color>
-    <color name="surface_card">#1A1A2E</color>
-    <color name="surface_elevated">#16213E</color>
+    <color name="surface_dark">#0A0A0F</color>
+    <color name="surface_light">#FFFFFF</color>
+    <color name="surface_glass">#1A1A1A33</color>
     
     <!-- Text Colors -->
     <color name="text_primary">#FFFFFF</color>
-    <color name="text_secondary">#B8B8D1</color>
-    <color name="text_tertiary">#6B6B8A</color>
+    <color name="text_secondary">#B0B0B0</color>
+    <color name="text_tertiary">#707070</color>
+    <color name="text_neon_cyan">#00F0FF</color>
+    <color name="text_neon_pink">#FF006E</color>
     
-    <!-- Category Colors -->
-    <color name="category_communication">#3B82F6</color>
-    <color name="category_internet">#8B5CF6</color>
-    <color name="category_games">#EF4444</color>
-    <color name="category_media">#F59E0B</color>
-    <color name="category_utilities">#10B981</color>
-    <color name="category_settings">#6B7280</color>
+    <!-- Glass Effects with Neon -->
+    <color name="glass_background">#1AFFFFFF</color>
+    <color name="glass_background_dark">#26000000</color>
+    <color name="glass_border">#4DFFFFFF</color>
+    <color name="glass_highlight">#33FFFFFF</color>
+    <color name="glass_neon_cyan">#4D00F0FF</color>
+    <color name="glass_neon_pink">#4DFF006E</color>
+    <color name="glass_neon_purple">#4DBD00FF</color>
     
     <!-- Gradient Colors -->
-    <color name="gradient_start">#667EEA</color>
-    <color name="gradient_end">#764BA2</color>
-    <color name="gradient_accent_start">#F093FB</color>
-    <color name="gradient_accent_end">#F5576C</color>
+    <color name="gradient_start">#BD00FF</color>
+    <color name="gradient_mid">#FF006E</color>
+    <color name="gradient_end">#00F0FF</color>
     
-    <!-- Notification Badge -->
-    <color name="badge_background">#EF4444</color>
+    <!-- Common -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+    
+    <!-- Badge -->
+    <color name="badge_background">#FF006E</color>
     <color name="badge_text">#FFFFFF</color>
     
     <!-- Launcher Icon Background -->

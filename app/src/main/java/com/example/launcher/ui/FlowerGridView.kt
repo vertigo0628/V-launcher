@@ -30,12 +30,17 @@ class FlowerGridView @JvmOverloads constructor(
     private val iconPadding = 8.dpToPx()
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 2f
-        color = 0x33FFFFFF
+        strokeWidth = 3f
+        color = 0xFF00F0FF.toInt() // Neon cyan
     }
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0x1AFFFFFF
+        color = 0x4D00F0FF.toInt() // Neon cyan glow
+    }
+    private val outerGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = 0x2600F0FF.toInt() // Outer glow
+        maskFilter = android.graphics.BlurMaskFilter(12f, android.graphics.BlurMaskFilter.Blur.NORMAL)
     }
     
     private var centerX = 0f
@@ -110,6 +115,10 @@ class FlowerGridView @JvmOverloads constructor(
             val rect = iconRects[i]
             val app = apps[i]
             
+            // Draw outer glow
+            val glowRadius = iconSize / 2f + 16.dpToPx()
+            canvas.drawCircle(rect.centerX(), rect.centerY(), glowRadius, outerGlowPaint)
+            
             // Draw glass background circle
             val circleRadius = iconSize / 2f + 8.dpToPx()
             canvas.drawCircle(rect.centerX(), rect.centerY(), circleRadius, glowPaint)
@@ -131,6 +140,7 @@ class FlowerGridView @JvmOverloads constructor(
             MotionEvent.ACTION_DOWN -> {
                 selectedIndex = findTouchedIcon(event.x, event.y)
                 if (selectedIndex >= 0) {
+                    performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK)
                     animatePress(selectedIndex, true)
                     return true
                 }
@@ -138,7 +148,11 @@ class FlowerGridView @JvmOverloads constructor(
             MotionEvent.ACTION_UP -> {
                 if (selectedIndex >= 0 && selectedIndex < apps.size) {
                     animatePress(selectedIndex, false)
-                    onAppClickListener?.invoke(apps[selectedIndex])
+                    // Verify touch is still within range
+                    if (findTouchedIcon(event.x, event.y) == selectedIndex) {
+                        performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                        onAppClickListener?.invoke(apps[selectedIndex])
+                    }
                 }
                 selectedIndex = -1
             }
@@ -153,15 +167,17 @@ class FlowerGridView @JvmOverloads constructor(
     }
     
     private fun findTouchedIcon(x: Float, y: Float): Int {
+        val touchRadius = (iconSize / 2f) + 16.dpToPx() // Increased touch target
+        
         for (i in iconRects.indices) {
             val rect = iconRects[i]
-            val expandedRect = RectF(
-                rect.left - 16,
-                rect.top - 16,
-                rect.right + 16,
-                rect.bottom + 16
-            )
-            if (expandedRect.contains(x, y)) {
+            val centerX = rect.centerX()
+            val centerY = rect.centerY()
+            
+            // Circular hit testing: distance^2 <= radius^2
+            val dx = x - centerX
+            val dy = y - centerY
+            if (dx * dx + dy * dy <= touchRadius * touchRadius) {
                 return i
             }
         }
@@ -169,12 +185,18 @@ class FlowerGridView @JvmOverloads constructor(
     }
     
     private fun animatePress(index: Int, pressed: Boolean) {
-        val scale = if (pressed) 0.9f else 1f
+        // Use ViewPropertyAnimator for simple scale, could upgrade to Spring if individual views were accessible
+        // Since we draw on Canvas, we animate the whole view or need value animator
+        // For simplicity in this Canvas implementation, we'll keep it simple but add spring feel
+        
+        // Note: Real spring animation on Canvas items requires managing state manually
+        // For this iteration, we'll stick to a bouncy interpolator which mimics spring
+        val scale = if (pressed) 0.9f else 1.0f
         animate()
             .scaleX(scale)
             .scaleY(scale)
-            .setDuration(100)
-            .setInterpolator(OvershootInterpolator())
+            .setDuration(200)
+            .setInterpolator(OvershootInterpolator(2.0f)) // Bouncier!
             .start()
     }
     

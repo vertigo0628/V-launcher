@@ -49,6 +49,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appDrawerContainer: FrameLayout
     private lateinit var drawerAppGrid: RecyclerView
     private lateinit var categoryContainer: LinearLayout
+    private lateinit var widgetContainer: com.example.launcher.ui.FluidWidgetLayout
+    private lateinit var widgetManager: com.example.launcher.utils.WidgetManager
     
     private var isDrawerOpen = false
     private val clockHandler = Handler(Looper.getMainLooper())
@@ -68,6 +70,7 @@ class MainActivity : AppCompatActivity() {
         // Initialize
         viewModel = ViewModelProvider(this)[HomeViewModel::class.java]
         themeEngine = ThemeEngine(this)
+        widgetManager = com.example.launcher.utils.WidgetManager(this)
         
         // Extract colors from wallpaper
         extractWallpaperColors()
@@ -79,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         setupCategoryChips()
         setupFlowerGrid()
         setupAppDrawer()
+        setupWidgets()
         
         // Start clock
         updateClockAndDate()
@@ -96,6 +100,7 @@ class MainActivity : AppCompatActivity() {
         appDrawerContainer = findViewById(R.id.appDrawerContainer)
         drawerAppGrid = findViewById(R.id.drawerAppGrid)
         categoryContainer = findViewById(R.id.categoryContainer)
+        widgetContainer = findViewById(R.id.widgetContainer)
         
         // Create and add FlowerGridView programmatically
         flowerGridView = FlowerGridView(this)
@@ -106,22 +111,65 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
             true
         }
+        
+        // Long press on widget container to add widget
+        widgetContainer.setOnLongClickListener {
+            openWidgetPicker()
+            true
+        }
     }
     
     private fun extractWallpaperColors() {
         try {
             val wallpaperManager = WallpaperManager.getInstance(this)
             val wallpaperDrawable = wallpaperManager.drawable
-            themeEngine.extractColorsFromDrawable(wallpaperDrawable)
+            val theme = themeEngine.extractColorsFromDrawable(wallpaperDrawable)
+            applyTheme(theme)
         } catch (e: Exception) {
             // Use default colors
         }
+    }
+    
+    private fun applyTheme(theme: ThemeEngine.AmbientTheme) {
+        // Apply text colors
+        clockWidget.setTextColor(theme.textColor)
+        dateWidget.setTextColor(theme.textColor)
+        searchBar.setHintTextColor(if (theme.isDark) 0x80FFFFFF.toInt() else 0x80000000.toInt())
+        searchBar.setTextColor(theme.textColor)
+        
+        // Tint glass backgrounds
+        val glassColor = themeEngine.getGlassColor(30) // 12% alpha
+        val glassStroke = if (theme.isDark) 0x33FFFFFF else 0x33000000
+        
+        // Update search bar background
+        val searchBg = searchBar.parent as? View
+        searchBg?.background?.setTint(glassColor)
+        
+        // Update category text colors
+        for (i in 0 until categoryContainer.childCount) {
+            val chip = categoryContainer.getChildAt(i)
+            val nameView = chip.findViewById<TextView>(R.id.categoryName)
+            val iconView = chip.findViewById<android.widget.ImageView>(R.id.categoryIcon)
+            
+            nameView.setTextColor(theme.textColor)
+            iconView.setColorFilter(theme.textColor)
+        }
+        
+        // Add pulsing neon glow to clock
+        startNeonPulseAnimation()
+    }
+    
+    private fun startNeonPulseAnimation() {
+        val pulseAnim = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.neon_pulse)
+        clockWidget.startAnimation(pulseAnim)
     }
     
     private fun setupGestureDetector() {
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 searchBar.requestFocus()
+                // Haptic feedback
+                window.decorView.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK)
                 return true
             }
             
@@ -131,11 +179,18 @@ class MainActivity : AppCompatActivity() {
                 velocityX: Float,
                 velocityY: Float
             ): Boolean {
-                if (e1 != null && velocityY < -1500 && !isDrawerOpen) {
+                if (e1 == null) return false
+                
+                // Lower velocity threshold (was 1500) and added distance check
+                val distanceY = e2.y - e1.y
+                val velocityThreshold = 800f
+                val distanceThreshold = 100f
+                
+                if (velocityY < -velocityThreshold && distanceY < -distanceThreshold && !isDrawerOpen) {
                     openAppDrawer()
                     return true
                 }
-                if (e1 != null && velocityY > 1500 && isDrawerOpen) {
+                if (velocityY > velocityThreshold && distanceY > distanceThreshold && isDrawerOpen) {
                     closeAppDrawer()
                     return true
                 }
@@ -146,7 +201,8 @@ class MainActivity : AppCompatActivity() {
         val rootLayout = findViewById<View>(R.id.rootLayout)
         rootLayout.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
-            false
+            // Need to return false to let clicks pass through, but true if handled
+            false 
         }
     }
     
@@ -210,8 +266,36 @@ class MainActivity : AppCompatActivity() {
         }
         
         flowerGridView.setOnAppLongClickListener { app ->
-            // Show context menu
+            showAppContextMenu(app)
         }
+    }
+    
+    private fun showAppContextMenu(app: AppModel) {
+        val dialog = android.app.AlertDialog.Builder(this)
+            .setTitle(app.label)
+            .setItems(arrayOf("App Info", "Uninstall", "Hide App")) { _, which ->
+                when (which) {
+                    0 -> { // App Info
+                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        intent.data = android.net.Uri.parse("package:${app.packageName}")
+                        startActivity(intent)
+                    }
+                    1 -> { // Uninstall
+                        val intent = Intent(Intent.ACTION_DELETE)
+                        intent.data = android.net.Uri.parse("package:${app.packageName}")
+                        startActivity(intent)
+                    }
+                    2 -> { // Hide App
+                        val prefsManager = com.example.launcher.utils.PreferencesManager(this)
+                        prefsManager.hideApp(app.packageName)
+                        Toast.makeText(this, "${app.label} hidden", Toast.LENGTH_SHORT).show()
+                        viewModel.refreshApps()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .create()
+        dialog.show()
     }
     
     private fun setupAppDrawer() {
@@ -246,25 +330,36 @@ class MainActivity : AppCompatActivity() {
         isDrawerOpen = true
         
         appDrawerContainer.visibility = View.VISIBLE
-        appDrawerContainer.animate()
-            .translationY(0f)
-            .setDuration(400)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
+        
+        // Spring Animation
+        androidx.dynamicanimation.animation.SpringAnimation(
+            appDrawerContainer, 
+            androidx.dynamicanimation.animation.SpringAnimation.TRANSLATION_Y, 
+            0f
+        ).apply {
+            spring.dampingRatio = androidx.dynamicanimation.animation.SpringForce.DAMPING_RATIO_NO_BOUNCY
+            spring.stiffness = androidx.dynamicanimation.animation.SpringForce.STIFFNESS_LOW
+            start()
+        }
     }
     
     private fun closeAppDrawer() {
         if (!isDrawerOpen) return
         isDrawerOpen = false
         
-        appDrawerContainer.animate()
-            .translationY(appDrawerContainer.height.toFloat())
-            .setDuration(300)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                appDrawerContainer.visibility = View.GONE
+        // Spring Animation
+        androidx.dynamicanimation.animation.SpringAnimation(
+            appDrawerContainer, 
+            androidx.dynamicanimation.animation.SpringAnimation.TRANSLATION_Y, 
+            appDrawerContainer.height.toFloat()
+        ).apply {
+            spring.dampingRatio = androidx.dynamicanimation.animation.SpringForce.DAMPING_RATIO_NO_BOUNCY
+            spring.stiffness = androidx.dynamicanimation.animation.SpringForce.STIFFNESS_LOW
+            addEndListener { _, _, _, _ ->
+                if (!isDrawerOpen) appDrawerContainer.visibility = View.GONE
             }
-            .start()
+            start()
+        }
     }
     
     private fun launchApp(app: AppModel) {
@@ -293,9 +388,62 @@ class MainActivity : AppCompatActivity() {
         }, 60000)
     }
     
+    
+    private fun setupWidgets() {
+        widgetManager.startListening()
+    }
+    
+    private fun openWidgetPicker() {
+        try {
+            val pickIntent = widgetManager.getPickWidgetIntent()
+            @Suppress("DEPRECATION")
+            startActivityForResult(pickIntent, com.example.launcher.utils.WidgetManager.REQUEST_PICK_APPWIDGET)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Unable to open widget picker", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        if (resultCode == RESULT_OK) {
+            when (requestCode) {
+                com.example.launcher.utils.WidgetManager.REQUEST_PICK_APPWIDGET -> {
+                    val appWidgetId = data?.getIntExtra(
+                        android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,
+                        -1
+                    ) ?: -1
+                    
+                    if (appWidgetId != -1) {
+                        // Create and add widget
+                        val widgetView = widgetManager.createWidgetView(appWidgetId)
+                        if (widgetView != null) {
+                            // Add to center of screen with default size
+                            val x = (widgetContainer.width / 2 - 200).toFloat()
+                            val y = (widgetContainer.height / 2 - 150).toFloat()
+                            widgetContainer.addWidget(widgetView, x, y, 400f, 300f)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    override fun onStart() {
+        super.onStart()
+        widgetManager.startListening()
+    }
+    
+    override fun onStop() {
+        super.onStop()
+        widgetManager.stopListening()
+    }
+    
     override fun onDestroy() {
         super.onDestroy()
         clockHandler.removeCallbacksAndMessages(null)
+        widgetManager.stopListening()
     }
     
     @Deprecated("Deprecated in Java")
