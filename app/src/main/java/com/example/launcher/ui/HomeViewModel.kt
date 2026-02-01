@@ -27,6 +27,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     
     private val _selectedCategory = MutableStateFlow<AppCategory?>(null)
     val selectedCategory: StateFlow<AppCategory?> = _selectedCategory.asStateFlow()
+    
+    // UI State
+    private val _isDrawerOpen = MutableStateFlow(false)
+    val isDrawerOpen: StateFlow<Boolean> = _isDrawerOpen.asStateFlow()
+    
+    fun setDrawerOpen(isOpen: Boolean) {
+        _isDrawerOpen.value = isOpen
+    }
 
     init {
         loadApps()
