@@ -13,6 +13,7 @@
     
     <!-- Dark Backgrounds -->
     <color name="dark_bg">#0A0A0F</color>
+    <color name="dark_bg_primary">#0A0A0F</color>
     <color name="dark_bg_secondary">#12121A</color>
     <color name="dark_bg_tertiary">#1A1A25</color>
     
