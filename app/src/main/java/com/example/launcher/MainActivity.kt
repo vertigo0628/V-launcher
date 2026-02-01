@@ -475,6 +475,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private fun setupAppDrawer() {
+        drawerAppGrid.layoutManager = GridLayoutManager(this, 4)
+        
+        val adapter = AppAdapter(emptyList()) { app ->
+            launchApp(app)
+        }
+        
+        // Add long press listener to adapter
+        adapter.setOnItemLongClickListener { app ->
+            showDrawerAppContextMenu(app)
+            true
+        }
+        
+        drawerAppGrid.adapter = adapter
+        
+        // Pull down to close
+        val drawerHandle = findViewById<View>(R.id.drawerHandle)
+        drawerHandle.setOnClickListener {
+            closeAppDrawer()
+        }
+    }
+
     private fun observeApps() {
         lifecycleScope.launch {
             launch {
