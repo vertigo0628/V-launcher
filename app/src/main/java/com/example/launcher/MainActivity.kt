@@ -142,10 +142,12 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("theme_prefs", android.content.Context.MODE_PRIVATE)
         val amoledMode = prefs.getBoolean("amoled_mode", false)
         
+        // Use transparent background to show system wallpaper by default
+        // Only use solid black if AMOLED mode is explicitly enabled
         val bgColor = if (amoledMode) {
             android.graphics.Color.BLACK
         } else {
-            themeManager.getBackgroundColor()
+            android.graphics.Color.TRANSPARENT
         }
         
         window.decorView.setBackgroundColor(bgColor)
@@ -230,12 +232,21 @@ class MainActivity : AppCompatActivity() {
         clockWidget.setOnLongClickListener {
             val popup = android.widget.PopupMenu(this, clockWidget)
             popup.menu.add("Settings")
+            popup.menu.add("Wallpaper")
             popup.menu.add("Neural Hub")
             popup.menu.add("Edit Layout")
             
             popup.setOnMenuItemClickListener { item ->
                 when (item.title) {
                     "Settings" -> startActivity(Intent(this, LauncherSettingsActivity::class.java))
+                    "Wallpaper" -> {
+                        try {
+                            val intent = Intent(Intent.ACTION_SET_WALLPAPER)
+                            startActivity(Intent.createChooser(intent, "Select Wallpaper"))
+                        } catch (e: Exception) {
+                            Toast.makeText(this, "Wallpaper picker not found", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                     "Neural Hub" -> openNeuralHub()
                     "Edit Layout" -> {
                         // Enter edit mode visual cue
