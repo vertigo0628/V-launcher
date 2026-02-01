@@ -26,11 +26,11 @@ class FlowerGridView @JvmOverloads constructor(
 
     private val apps = mutableListOf<AppModel>()
     
-    // Icon sizes - larger for better visibility
-    private val centerIconSize = 88.dpToPx()
-    private val primaryIconSize = 76.dpToPx()
-    private val secondaryIconSize = 66.dpToPx()
-    private val tertiaryIconSize = 56.dpToPx()
+    // Icon sizes - adjusted for better spacing
+    private val centerIconSize = 80.dpToPx()
+    private val primaryIconSize = 68.dpToPx()
+    private val secondaryIconSize = 60.dpToPx()
+    private val tertiaryIconSize = 50.dpToPx()
     private val iconScaleFactor = 0.72f // Scale icons to fit circle
     
     // Neon theme paints
@@ -113,7 +113,7 @@ class FlowerGridView @JvmOverloads constructor(
     }
 
     private var globalScale = 1.0f
-
+    
     private fun calculatePositions() {
         iconPositions.clear()
         
@@ -132,7 +132,9 @@ class FlowerGridView @JvmOverloads constructor(
         }
         
         // Calculate required radius at scale 1.0
-        val baseSpacing = primaryIconSize * 0.95f
+        // usage: Spacing > size for no overlap. 
+        // 1.35 gives ~35% gap between centers relative to size, ensuring separation.
+        val baseSpacing = primaryIconSize * 1.35f
         
         // The farthest edge is roughly at: (maxRing * spacing) + (iconSize / 2)
         // We add some padding factor just to be safe
