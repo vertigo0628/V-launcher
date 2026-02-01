@@ -53,4 +53,7 @@ dependencies {
     
     // Local Broadcast Manager for notifications
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
+    
+    // Preference Library for Settings
+    implementation("androidx.preference:preference-ktx:1.2.1")
 }
