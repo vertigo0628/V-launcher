@@ -56,4 +56,7 @@ dependencies {
     
     // Preference Library for Settings
     implementation("androidx.preference:preference-ktx:1.2.1")
+    
+    // Gson for Object Serialization
+    implementation("com.google.code.gson:gson:2.10.1")
 }

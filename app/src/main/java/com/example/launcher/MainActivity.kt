@@ -47,6 +47,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var neuralHubRoot: android.view.ViewGroup
     private lateinit var powerCoreView: com.example.launcher.ui.PowerCoreView
     private lateinit var systemMonitor: com.example.launcher.utils.SystemMonitor
+    private lateinit var usageManager: com.example.launcher.utils.SmartUsageManager
     private var isHubOpen = false
     
     // UI Components
@@ -104,6 +105,7 @@ class MainActivity : AppCompatActivity() {
         gestureManager = com.example.launcher.utils.GestureManager(this)
         dockManager = com.example.launcher.utils.DockManager(this)
         systemMonitor = com.example.launcher.utils.SystemMonitor(this)
+        usageManager = com.example.launcher.utils.SmartUsageManager(this)
         
         // Apply Theme Background
         applyTheme()
@@ -310,6 +312,41 @@ class MainActivity : AppCompatActivity() {
         val storageText = neuralHubRoot.findViewById<TextView>(R.id.storageText)
         storageProgress.progress = storage.percentUsed
         storageText.text = "${formatSize(storage.total - storage.available)} / ${formatSize(storage.total)}"
+        
+        // Smart Suggestions
+        updateQuickSuggestions()
+    }
+    
+    private fun updateQuickSuggestions() {
+        val suggestedPackages = usageManager.getSuggestedApps(5)
+        
+        // Convert packages to AppModels
+        val suggestedApps = suggestedPackages.mapNotNull { pkg ->
+            try {
+                val appInfo = packageManager.getApplicationInfo(pkg, 0)
+                val label = packageManager.getApplicationLabel(appInfo).toString()
+                val icon = packageManager.getApplicationIcon(appInfo)
+                // AppModel(label, packageName, icon, category)
+                AppModel(label, pkg, icon, AppCategory.OTHER)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        
+        val suggestionsList = neuralHubRoot.findViewById<RecyclerView>(R.id.suggestionsList)
+        if (suggestedApps.isNotEmpty()) {
+            suggestionsList.visibility = View.VISIBLE
+            neuralHubRoot.findViewById<View>(R.id.suggestionsHeader).visibility = View.VISIBLE
+            
+            val adapter = AppAdapter(suggestedApps) { app ->
+                launchApp(app)
+                closeNeuralHub()
+            }
+            suggestionsList.adapter = adapter
+        } else {
+            suggestionsList.visibility = View.GONE
+            neuralHubRoot.findViewById<View>(R.id.suggestionsHeader).visibility = View.GONE
+        }
     }
     
     private fun formatSize(bytes: Long): String {
@@ -567,6 +604,7 @@ class MainActivity : AppCompatActivity() {
     private fun launchAppByPackage(packageName: String) {
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
+            usageManager.logAppLaunch(packageName)
             startActivity(intent)
         }
     }
@@ -777,7 +815,7 @@ class MainActivity : AppCompatActivity() {
     private fun launchApp(app: AppModel) {
         val intent = packageManager.getLaunchIntentForPackage(app.packageName)
         if (intent != null) {
-            // Scale down animation would go here
+            usageManager.logAppLaunch(app.packageName)
             startActivity(intent)
         }
     }
