@@ -43,6 +43,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var gestureManager: com.example.launcher.utils.GestureManager
     private lateinit var dockManager: com.example.launcher.utils.DockManager
     
+    // Neural Hub
+    private lateinit var neuralHubRoot: android.view.ViewGroup
+    private lateinit var powerCoreView: com.example.launcher.ui.PowerCoreView
+    private lateinit var systemMonitor: com.example.launcher.utils.SystemMonitor
+    private var isHubOpen = false
+    
     // UI Components
     private lateinit var clockWidget: TextView
     private lateinit var dateWidget: TextView
@@ -79,12 +85,14 @@ class MainActivity : AppCompatActivity() {
         widgetManager = com.example.launcher.utils.WidgetManager(this)
         gestureManager = com.example.launcher.utils.GestureManager(this)
         dockManager = com.example.launcher.utils.DockManager(this)
+        systemMonitor = com.example.launcher.utils.SystemMonitor(this)
         
         // Extract colors from wallpaper
         extractWallpaperColors()
         
         // Setup UI
         initializeViews()
+        setupNeuralHub() // Initialize Hub
         setupGestureDetector()
         setupSearch()
         setupCategoryChips()
@@ -156,6 +164,109 @@ class MainActivity : AppCompatActivity() {
             openWidgetPicker()
             true
         }
+    }
+    
+    private fun setupNeuralHub() {
+        val rootLayout = findViewById<androidx.constraintlayout.widget.ConstraintLayout>(R.id.rootLayout)
+        
+        // Inflate Neural Hub layout and add it to root
+        val inflater = android.view.LayoutInflater.from(this)
+        neuralHubRoot = inflater.inflate(R.layout.layout_neural_hub, rootLayout, false) as android.view.ViewGroup
+        
+        // Initially hide off-screen (left)
+        neuralHubRoot.visibility = View.INVISIBLE // Start invisible to avoid flicker
+        rootLayout.addView(neuralHubRoot)
+        
+        // Wait for layout to measure width
+        neuralHubRoot.post {
+            neuralHubRoot.translationX = -neuralHubRoot.width.toFloat()
+            neuralHubRoot.visibility = View.VISIBLE
+        }
+        
+        // Bind views
+        powerCoreView = neuralHubRoot.findViewById(R.id.powerCore)
+        
+        // Back behavior (tap empty space or drag handle to close)
+        neuralHubRoot.setOnClickListener {
+             // Close on tap outside logic if needed, but for now full screen overlay
+        }
+        
+        // Drag handle listener (simple click to close for now)
+        neuralHubRoot.findViewById<View>(R.id.dragHandle).setOnClickListener {
+            closeNeuralHub()
+        }
+    }
+    
+    private fun openNeuralHub() {
+        if (isHubOpen) return
+        isHubOpen = true
+        
+        // Update data
+        updateNeuralHubVitals()
+        
+        // Slide in Hub
+        neuralHubRoot.animate()
+            .translationX(0f)
+            .setDuration(300)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+            
+        // Parallax & Fade Home Content
+        val homeViews = listOf(flowerGridContainer, dockContainer, searchBar, clockWidget, dateWidget, widgetContainer)
+        homeViews.forEach { view ->
+            view.animate()
+                .translationX(200f) // Parallax shift
+                .alpha(0.3f)        // Dim background
+                .setDuration(300)
+                .start()
+        }
+    }
+    
+    private fun closeNeuralHub() {
+        if (!isHubOpen) return
+        isHubOpen = false
+        
+        // Slide out Hub
+        neuralHubRoot.animate()
+            .translationX(-neuralHubRoot.width.toFloat())
+            .setDuration(300)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+            
+        // Restore Home Content
+        val homeViews = listOf(flowerGridContainer, dockContainer, searchBar, clockWidget, dateWidget, widgetContainer)
+        homeViews.forEach { view ->
+            view.animate()
+                .translationX(0f)
+                .alpha(1f)
+                .setDuration(300)
+                .start()
+        }
+    }
+    
+    private fun updateNeuralHubVitals() {
+        // Battery
+        val battery = systemMonitor.getBatteryInfo()
+        powerCoreView.setBatteryLevel(battery.level, battery.isCharging)
+        
+        // RAM
+        val ram = systemMonitor.getRamInfo()
+        val ramProgress = neuralHubRoot.findViewById<android.widget.ProgressBar>(R.id.ramProgress)
+        val ramText = neuralHubRoot.findViewById<TextView>(R.id.ramText)
+        ramProgress.progress = ram.percentUsed
+        ramText.text = "${formatSize(ram.used)} / ${formatSize(ram.total)}"
+        
+        // Storage
+        val storage = systemMonitor.getStorageInfo()
+        val storageProgress = neuralHubRoot.findViewById<android.widget.ProgressBar>(R.id.storageProgress)
+        val storageText = neuralHubRoot.findViewById<TextView>(R.id.storageText)
+        storageProgress.progress = storage.percentUsed
+        storageText.text = "${formatSize(storage.total - storage.available)} / ${formatSize(storage.total)}"
+    }
+    
+    private fun formatSize(bytes: Long): String {
+        val gb = bytes / (1024.0 * 1024.0 * 1024.0)
+        return String.format("%.1f GB", gb)
     }
     
     private fun Int.dpToPx(): Int {
@@ -254,7 +365,8 @@ class MainActivity : AppCompatActivity() {
                         return true
                     }
                     if (velocityX > velocityThreshold && distanceX > distanceThreshold) {
-                        executeGestureAction(gestureManager.getGestureAction(com.example.launcher.utils.GestureManager.GESTURE_SWIPE_RIGHT))
+                        // Swipe Right -> Open Neural Hub (Minus 1 Screen)
+                        openNeuralHub()
                         return true
                     }
                 }

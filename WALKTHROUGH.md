@@ -85,8 +85,18 @@ For the ultimate control.
   - Native wallpaper picker integration.
   - Removed accidental "Open Settings" gesture.
 
+## 🌌 Phase 6: The Neural Hub
+A futuristic "Minus 1" dashboard for system intelligence.
+- **Access**: Swipe Right from the home screen.
+- **Power Core**: Real-time holographic battery monitor.
+- **Pulse Monitor**: Visualizers for RAM and Storage usage.
+- **Control**: Quick toggles for system settings.
+- **Immersive**: Automatically fades out home screen distractions.
+
 ## 🛠️ How to Test
 1. **Build & Run** the app.
-2. **Try the Grid**: Open App Drawer -> Long Press App -> Add to Home.
+2. **Swipe Right**: Slide your finger from left to right on the home screen to open the Neural Hub.
+3. **Check Vitals**: Verify battery level matches your status bar.
+4. **Try the Grid**: Open App Drawer -> Long Press App -> Add to Home.
 3. **Change Wallpaper**: Long press Clock -> Visual Settings -> Change Wallpaper.
 4. **Check Layout**: Verify the dock buttons are above your phone's navigation bar.

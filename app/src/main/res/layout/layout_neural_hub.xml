@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/neuralHubRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#E6050505"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- Header -->
+    <TextView
+        android:id="@+id/hubHeader"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="60dp"
+        android:fontFamily="sans-serif-black"
+        android:letterSpacing="0.2"
+        android:text="NEURAL HUB"
+        android:textColor="#00F0FF"
+        android:textSize="24sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:layout_width="100dp"
+        android:layout_height="2dp"
+        android:layout_marginTop="8dp"
+        android:background="#00F0FF"
+        app:layout_constraintEnd_toEndOf="@id/hubHeader"
+        app:layout_constraintStart_toStartOf="@id/hubHeader"
+        app:layout_constraintTop_toBottomOf="@id/hubHeader" />
+
+    <!-- Power Core Section -->
+    <com.example.launcher.ui.PowerCoreView
+        android:id="@+id/powerCore"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_marginTop="48dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/hubHeader" />
+
+    <!-- System Vitals (RAM / Storage) -->
+    <LinearLayout
+        android:id="@+id/vitalsContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="32dp"
+        android:layout_marginTop="48dp"
+        android:orientation="vertical"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/powerCore">
+
+        <!-- RAM -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="RAM MODULE"
+            android:textColor="#BD00FF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/ramProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_marginTop="4dp"
+            android:max="100"
+            android:progress="65"
+            android:progressTint="#BD00FF"
+            android:progressBackgroundTint="#33BD00FF" />
+
+        <TextView
+            android:id="@+id/ramText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:gravity="end"
+            android:text="8.2 GB / 12 GB"
+            android:textColor="#80FFFFFF"
+            android:textSize="12sp" />
+
+        <!-- Storage -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="STORAGE ARRAY"
+            android:textColor="#FF006E"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/storageProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_marginTop="4dp"
+            android:max="100"
+            android:progress="42"
+            android:progressTint="#FF006E"
+            android:progressBackgroundTint="#33FF006E" />
+
+        <TextView
+            android:id="@+id/storageText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:gravity="end"
+            android:text="128 GB / 256 GB"
+            android:textColor="#80FFFFFF"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+
+    <!-- Quick Shortcuts Grid -->
+    <GridLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="48dp"
+        android:columnCount="2"
+        android:rowCount="2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/vitalsContainer">
+
+        <!-- Wifi Toggle -->
+        <LinearLayout
+            android:id="@+id/btnWifi"
+            android:layout_width="140dp"
+            android:layout_height="80dp"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_glass_rounded"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_category_internet"
+                app:tint="#00F0FF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="NETWORK"
+                android:textColor="#CCFFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Settings Toggle -->
+        <LinearLayout
+            android:id="@+id/btnDoNotDisturb"
+            android:layout_width="140dp"
+            android:layout_height="80dp"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_glass_rounded"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_category_settings"
+                app:tint="#BD00FF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="SYSTEM"
+                android:textColor="#CCFFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+    </GridLayout>
+
+    <!-- Close Handle -->
+    <View
+        android:id="@+id/dragHandle"
+        android:layout_width="4dp"
+        android:layout_height="100dp"
+        android:layout_marginEnd="4dp"
+        android:background="#40FFFFFF"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
