@@ -109,86 +109,75 @@ class FlowerGridView @JvmOverloads constructor(
         
         if (apps.isEmpty()) return
         
-        // Ring 0: Center icon (largest)
-        var idx = 0
-        if (idx < apps.size) {
-            val halfIcon = centerIconSize / 2f
-            iconPositions.add(IconPosition(
-                RectF(centerX - halfIcon, centerY - halfIcon, centerX + halfIcon, centerY + halfIcon),
-                centerIconSize,
-                0
-            ))
-            idx++
+        // Define spacing based on icon size
+        val spacing = primaryIconSize * 0.95f // Tighter packing
+        val hSpacing = spacing
+        val vSpacing = spacing * 0.866f // sqrt(3)/2
+        
+        var iter = apps.iterator()
+        
+        // Center icon (0, 0)
+        if (iter.hasNext()) {
+            addIconAt(0f, 0f, centerIconSize, 0)
+            iter.next()
         }
         
-        // Ring 1: 6 icons around center (primary size)
-        val ring1Radius = centerIconSize * 0.55f + primaryIconSize * 0.55f + 8.dpToPx()
-        val ring1Offsets = listOf(0f, 2f, -3f, 1f, -2f, 3f) 
-        for (i in 0 until 6) {
-            if (idx >= apps.size) break
-            val angle = Math.toRadians((60.0 * i) - 90 + ring1Offsets[i])
-            val x = centerX + (ring1Radius * cos(angle)).toFloat()
-            val y = centerY + (ring1Radius * sin(angle)).toFloat()
-            val halfIcon = primaryIconSize / 2f
+        // Generate rings
+        var ring = 1
+        while (iter.hasNext()) {
+            // In a hexagonal grid, ring N has 6*N positions
+            // We start at (0, -ring) or similar and trace the hexagon
             
-            iconPositions.add(IconPosition(
-                RectF(x - halfIcon, y - halfIcon, x + halfIcon, y + halfIcon),
-                primaryIconSize,
-                1
-            ))
-            idx++
-        }
-        
-        // Ring 2: 12 icons in outer ring (secondary size)
-        val ring2Radius = ring1Radius + primaryIconSize * 0.55f + secondaryIconSize * 0.55f + 6.dpToPx()
-        for (i in 0 until 12) {
-            if (idx >= apps.size) break
-            val angle = Math.toRadians((30.0 * i) - 90) // 30 degree intervals
-            val x = centerX + (ring2Radius * cos(angle)).toFloat()
-            val y = centerY + (ring2Radius * sin(angle)).toFloat()
-            val halfIcon = secondaryIconSize / 2f
+            // Start walking the hexagonal perimeter from the top
+            for (side in 0 until 6) {
+                for (step in 0 until ring) {
+                    if (!iter.hasNext()) break
+                    
+                    // Angle for "side" start and end
+                    // Start is -90 (Top), then +60 degrees per side
+                    val angle1Deg = -90.0 + 60 * side
+                    val angle2Deg = -90.0 + 60 * (side + 1)
+                    
+                    val angle1 = Math.toRadians(angle1Deg)
+                    val angle2 = Math.toRadians(angle2Deg)
+                    
+                    // Corner positions (radius = circumradius = ring * spacing)
+                    // In a hexagonal grid, the distance from center to ring corner is essentially linear
+                    val cornerRadius = ring * spacing
+                    
+                    val x1 = (cornerRadius * cos(angle1)).toFloat()
+                    val y1 = (cornerRadius * sin(angle1)).toFloat()
+                    
+                    val x2 = (cornerRadius * cos(angle2)).toFloat()
+                    val y2 = (cornerRadius * sin(angle2)).toFloat()
+                    
+                    // Interpolate between corners
+                    val fraction = step.toFloat() / ring.toFloat()
+                    val px = x1 + (x2 - x1) * fraction
+                    val py = y1 + (y2 - y1) * fraction
+                    
+                    // Use larger icons for inner rings
+                    val size = if (ring <= 1) primaryIconSize else 
+                               if (ring == 2) secondaryIconSize else tertiaryIconSize
+                    
+                    addIconAt(px, py, size, ring)
+                    iter.next()
+                }
+                if (!iter.hasNext()) break
+            }
             
-            iconPositions.add(IconPosition(
-                RectF(x - halfIcon, y - halfIcon, x + halfIcon, y + halfIcon),
-                secondaryIconSize,
-                2
-            ))
-            idx++
+            ring++
         }
-        
-        // Ring 3: 18 icons in outermost ring (tertiary size)
-        val ring3Radius = ring2Radius + secondaryIconSize * 0.55f + tertiaryIconSize * 0.55f + 4.dpToPx()
-        for (i in 0 until 18) {
-            if (idx >= apps.size) break
-            val angle = Math.toRadians((20.0 * i) - 90) // 20 degree intervals (360/18)
-            val x = centerX + (ring3Radius * cos(angle)).toFloat()
-            val y = centerY + (ring3Radius * sin(angle)).toFloat()
-            val halfIcon = tertiaryIconSize / 2f
-            
-            iconPositions.add(IconPosition(
-                RectF(x - halfIcon, y - halfIcon, x + halfIcon, y + halfIcon),
-                tertiaryIconSize,
-                3
-            ))
-            idx++
-        }
-        
-        // Ring 4: 24 icons (outermost)
-        val ring4Radius = ring3Radius + tertiaryIconSize + 4.dpToPx()
-        for (i in 0 until 24) {
-            if (idx >= apps.size) break
-            val angle = Math.toRadians((15.0 * i) - 90) // 15 degree intervals (360/24)
-            val x = centerX + (ring4Radius * cos(angle)).toFloat()
-            val y = centerY + (ring4Radius * sin(angle)).toFloat()
-            val halfIcon = tertiaryIconSize / 2f
-            
-            iconPositions.add(IconPosition(
-                RectF(x - halfIcon, y - halfIcon, x + halfIcon, y + halfIcon),
-                tertiaryIconSize,
-                4
-            ))
-            idx++
-        }
+    }
+    
+    private fun addIconAt(relX: Float, relY: Float, size: Float, ring: Int) {
+        val halfSize = size / 2f
+        iconPositions.add(IconPosition(
+            RectF(centerX + relX - halfSize, centerY + relY - halfSize, 
+                  centerX + relX + halfSize, centerY + relY + halfSize),
+            size,
+            ring
+        ))
     }
     
     override fun onDraw(canvas: Canvas) {
