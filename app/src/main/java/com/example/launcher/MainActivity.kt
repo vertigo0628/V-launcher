@@ -51,8 +51,7 @@ class MainActivity : AppCompatActivity() {
     private var isHubOpen = false
     
     // UI Components
-    private lateinit var clockWidget: TextView
-    private lateinit var dateWidget: TextView
+    private lateinit var clockWidget: com.example.launcher.ui.CyberClockView
     private lateinit var alarmWidget: TextView
     private lateinit var alarmContainer: View
     private lateinit var searchBar: EditText
@@ -173,7 +172,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun initializeViews() {
         clockWidget = findViewById(R.id.clockWidget)
-        dateWidget = findViewById(R.id.dateWidget)
         alarmWidget = findViewById(R.id.alarmWidget)
         alarmContainer = findViewById(R.id.alarmContainer)
         searchBar = findViewById(R.id.searchBar)
@@ -304,7 +302,7 @@ class MainActivity : AppCompatActivity() {
             .start()
             
         // Parallax & Fade Home Content
-        val homeViews = listOf(flowerGridContainer, dockContainer, searchBar, clockWidget, dateWidget, widgetContainer)
+        val homeViews = listOf(flowerGridContainer, dockContainer, searchBar, clockWidget, widgetContainer)
         homeViews.forEach { view ->
             view.animate()
                 .translationX(200f) // Parallax shift
@@ -332,7 +330,7 @@ class MainActivity : AppCompatActivity() {
             .start()
             
         // Restore Home Content
-        val homeViews = listOf(flowerGridContainer, dockContainer, searchBar, clockWidget, dateWidget, widgetContainer)
+        val homeViews = listOf(flowerGridContainer, dockContainer, searchBar, clockWidget, widgetContainer)
         homeViews.forEach { view ->
             view.animate()
                 .translationX(0f)
@@ -420,8 +418,8 @@ class MainActivity : AppCompatActivity() {
     
     private fun applyTheme(theme: ThemeEngine.AmbientTheme) {
         // Apply text colors
-        clockWidget.setTextColor(theme.textColor)
-        dateWidget.setTextColor(theme.textColor)
+        clockWidget.setColors(theme.textColor, theme.primary, theme.secondary)
+        // dateWidget.setTextColor(theme.textColor) // Removed
         searchBar.setHintTextColor(if (theme.isDark) 0x80FFFFFF.toInt() else 0x80000000.toInt())
         searchBar.setTextColor(theme.textColor)
         
@@ -870,15 +868,14 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateClockAndDate() {
-        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
-        val now = Date()
+        // CyberClockView handles formatting internally
+        clockWidget.setTime(System.currentTimeMillis())
         
-        clockWidget.text = timeFormat.format(now)
-        dateWidget.text = dateFormat.format(now)
-        
-        // Update next alarm
-        updateNextAlarm()
+        // Update next alarm less frequently or check roughly
+        // Ideally we shouldn't check alarm manager every second, but for now we'll allow it or debounce
+        if (System.currentTimeMillis() % 60000 < 1000) {
+            updateNextAlarm()
+        }
     }
     
     private fun updateNextAlarm() {
@@ -900,12 +897,12 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun startClockUpdates() {
-        clockHandler.postDelayed(object : Runnable {
+        clockHandler.post(object : Runnable {
             override fun run() {
                 updateClockAndDate()
-                clockHandler.postDelayed(this, 60000) // Update every minute
+                clockHandler.postDelayed(this, 1000) // Update every second for smooth ring
             }
-        }, 60000)
+        })
     }
     
     private fun setupDock() {

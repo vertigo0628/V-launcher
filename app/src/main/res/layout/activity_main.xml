@@ -30,95 +30,47 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <!-- Left: Clock + Date + Alarm -->
+            <!-- Futuristic Clock View -->
+            <com.example.launcher.ui.CyberClockView
+                android:id="@+id/clockWidget"
+                android:layout_width="300dp"
+                android:layout_height="300dp"
+                android:layout_gravity="center_horizontal" />
+
+            <!-- Alarm Info - Centered below clock -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:id="@+id/alarmContainer"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:layout_marginTop="-40dp"
+                android:layout_gravity="center_horizontal"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_glass_search"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp">
+
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_alarm"
+                    android:tint="@color/neon_purple" />
 
                 <TextView
-                    android:id="@+id/clockWidget"
+                    android:id="@+id/alarmWidget"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-light"
-                    android:text="12:00"
-                    android:textColor="@color/neon_cyan"
-                    android:textSize="56sp"
-                    android:shadowColor="@color/glow_cyan_50"
-                    android:shadowDx="0"
-                    android:shadowDy="0"
-                    android:shadowRadius="16" />
-
-                <TextView
-                    android:id="@+id/dateWidget"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:text="Saturday, February 1"
-                    android:textColor="@color/neon_pink"
-                    android:textSize="14sp"
-                    android:shadowColor="@color/glow_pink_30"
-                    android:shadowDx="0"
-                    android:shadowDy="0"
-                    android:shadowRadius="8" />
-
-                <!-- Alarm Info -->
-                <LinearLayout
-                    android:id="@+id/alarmContainer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    
-                    <ImageView
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
-                        android:src="@drawable/ic_alarm"
-                        android:tint="@color/neon_purple" />
-                    
-                    <TextView
-                        android:id="@+id/alarmWidget"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:text="Alarm · 05:30"
-                        android:textColor="@color/neon_purple"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
+                    android:layout_marginStart="8dp"
+                    android:text="Alarm · 07:00"
+                    android:textColor="@color/neon_purple"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium" />
             </LinearLayout>
-
-            <!-- Right: Weather Info -->
-            <LinearLayout
-                android:id="@+id/weatherContainer"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="end">
-
-                <TextView
-                    android:id="@+id/tempWidget"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="--°"
-                    android:textColor="@color/text_primary"
-                    android:textSize="32sp"
-                    android:fontFamily="sans-serif-light" />
-
-                <TextView
-                    android:id="@+id/weatherDescWidget"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Sunday, February 1"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-
-            </LinearLayout>
-
+            
         </LinearLayout>
+
+            <!-- Weather Info removed for clean centered clock design -->
+
 
         <!-- Fluid Widget Layout (Smart Launcher style) -->
         <com.example.launcher.ui.FluidWidgetLayout
