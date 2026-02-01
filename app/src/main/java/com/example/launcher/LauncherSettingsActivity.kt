@@ -5,7 +5,7 @@ import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import com.example.launcher.utils.ThemeManager
 
-class SettingsActivity : AppCompatActivity() {
+class LauncherSettingsActivity : AppCompatActivity() {
     
     private lateinit var themeManager: ThemeManager
     

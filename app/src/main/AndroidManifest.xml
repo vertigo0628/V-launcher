@@ -72,7 +72,7 @@
         </activity>
         
         <activity
-            android:name=".SettingsActivity"
+            android:name=".LauncherSettingsActivity"
             android:exported="false"
             android:label="Settings" />
         

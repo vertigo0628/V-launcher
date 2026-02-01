@@ -190,7 +190,7 @@ class MainActivity : AppCompatActivity() {
             openNeuralHub()
         }
         dockContainer.findViewById<View>(R.id.btnDockSettings).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+            startActivity(Intent(this, LauncherSettingsActivity::class.java))
         }
         dockContainer.findViewById<View>(R.id.btnDockEdit).setOnClickListener {
             Toast.makeText(this, "Edit Mode Active", Toast.LENGTH_SHORT).show()
@@ -237,7 +237,7 @@ class MainActivity : AppCompatActivity() {
             
             popup.setOnMenuItemClickListener { item ->
                 when (item.title) {
-                    "Settings" -> startActivity(Intent(this, SettingsActivity::class.java))
+                    "Settings" -> startActivity(Intent(this, LauncherSettingsActivity::class.java))
                     "Neural Hub" -> openNeuralHub()
                     "Edit Layout" -> {
                         // Enter edit mode visual cue
@@ -533,7 +533,7 @@ class MainActivity : AppCompatActivity() {
             com.example.launcher.utils.GestureManager.ACTION_OPEN_NOTIFICATIONS -> openNotifications()
             com.example.launcher.utils.GestureManager.ACTION_OPEN_QUICK_SETTINGS -> openQuickSettings()
             com.example.launcher.utils.GestureManager.ACTION_OPEN_SETTINGS -> {
-                startActivity(Intent(this, SettingsActivity::class.java))
+                startActivity(Intent(this, LauncherSettingsActivity::class.java))
             }
             com.example.launcher.utils.GestureManager.ACTION_OPEN_HIDDEN_APPS -> showHiddenApps()
             com.example.launcher.utils.GestureManager.ACTION_TOGGLE_WIDGETS -> toggleWidgetVisibility()

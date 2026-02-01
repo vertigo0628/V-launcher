@@ -47,11 +47,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
     }
 
-    private val wallpaperLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                showWallpaperTargetDialog(uri)
-            }
+    private val wallpaperLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            showWallpaperTargetDialog(uri)
         }
     }
     
@@ -119,9 +117,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     }
 
     private fun openGalleryPicker() {
-        val intent = Intent(Intent.ACTION_GET_CONTENT)
-        intent.type = "image/*"
-        wallpaperLauncher.launch(Intent.createChooser(intent, "Select Picture"))
+        wallpaperLauncher.launch("image/*")
     }
 
     private fun setupWallpaperPreference() {
