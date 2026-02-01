@@ -5,7 +5,7 @@
     android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/dark_bg"
+    android:background="@android:color/transparent"
     tools:context=".MainActivity">
 
     <!-- Wallpaper will show through, this is just fallback -->

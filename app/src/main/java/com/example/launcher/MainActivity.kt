@@ -67,6 +67,9 @@ class MainActivity : AppCompatActivity() {
     private var isDrawerOpen = false
     private val clockHandler = Handler(Looper.getMainLooper())
     
+    private lateinit var themeManager: com.example.launcher.utils.ThemeManager
+    private var lastThemeHash: Int = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -77,6 +80,12 @@ class MainActivity : AppCompatActivity() {
         )
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         
+        // Initialize managers
+        themeManager = com.example.launcher.utils.ThemeManager(this)
+        
+        // Capture initial state
+        lastThemeHash = getCurrentThemeHash()
+
         setContentView(R.layout.activity_main)
         
         // Initialize
@@ -87,6 +96,9 @@ class MainActivity : AppCompatActivity() {
         dockManager = com.example.launcher.utils.DockManager(this)
         systemMonitor = com.example.launcher.utils.SystemMonitor(this)
         
+        // Apply Theme Background
+        applyTheme()
+
         // Extract colors from wallpaper
         extractWallpaperColors()
         
@@ -98,8 +110,40 @@ class MainActivity : AppCompatActivity() {
     
     override fun onResume() {
         super.onResume()
+        
+        // Check if theme or settings changed significantly
+        if (getCurrentThemeHash() != lastThemeHash) {
+            recreate()
+            return
+        }
+        
         // Refresh colors in case wallpaper changed
         extractWallpaperColors()
+    }
+
+    private fun getCurrentThemeHash(): Int {
+        val theme = themeManager.getCurrentTheme()
+        val iconPack = com.example.launcher.utils.IconCustomizer(this).getCurrentIconPack()
+        val iconShape = com.example.launcher.utils.IconCustomizer(this).getIconShape()
+        val gridSize = com.example.launcher.utils.PreferencesManager(this).getGridSize()
+        val amoled = getSharedPreferences("theme_prefs", android.content.Context.MODE_PRIVATE).getBoolean("amoled_mode", false)
+        
+        return "$theme-$iconPack-$iconShape-$gridSize-$amoled".hashCode()
+    }
+
+    private fun applyTheme() {
+        // Apply background color from ThemeManager
+        // If AMOLED mode via VisualSettings is on, force black
+        val prefs = getSharedPreferences("theme_prefs", android.content.Context.MODE_PRIVATE)
+        val amoledMode = prefs.getBoolean("amoled_mode", false)
+        
+        val bgColor = if (amoledMode) {
+            android.graphics.Color.BLACK
+        } else {
+            themeManager.getBackgroundColor()
+        }
+        
+        window.decorView.setBackgroundColor(bgColor)
     }
 
     private fun continueSetup() {
