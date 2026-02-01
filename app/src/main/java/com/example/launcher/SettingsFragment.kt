@@ -50,16 +50,49 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private val wallpaperLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
-                try {
-                    val context = requireContext()
-                    val inputStream = context.contentResolver.openInputStream(uri)
-                    android.app.WallpaperManager.getInstance(context).setStream(inputStream)
-                    Toast.makeText(context, "Wallpaper updated!", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    Toast.makeText(requireContext(), "Failed to set wallpaper: ${e.message}", Toast.LENGTH_SHORT).show()
-                    e.printStackTrace()
+                showWallpaperTargetDialog(uri)
+            }
+        }
+    }
+    
+    private fun showWallpaperTargetDialog(uri: android.net.Uri) {
+        val options = arrayOf("Home Screen", "Lock Screen", "Home & Lock Screens")
+        
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Set Wallpaper")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> setWallpaper(uri, android.app.WallpaperManager.FLAG_SYSTEM)
+                    1 -> setWallpaper(uri, android.app.WallpaperManager.FLAG_LOCK)
+                    2 -> setWallpaper(uri, android.app.WallpaperManager.FLAG_SYSTEM or android.app.WallpaperManager.FLAG_LOCK)
                 }
             }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun setWallpaper(uri: android.net.Uri, flags: Int) {
+        try {
+            val context = requireContext()
+            val inputStream = context.contentResolver.openInputStream(uri)
+            // Use API 24+ method to set with flags
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                android.app.WallpaperManager.getInstance(context).setStream(inputStream, null, true, flags)
+            } else {
+                // Fallback for older devices (sets both usually)
+                android.app.WallpaperManager.getInstance(context).setStream(inputStream)
+            }
+            
+            val message = when (flags) {
+                android.app.WallpaperManager.FLAG_SYSTEM -> "Home screen wallpaper updated"
+                android.app.WallpaperManager.FLAG_LOCK -> "Lock screen wallpaper updated"
+                else -> "Wallpaper updated"
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Failed to set wallpaper: ${e.message}", Toast.LENGTH_SHORT).show()
+            e.printStackTrace()
         }
     }
 
