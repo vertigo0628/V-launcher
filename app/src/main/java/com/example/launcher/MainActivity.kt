@@ -113,6 +113,33 @@ class MainActivity : AppCompatActivity() {
         categoryContainer = findViewById(R.id.categoryContainer)
         widgetContainer = findViewById(R.id.widgetContainer)
         dockContainer = findViewById(R.id.dockContainer)
+
+        // Apply WindowInsets to avoid system bar overlap
+        val rootLayout = findViewById<View>(R.id.rootLayout)
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rootLayout) { view, insets ->
+            val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            
+            // Apply top padding for status bar (Clock container)
+            findViewById<View>(R.id.clockContainer).setPadding(
+                0, systemBars.top, 0, 0
+            )
+            
+            // Apply bottom margin/padding for navigation bar
+            // We apply it to dockContainer's layout params or padding
+            val params = dockContainer.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            params.bottomMargin = systemBars.bottom
+            dockContainer.layoutParams = params
+            
+            // Also update app drawer padding
+            drawerAppGrid.setPadding(
+                drawerAppGrid.paddingLeft,
+                drawerAppGrid.paddingTop,
+                drawerAppGrid.paddingRight,
+                systemBars.bottom + 16.dpToPx() // 16dp extra for aesthetics
+            )
+            
+            insets
+        }
         
         // Create and add FlowerGridView programmatically
         flowerGridView = FlowerGridView(this)
@@ -129,6 +156,10 @@ class MainActivity : AppCompatActivity() {
             openWidgetPicker()
             true
         }
+    }
+    
+    private fun Int.dpToPx(): Int {
+        return (this * resources.displayMetrics.density).toInt()
     }
     
     private fun extractWallpaperColors() {
@@ -740,6 +771,7 @@ class MainActivity : AppCompatActivity() {
     
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        super.onBackPressed()
         if (isDrawerOpen) {
             closeAppDrawer()
         }
