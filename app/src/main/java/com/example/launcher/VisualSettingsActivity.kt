@@ -28,7 +28,17 @@ class VisualSettingsActivity : AppCompatActivity() {
         iconCustomizer = IconCustomizer(this)
         blurManager = BlurManager(this)
         
+    private lateinit var btnChangeWallpaper: Button
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_visual_settings)
+        
+        iconCustomizer = IconCustomizer(this)
+        blurManager = BlurManager(this)
+        
         initViews()
+        setupWallpaperButton()
         setupIconPackSpinner()
         setupShapeSelector()
         setupSeekBars()
@@ -37,6 +47,7 @@ class VisualSettingsActivity : AppCompatActivity() {
     }
     
     private fun initViews() {
+        btnChangeWallpaper = findViewById(R.id.btnChangeWallpaper)
         iconPackSpinner = findViewById(R.id.iconPackSpinner)
         shapeContainer = findViewById(R.id.shapeContainer)
         iconSizeSeekBar = findViewById(R.id.iconSizeSeekBar)
@@ -46,6 +57,22 @@ class VisualSettingsActivity : AppCompatActivity() {
         forceAdaptiveSwitch = findViewById(R.id.forceAdaptiveSwitch)
         amoledSwitch = findViewById(R.id.amoledSwitch)
         previewContainer = findViewById(R.id.previewContainer)
+    }
+    
+    private fun setupWallpaperButton() {
+        btnChangeWallpaper.setOnClickListener {
+            try {
+                // Try to launch specific wallpaper chooser
+                val intent = android.content.Intent(android.content.Intent.ACTION_SET_WALLPAPER)
+                startActivity(intent.createChooser(intent, "Select Wallpaper"))
+            } catch (e: Exception) {
+                // Fallback to generic image picker
+                Toast.makeText(this, "Opening gallery...", Toast.LENGTH_SHORT).show()
+                val intent = android.content.Intent(android.content.Intent.ACTION_PICK)
+                intent.type = "image/*"
+                startActivity(intent)
+            }
+        }
     }
     
     private fun setupIconPackSpinner() {
