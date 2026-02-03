@@ -1,5 +1,4 @@
 package com.example.launcher.compose
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -34,13 +33,20 @@ fun UniversalSearch(
 ) {
     // Focus requester to show keyboard automatically
     val focusRequester = remember { FocusRequester() }
-    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val view = androidx.compose.ui.platform.LocalView.current
     
     // Request focus when composable enters composition
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(300) // Wait for animation/layout to settle
         focusRequester.requestFocus()
-        keyboardController?.show()
+        
+        // Use WindowInsetsControllerCompat for robust keyboard handling
+        val window = (view.context as? android.app.Activity)?.window
+        if (window != null) {
+             androidx.core.view.WindowCompat.getInsetsController(window, view).show(
+                androidx.core.view.WindowInsetsCompat.Type.ime()
+            )
+        }
     }
     
     Box(
