@@ -12,6 +12,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
@@ -23,16 +25,18 @@ import com.example.launcher.model.AppModel
 
 @Composable
 fun UniversalSearch(
+    query: String, // Clean hoisting
+    onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
     onAppClick: (AppModel) -> Unit,
-    filteredApps: List<AppModel>,
-    onQueryChange: (String) -> Unit
+    filteredApps: List<AppModel>
 ) {
-    var query by remember { mutableStateOf("") }
+    // Focus requester to show keyboard automatically
+    val focusRequester = remember { FocusRequester() }
     
-    // Sync local query with parent
-    LaunchedEffect(query) {
-        onQueryChange(query)
+    // Request focus when composable enters composition
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
     }
     
     Box(
@@ -69,10 +73,12 @@ fun UniversalSearch(
                     Spacer(modifier = Modifier.width(12.dp))
                     BasicTextField(
                         value = query,
-                        onValueChange = { query = it },
+                        onValueChange = onQueryChange, // Direct callback
                         textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
                         cursorBrush = SolidColor(Color(0xFF00F0FF)),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(focusRequester), // Attach requester
                         decorationBox = { innerTextField ->
                             if (query.isEmpty()) {
                                 Text("Search apps, web, & more...", color = Color.Gray)

@@ -52,6 +52,7 @@ fun HomeScreen(
     onVoiceClick: () -> Unit,
     showSearch: Boolean,
     onSearchToggle: (Boolean) -> Unit,
+    searchQuery: String,
     filteredApps: List<AppModel>,
     onSearchQuery: (String) -> Unit,
     onSettings: () -> Unit
@@ -178,6 +179,7 @@ fun HomeScreen(
         // Universal Search Overlay
         if (showSearch) {
             UniversalSearch(
+                query = searchQuery,
                 onClose = { onSearchToggle(false) },
                 onAppClick = onAppClick,
                 filteredApps = filteredApps,

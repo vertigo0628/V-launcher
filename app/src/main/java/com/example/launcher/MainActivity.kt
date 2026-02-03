@@ -67,6 +67,7 @@ class MainActivity : AppCompatActivity() {
             val weatherState by viewModel.weatherState.collectAsState()
             val isVoiceListening by viewModel.isVoiceListening.collectAsState()
             val filteredApps by viewModel.filteredApps.collectAsState()
+            val searchQuery by viewModel.searchQuery.collectAsState()
             
             var showSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
             
@@ -88,6 +89,7 @@ class MainActivity : AppCompatActivity() {
                     },
                     showSearch = showSearch,
                     onSearchToggle = { showSearch = it },
+                    searchQuery = searchQuery, // Pass query state
                     filteredApps = filteredApps,
                     onSearchQuery = { viewModel.onSearchQueryChanged(it) },
                     onSettings = { 
