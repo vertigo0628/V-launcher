@@ -44,14 +44,8 @@ class MainActivity : AppCompatActivity() {
             // Neural Hub visibility state
             var showNeuralHub by remember { androidx.compose.runtime.mutableStateOf(false) }
             
-            // Start/stop hub updates based on visibility
-            androidx.compose.runtime.LaunchedEffect(showNeuralHub) {
-                if (showNeuralHub) {
-                    viewModel.startHubUpdates()
-                } else {
-                    viewModel.stopHubUpdates()
-                }
-            }
+            // Updates are now always-on in ViewModel
+
             
             val weatherState by viewModel.weatherState.collectAsState()
             val isVoiceListening by viewModel.isVoiceListening.collectAsState()

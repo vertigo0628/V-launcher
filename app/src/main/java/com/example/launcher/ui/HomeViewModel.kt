@@ -142,10 +142,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun stopHubUpdates() {
-        hubUpdateJob?.cancel()
-        hubUpdateJob = null
-    }
+    // Removed stopHubUpdates since we want it always on
     
     private fun updateHubStats() {
         val battery = systemMonitor.getBatteryInfo()
@@ -267,6 +264,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         
         // Fetch real weather
         fetchWeather()
+        
+        // Start System Monitor (Always On)
+        startHubUpdates()
     }
     
     override fun onCleared() {
