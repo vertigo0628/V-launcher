@@ -263,6 +263,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    // SharedPreferences for settings
+    private val prefs = application.getSharedPreferences("${application.packageName}_preferences", Context.MODE_PRIVATE)
+    
     init {
         // Voice Callback
         voiceManager.onSpeechResult = { text ->
@@ -272,12 +275,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         // Fetch real weather
         fetchWeather()
         
-        // Start System Monitor (Always On)
-        startHubUpdates()
+        // Start System Monitor if enabled
+        if (prefs.getBoolean("neural_hub_enabled", true)) {
+            startHubUpdates()
+        }
         
-        // Start Voice Assistant (Always On - Hands Free)
-        // Note: In real app, check permission!
-        setVoiceListening(true)
+        // Start Voice Assistant if enabled
+        if (prefs.getBoolean("voice_assistant_enabled", true)) {
+            setVoiceListening(true)
+        }
+    }
+    
+    // Public method to reload settings (call from Activity onResume)
+    fun reloadSettings() {
+        // Voice
+        val voiceEnabled = prefs.getBoolean("voice_assistant_enabled", true)
+        setVoiceListening(voiceEnabled)
+        
+        // Neural Hub
+        val hubEnabled = prefs.getBoolean("neural_hub_enabled", true)
+        if (hubEnabled && hubUpdateJob?.isActive != true) {
+            startHubUpdates()
+        } else if (!hubEnabled) {
+            hubUpdateJob?.cancel()
+        }
     }
     
     private fun processVoiceCommand(text: String) {

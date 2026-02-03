@@ -104,6 +104,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         extractWallpaperColors()
+        // Reload settings in case user changed Voice/Hub toggles
+        viewModel.reloadSettings()
     }
     
     private fun applyTheme() {
