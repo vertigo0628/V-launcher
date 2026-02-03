@@ -14,7 +14,7 @@ import com.example.launcher.utils.PreferencesManager
 class SettingsFragment : PreferenceFragmentCompat() {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        preferenceManager.sharedPreferencesName = "launcher_prefs"
+        // Use default SharedPreferences (matches HomeViewModel's PreferenceManager.getDefaultSharedPreferences)
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
         
         setupThemePreference()
