@@ -257,9 +257,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     init {
         // Voice Callback
         voiceManager.onSpeechResult = { text ->
-             // On voice result, we can either set search query or parse command
-             // For now, let's pipe it into search
-             onSearchQueryChanged(text)
+             processVoiceCommand(text)
         }
         
         // Fetch real weather
@@ -273,6 +271,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         setVoiceListening(true)
     }
     
+    private fun processVoiceCommand(text: String) {
+        val command = text.trim().lowercase()
+        
+        // Command: Play Music
+        if (command == "play music" || command == "play some music") {
+            try {
+                val intent = android.content.Intent.makeMainSelectorActivity(
+                    android.content.Intent.ACTION_MAIN,
+                    android.content.Intent.CATEGORY_APP_MUSIC
+                )
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                getApplication<Application>().startActivity(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        } else {
+            // Fallback: Search
+            onSearchQueryChanged(text)
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         voiceManager.destroy()
