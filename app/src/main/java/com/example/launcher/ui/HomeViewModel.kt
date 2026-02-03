@@ -224,6 +224,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    // Public method to refresh weather after permission grant
+    fun refreshWeather() {
+        fetchWeather()
+    }
+    
     // Simple WMO Code interpretation
     private fun interpretWeatherCode(code: Int): String {
         return when (code) {

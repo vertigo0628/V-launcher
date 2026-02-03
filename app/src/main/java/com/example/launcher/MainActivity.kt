@@ -1,15 +1,19 @@
 package com.example.launcher
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import com.example.launcher.compose.HomeScreen
 import com.example.launcher.model.AppModel
@@ -20,6 +24,14 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var viewModel: HomeViewModel
     private lateinit var themeEngine: ThemeEngine
+    
+    // Permission launcher for Location and Mic
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // After permissions granted/denied, refresh weather (it will use location if available)
+        viewModel.refreshWeather()
+    }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +46,9 @@ class MainActivity : AppCompatActivity() {
         // Initialize managers
         themeEngine = ThemeEngine(this)
         viewModel = ViewModelProvider(this)[HomeViewModel::class.java]
+        
+        // Request necessary permissions
+        requestPermissionsIfNeeded()
         
         setContent {
             val flowerApps by viewModel.flowerApps.collectAsState(initial = emptyList())
@@ -125,6 +140,27 @@ class MainActivity : AppCompatActivity() {
             // Can't easily access local showSearch state here without moving it to ViewModel
             // For checking purposes, we rely on standard back stack or let users tap outside to close overlays
             super.onBackPressed()
+        }
+    }
+    
+    private fun requestPermissionsIfNeeded() {
+        val permissionsToRequest = mutableListOf<String>()
+        
+        // Check Location permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        
+        // Check Microphone permission (for Voice Assistant)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+        }
+        
+        if (permissionsToRequest.isNotEmpty()) {
+            permissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
 }
