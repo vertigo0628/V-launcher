@@ -60,29 +60,12 @@ fun HomeScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
-    // Gesture Logic
-    var offsetY by remember { mutableFloatStateOf(0f) }
+    // Gesture Logic Removed: Swipe Up/Down disabled as per request
     
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Transparent) // Show wallpaper
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragEnd = {
-                        if (offsetY < -50f) {
-                            onDrawerToggle(true) // Swipe Up
-                        } else if (offsetY > 50f) {
-                            onSearchToggle(true) // Swipe Down
-                        }
-                        offsetY = 0f
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        offsetY += dragAmount.y
-                    }
-                )
-            }
     ) {
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize()) {
