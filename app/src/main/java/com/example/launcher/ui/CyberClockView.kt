@@ -24,38 +24,37 @@ class CyberClockView @JvmOverloads constructor(
     private var seconds = 0
     private var is24Hour = false
     
-    // Paints
+    // Base colors (will be updated dynamically)
+    private var primaryColor = 0xFF00F0FF.toInt()   // Neon Cyan
+    private var secondaryColor = 0xFFFF006E.toInt() // Neon Pink
+    private var tertiaryColor = 0xFFBD00FF.toInt()  // Neon Purple
+    
+    // Paints - sizes will be set in onSizeChanged
     private val timePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF00F0FF.toInt() // Neon Cyan
-        textSize = 160f
+        color = primaryColor
         textAlign = Paint.Align.CENTER
         style = Paint.Style.FILL
-        setShadowLayer(20f, 0f, 0f, 0xFF00F0FF.toInt())
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
     }
     
     private val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFFF006E.toInt() // Neon Pink
-        textSize = 42f
+        color = secondaryColor
         textAlign = Paint.Align.CENTER
-        letterSpacing = 0.2f
-        setShadowLayer(10f, 0f, 0f, 0xFFFF006E.toInt())
+        letterSpacing = 0.15f
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
     }
     
     // Tech decorations
     private val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 4f
-        color = 0x4D00F0FF.toInt() // Dim Cyan
+        strokeWidth = 3f
+        color = (primaryColor and 0x00FFFFFF) or 0x4D000000
     }
     
     private val secondsPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 8f
         strokeCap = Paint.Cap.ROUND
-        color = 0xFFBD00FF.toInt() // Neon Purple
-        setShadowLayer(15f, 0f, 0f, 0xFFBD00FF.toInt())
+        color = tertiaryColor
     }
     
     private val bgLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -65,10 +64,41 @@ class CyberClockView @JvmOverloads constructor(
 
     private val calendar = Calendar.getInstance()
     private val rectF = RectF()
+    
+    // Cached dimensions
+    private var viewRadius = 0f
+    private var timeTextSize = 0f
+    private var dateTextSize = 0f
 
     init {
-        // Force software layer for shadows if needed, but hardware usually works for simple text/shapes
         setLayerType(LAYER_TYPE_SOFTWARE, null)
+    }
+    
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        
+        // Calculate sizes based on view dimensions
+        val minDimension = w.coerceAtMost(h).toFloat()
+        
+        // Text sizes proportional to view size
+        // Time: ~26% of view width gives good fit inside circle
+        timeTextSize = minDimension * 0.22f
+        dateTextSize = minDimension * 0.06f
+        
+        // Circle radius leaves room for text
+        viewRadius = minDimension / 2.5f
+        
+        // Update paint sizes
+        timePaint.textSize = timeTextSize
+        timePaint.setShadowLayer(timeTextSize * 0.1f, 0f, 0f, primaryColor)
+        
+        datePaint.textSize = dateTextSize
+        datePaint.setShadowLayer(dateTextSize * 0.2f, 0f, 0f, secondaryColor)
+        
+        // Stroke widths proportional to size
+        circlePaint.strokeWidth = minDimension * 0.008f
+        secondsPaint.strokeWidth = minDimension * 0.015f
+        secondsPaint.setShadowLayer(minDimension * 0.03f, 0f, 0f, tertiaryColor)
     }
 
     fun setTime(timestamp: Long) {
@@ -89,18 +119,22 @@ class CyberClockView @JvmOverloads constructor(
         invalidate()
     }
     
-    // Allow updating just color theme
+    // Allow updating colors from theme
     fun setColors(primary: Int, secondary: Int, tertiary: Int) {
+        primaryColor = primary
+        secondaryColor = secondary
+        tertiaryColor = tertiary
+        
         timePaint.color = primary
-        timePaint.setShadowLayer(20f, 0f, 0f, primary)
+        timePaint.setShadowLayer(timeTextSize * 0.1f, 0f, 0f, primary)
         
         datePaint.color = secondary
-        datePaint.setShadowLayer(10f, 0f, 0f, secondary)
+        datePaint.setShadowLayer(dateTextSize * 0.2f, 0f, 0f, secondary)
         
         secondsPaint.color = tertiary
-        secondsPaint.setShadowLayer(15f, 0f, 0f, tertiary)
+        secondsPaint.setShadowLayer(viewRadius * 0.08f, 0f, 0f, tertiary)
         
-        circlePaint.color = (primary and 0x00FFFFFF) or 0x4D000000 // Alpha adjusted
+        circlePaint.color = (primary and 0x00FFFFFF) or 0x4D000000
         
         invalidate()
     }
@@ -110,55 +144,65 @@ class CyberClockView @JvmOverloads constructor(
         
         val cx = width / 2f
         val cy = height / 2f
-        val radius = width.coerceAtMost(height) / 2.2f
         
         // 1. Draw Tech Circle/Ring
-        // Rotate ring slightly based on seconds for dynamic feel? No, keep static base, dynamic arc.
-        
-        // Background Ring
-        canvas.drawCircle(cx, cy, radius, circlePaint)
+        canvas.drawCircle(cx, cy, viewRadius, circlePaint)
         
         // Seconds Arc
-        rectF.set(cx - radius, cy - radius, cx + radius, cy + radius)
-        // -90 to start at top. Sweep is seconds * 6 degrees.
+        rectF.set(cx - viewRadius, cy - viewRadius, cx + viewRadius, cy + viewRadius)
         val sweepAngle = seconds * 6f
         canvas.drawArc(rectF, -90f, sweepAngle, false, secondsPaint)
         
-        // 2. Decorative ticks
+        // 2. Decorative ticks (12 hour marks)
+        val tickLength = viewRadius * 0.08f
         for (i in 0 until 12) {
             val angle = Math.toRadians(i * 30.0 - 90.0)
-            val startX = (cx + (radius - 20) * Math.cos(angle)).toFloat()
-            val startY = (cy + (radius - 20) * Math.sin(angle)).toFloat()
-            val endX = (cx + radius * Math.cos(angle)).toFloat()
-            val endY = (cy + radius * Math.sin(angle)).toFloat()
+            val startX = (cx + (viewRadius - tickLength) * Math.cos(angle)).toFloat()
+            val startY = (cy + (viewRadius - tickLength) * Math.sin(angle)).toFloat()
+            val endX = (cx + viewRadius * Math.cos(angle)).toFloat()
+            val endY = (cy + viewRadius * Math.sin(angle)).toFloat()
             canvas.drawLine(startX, startY, endX, endY, circlePaint)
         }
         
-        // 3. Time Text
-        // Center vertically.
-        // Measure text height to center properly
+        // 3. Time Text (centered vertically with slight offset up)
         val timeMetrics = timePaint.fontMetrics
-        val timeHeight = timeMetrics.descent - timeMetrics.ascent
-        val dateMetrics = datePaint.fontMetrics
+        val timeY = cy - (timeMetrics.ascent + timeMetrics.descent) / 2f - dateTextSize * 0.3f
+        canvas.drawText(timeText, cx, timeY, timePaint)
         
-        // Draw Time roughly in center
-        canvas.drawText(timeText, cx, cy + timeHeight / 4, timePaint)
+        // 4. Date Text (below time, inside circle)
+        val dateY = timeY + timeTextSize * 0.6f
+        canvas.drawText(dateText, cx, dateY, datePaint)
         
-        // 4. Date Text (below time)
-        canvas.drawText(dateText, cx, cy + timeHeight / 2 + 50f, datePaint)
-        
-        // 5. Tech line decoration
-        canvas.drawRect(cx - 100f, cy + timeHeight / 2 + 70f, cx + 100f, cy + timeHeight / 2 + 74f, bgLinePaint)
+        // 5. Decorative line under date
+        val lineY = dateY + dateTextSize * 0.5f
+        val lineWidth = viewRadius * 0.6f
+        canvas.drawRect(cx - lineWidth, lineY, cx + lineWidth, lineY + 2f, bgLinePaint)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        // Enforce a good aspect ratio or minimum size
-        val desiredW = 600
-        val desiredH = 600
+        // Try to be square, respecting constraints
+        val widthMode = MeasureSpec.getMode(widthMeasureSpec)
+        val widthSize = MeasureSpec.getSize(widthMeasureSpec)
+        val heightMode = MeasureSpec.getMode(heightMeasureSpec)
+        val heightSize = MeasureSpec.getSize(heightMeasureSpec)
         
-        val width = resolveSize(desiredW, widthMeasureSpec)
-        val height = resolveSize(desiredH, heightMeasureSpec)
+        // Desired minimum for readability
+        val minSize = (context.resources.displayMetrics.density * 150).toInt()
         
-        setMeasuredDimension(width, height)
+        val width = when (widthMode) {
+            MeasureSpec.EXACTLY -> widthSize
+            MeasureSpec.AT_MOST -> widthSize.coerceAtMost(heightSize.coerceAtLeast(minSize))
+            else -> minSize
+        }
+        
+        val height = when (heightMode) {
+            MeasureSpec.EXACTLY -> heightSize
+            MeasureSpec.AT_MOST -> heightSize.coerceAtMost(widthSize.coerceAtLeast(minSize))
+            else -> minSize
+        }
+        
+        // Keep it square-ish
+        val size = width.coerceAtMost(height)
+        setMeasuredDimension(width, size)
     }
 }
