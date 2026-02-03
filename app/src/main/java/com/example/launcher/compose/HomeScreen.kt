@@ -64,6 +64,7 @@ fun HomeScreen(
     onSearchQuery: (String) -> Unit,
     onAddToGrid: (AppModel) -> Unit,
     onRemoveFromGrid: (AppModel) -> Unit,
+    onHideApp: (AppModel) -> Unit,
     onSettings: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
@@ -81,48 +82,74 @@ fun HomeScreen(
         var actionType by remember { androidx.compose.runtime.mutableStateOf<String?>(null) } // "ADD" or "REMOVE"
 
         if (appPendingAction != null && actionType != null) {
-            AlertDialog(
-                onDismissRequest = { 
-                    appPendingAction = null
-                    actionType = null
-                },
-                title = {
-                    Text(
-                        text = if (actionType == "ADD") "Add to Grid?" else "Remove from Grid?",
-                        color = Color.White
-                    )
-                },
-                text = {
-                    Text(
-                        text = "Do you want to ${if (actionType == "ADD") "add" else "remove"} ${appPendingAction?.label}?",
-                        color = Color.LightGray
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            appPendingAction?.let { app ->
-                                if (actionType == "ADD") onAddToGrid(app) else onRemoveFromGrid(app)
-                            }
-                            appPendingAction = null
-                            actionType = null
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF))
-                    ) {
-                        Text("Confirm", color = Color.Black)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
+            if (actionType == "REMOVE") {
+                AlertDialog(
+                    onDismissRequest = { 
                         appPendingAction = null
                         actionType = null
-                    }) {
-                        Text("Cancel", color = Color.Gray)
-                    }
-                },
-                containerColor = Color(0xFF1E293B),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-            )
+                    },
+                    title = { Text("Remove from Grid?", color = Color.White) },
+                    text = { Text("Remove ${appPendingAction?.label} from the honeycomb grid?", color = Color.LightGray) },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                appPendingAction?.let { onRemoveFromGrid(it) }
+                                appPendingAction = null
+                                actionType = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF))
+                        ) { Text("Remove", color = Color.Black) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            appPendingAction = null
+                            actionType = null
+                        }) { Text("Cancel", color = Color.Gray) }
+                    },
+                    containerColor = Color(0xFF1E293B),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                )
+            } else if (actionType == "DRAWER_OPTIONS") {
+                AlertDialog(
+                    onDismissRequest = { 
+                        appPendingAction = null
+                        actionType = null
+                    },
+                    title = { Text(appPendingAction?.label ?: "Options", color = Color.White) },
+                    text = { Text("Choose an action:", color = Color.LightGray) },
+                    confirmButton = {
+                        Row {
+                            Button(
+                                onClick = {
+                                    appPendingAction?.let { onAddToGrid(it) }
+                                    appPendingAction = null
+                                    actionType = null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF))
+                            ) { Text("Add to Grid", color = Color.Black) }
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            Button(
+                                onClick = {
+                                    appPendingAction?.let { onHideApp(it) }
+                                    appPendingAction = null
+                                    actionType = null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)) // Red
+                            ) { Text("Hide App", color = Color.White) }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            appPendingAction = null
+                            actionType = null
+                        }) { Text("Cancel", color = Color.Gray) }
+                    },
+                    containerColor = Color(0xFF1E293B),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                )
+            }
         }
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -221,7 +248,7 @@ fun HomeScreen(
                 onClose = { onDrawerToggle(false) },
                 onAppLongClick = { app ->
                     appPendingAction = app
-                    actionType = "ADD"
+                    actionType = "DRAWER_OPTIONS"
                 }
             )
         }

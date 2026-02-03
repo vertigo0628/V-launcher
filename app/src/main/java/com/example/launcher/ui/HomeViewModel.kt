@@ -21,12 +21,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = AppRepository(application)
     private val flowerGridManager = com.example.launcher.utils.FlowerGridManager(application)
+    private val preferencesManager = com.example.launcher.utils.PreferencesManager(application)
     
     // Original full list
     private var allApps: List<AppModel> = emptyList()
     
     private val _apps = MutableStateFlow<List<AppModel>>(emptyList())
     val apps: StateFlow<List<AppModel>> = _apps.asStateFlow()
+
+    private val _hiddenAppsList = MutableStateFlow<List<AppModel>>(emptyList())
+    val hiddenAppsList: StateFlow<List<AppModel>> = _hiddenAppsList.asStateFlow()
     
     private val _flowerApps = MutableStateFlow<List<AppModel>>(emptyList())
     val flowerApps: StateFlow<List<AppModel>> = _flowerApps.asStateFlow()
@@ -48,10 +52,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadApps() {
         viewModelScope.launch {
-            allApps = repository.getInstalledApps()
+            val fullList = repository.getInstalledApps()
+            val hiddenSet = preferencesManager.getHiddenApps()
+            
+            // Filter out hidden apps from main list
+            allApps = fullList.filter { !hiddenSet.contains(it.packageName) }
+            
+            // Expose hidden apps separately (for management)
+            val hiddenList = fullList.filter { hiddenSet.contains(it.packageName) }
+            _hiddenAppsList.value = hiddenList
+            
             updateAppList()
             updateFlowerGrid()
         }
+    }
+
+    fun hideApp(app: AppModel) {
+        preferencesManager.hideApp(app.packageName)
+        loadApps() // Reload to refresh lists
+    }
+    
+    fun unhideApp(app: AppModel) {
+        preferencesManager.unhideApp(app.packageName)
+        loadApps()
     }
     
     fun updateFlowerGrid() {
@@ -292,6 +315,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val voiceEnabled = prefs.getBoolean("voice_assistant_enabled", true)
         // Only start if enabled. If disabled, stop.
         setVoiceListening(voiceEnabled)
+        
+        // Refresh App List (in case Hidden Apps changed)
+        loadApps()
         
         // Neural Hub
         val hubEnabled = prefs.getBoolean("neural_hub_enabled", true)

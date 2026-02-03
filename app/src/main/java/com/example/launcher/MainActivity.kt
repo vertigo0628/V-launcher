@@ -94,6 +94,7 @@ class MainActivity : AppCompatActivity() {
                     onSearchQuery = { viewModel.onSearchQueryChanged(it) },
                     onAddToGrid = { app -> viewModel.addToGrid(app) },
                     onRemoveFromGrid = { app -> viewModel.removeFromGrid(app) },
+                    onHideApp = { app -> viewModel.hideApp(app) },
                     onSettings = {  
                         startActivity(Intent(this, LauncherSettingsActivity::class.java))
                     }
