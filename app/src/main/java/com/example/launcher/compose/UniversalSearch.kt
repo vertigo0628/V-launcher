@@ -33,10 +33,13 @@ fun UniversalSearch(
 ) {
     // Focus requester to show keyboard automatically
     val focusRequester = remember { FocusRequester() }
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     
     // Request focus when composable enters composition
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+        kotlinx.coroutines.delay(100) // Slight delay to ensure window focus
+        keyboardController?.show()
     }
     
     Box(

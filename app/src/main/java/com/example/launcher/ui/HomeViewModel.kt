@@ -203,7 +203,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         if (query.isBlank()) {
             _filteredApps.value = emptyList()
         } else {
-            val all = _apps.value
+            // Search across ALL installed apps, not just the current view/category
+            val all = allApps
             _filteredApps.value = all.filter { app ->
                 app.label.contains(query, ignoreCase = true)
             }
