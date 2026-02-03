@@ -92,7 +92,9 @@ class MainActivity : AppCompatActivity() {
                     searchQuery = searchQuery, // Pass query state
                     filteredApps = filteredApps,
                     onSearchQuery = { viewModel.onSearchQueryChanged(it) },
-                    onSettings = { 
+                    onAddToGrid = { app -> viewModel.addToGrid(app) },
+                    onRemoveFromGrid = { app -> viewModel.removeFromGrid(app) },
+                    onSettings = {  
                         startActivity(Intent(this, LauncherSettingsActivity::class.java))
                     }
                 )

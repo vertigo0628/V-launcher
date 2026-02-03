@@ -1,18 +1,25 @@
 package com.example.launcher.compose
 
 import android.content.res.Configuration
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.* // Use wildcard used to simplify or list relevant ones
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -55,6 +62,8 @@ fun HomeScreen(
     searchQuery: String,
     filteredApps: List<AppModel>,
     onSearchQuery: (String) -> Unit,
+    onAddToGrid: (AppModel) -> Unit,
+    onRemoveFromGrid: (AppModel) -> Unit,
     onSettings: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
@@ -67,6 +76,54 @@ fun HomeScreen(
             .fillMaxSize()
             .background(Color.Transparent) // Show wallpaper
     ) {
+        // Mutable Grid State
+        var appPendingAction by remember { androidx.compose.runtime.mutableStateOf<AppModel?>(null) }
+        var actionType by remember { androidx.compose.runtime.mutableStateOf<String?>(null) } // "ADD" or "REMOVE"
+
+        if (appPendingAction != null && actionType != null) {
+            AlertDialog(
+                onDismissRequest = { 
+                    appPendingAction = null
+                    actionType = null
+                },
+                title = {
+                    Text(
+                        text = if (actionType == "ADD") "Add to Grid?" else "Remove from Grid?",
+                        color = Color.White
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Do you want to ${if (actionType == "ADD") "add" else "remove"} ${appPendingAction?.label}?",
+                        color = Color.LightGray
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            appPendingAction?.let { app ->
+                                if (actionType == "ADD") onAddToGrid(app) else onRemoveFromGrid(app)
+                            }
+                            appPendingAction = null
+                            actionType = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF))
+                    ) {
+                        Text("Confirm", color = Color.Black)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        appPendingAction = null
+                        actionType = null
+                    }) {
+                        Text("Cancel", color = Color.Gray)
+                    }
+                },
+                containerColor = Color(0xFF1E293B),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+            )
+        }
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize()) {
                 // Left Panel: Clock and Date
@@ -91,7 +148,14 @@ fun HomeScreen(
                         .fillMaxHeight(),
                     contentAlignment = Alignment.Center
                 ) {
-                    FlowerGrid(apps = flowerApps, onAppClick = onAppClick)
+                    FlowerGrid(
+                        apps = flowerApps,
+                        onAppClick = onAppClick,
+                        onAppLongClick = { app ->
+                            appPendingAction = app
+                            actionType = "REMOVE"
+                        }
+                    )
                 }
             }
         } else {
@@ -124,7 +188,14 @@ fun HomeScreen(
                         .height(380.dp), // Fixed height area for grid
                     contentAlignment = Alignment.Center
                 ) {
-                    FlowerGrid(apps = flowerApps, onAppClick = onAppClick)
+                    FlowerGrid(
+                        apps = flowerApps,
+                        onAppClick = onAppClick,
+                        onAppLongClick = { app ->
+                            appPendingAction = app
+                            actionType = "REMOVE"
+                        }
+                    )
                 }
                 
                 Spacer(modifier = Modifier.weight(1f))
@@ -147,7 +218,11 @@ fun HomeScreen(
             AppDrawer(
                 apps = allApps,
                 onAppClick = onAppClick,
-                onClose = { onDrawerToggle(false) }
+                onClose = { onDrawerToggle(false) },
+                onAppLongClick = { app ->
+                    appPendingAction = app
+                    actionType = "ADD"
+                }
             )
         }
         
@@ -190,13 +265,14 @@ fun ClockWidget(modifier: Modifier = Modifier) {
 @Composable
 fun FlowerGrid(
     apps: List<AppModel>,
-    onAppClick: (AppModel) -> Unit
+    onAppClick: (AppModel) -> Unit,
+    onAppLongClick: (AppModel) -> Unit
 ) {
     // Custom Layout for Hex Grid logic ported from FlowerGridView.kt
     Layout(
         content = {
             apps.take(37).forEach { app ->
-                AppIcon(app, onAppClick)
+                AppIcon(app, onAppClick, onAppLongClick)
             }
         }
     ) { measurables, constraints ->
@@ -265,14 +341,22 @@ fun FlowerGrid(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun AppIcon(app: AppModel, onClick: (AppModel) -> Unit) {
+fun AppIcon(
+    app: AppModel,
+    onClick: (AppModel) -> Unit,
+    onLongClick: (AppModel) -> Unit
+) {
     Box(
         modifier = Modifier
             .size(64.dp)
             .clip(CircleShape)
             .background(Color(0x3300F0FF))
-            .clickable { onClick(app) },
+            .combinedClickable(
+                onClick = { onClick(app) },
+                onLongClick = { onLongClick(app) }
+            ),
         contentAlignment = Alignment.Center
     ) {
         AndroidView(
@@ -361,11 +445,13 @@ fun DockItem(iconRes: Int, onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppDrawer(
     apps: List<AppModel>,
     onAppClick: (AppModel) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onAppLongClick: (AppModel) -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -404,7 +490,10 @@ fun AppDrawer(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .padding(8.dp)
-                            .clickable { onAppClick(app) }
+                            .combinedClickable(
+                                onClick = { onAppClick(app) },
+                                onLongClick = { onAppLongClick(app) }
+                            )
                     ) {
                         AndroidView(
                             factory = { ctx ->
