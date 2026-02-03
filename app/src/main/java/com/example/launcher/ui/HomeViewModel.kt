@@ -263,8 +263,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    // SharedPreferences for settings
-    private val prefs = application.getSharedPreferences("${application.packageName}_preferences", Context.MODE_PRIVATE)
+    // SharedPreferences for settings - must use default prefs to match PreferenceFragmentCompat
+    private val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(application)
     
     init {
         // Voice Callback
