@@ -16,6 +16,9 @@ class VoiceManager(context: Context) {
     
     private val speechRecognizer: SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
     
+    // Track intent separately from actual state
+    private var shouldBeListening = false
+    
     private val _isListening = MutableStateFlow(false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
     
@@ -25,25 +28,31 @@ class VoiceManager(context: Context) {
     // Callback for ViewModel to handle end of speech
     var onSpeechResult: ((String) -> Unit)? = null
     
+    // Handler for restarting
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    
     init {
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {
-                Log.d("VoiceManager", "Ready for speech")
-            }
+            override fun onReadyForSpeech(params: Bundle?) {}
+            
             override fun onBeginningOfSpeech() {
-                Log.d("VoiceManager", "Speech started")
                 _isListening.value = true
             }
+            
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
+            
             override fun onEndOfSpeech() {
-                Log.d("VoiceManager", "Speech ended")
                 _isListening.value = false
+                restartListeningIfNeeded()
             }
+            
             override fun onError(error: Int) {
-                Log.e("VoiceManager", "Speech error: $error")
                 _isListening.value = false
+                Log.e("VoiceManager", "Speech error: $error")
+                restartListeningIfNeeded()
             }
+            
             override fun onResults(results: Bundle?) {
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (!matches.isNullOrEmpty()) {
@@ -51,13 +60,30 @@ class VoiceManager(context: Context) {
                     _spokenText.value = text
                     onSpeechResult?.invoke(text)
                 }
+                // Restart happens in onEndOfSpeech usually, but just in case
+                restartListeningIfNeeded()
             }
+            
             override fun onPartialResults(partialResults: Bundle?) {}
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
     }
     
+    private fun restartListeningIfNeeded() {
+        if (shouldBeListening) {
+            // Tiny delay to prevent tight loop crash
+            handler.postDelayed({
+                startListeningInternal()
+            }, 100)
+        }
+    }
+    
     fun startListening() {
+        shouldBeListening = true
+        startListeningInternal()
+    }
+    
+    private fun startListeningInternal() {
         if (_isListening.value) return
         
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -67,19 +93,21 @@ class VoiceManager(context: Context) {
         
         try {
             speechRecognizer.startListening(intent)
-            _isListening.value = true
         } catch (e: Exception) {
             Log.e("VoiceManager", "Start listening failed", e)
             _isListening.value = false
+            restartListeningIfNeeded()
         }
     }
     
     fun stopListening() {
+        shouldBeListening = false
         speechRecognizer.stopListening()
         _isListening.value = false
     }
     
     fun destroy() {
+        shouldBeListening = false
         speechRecognizer.destroy()
     }
 }

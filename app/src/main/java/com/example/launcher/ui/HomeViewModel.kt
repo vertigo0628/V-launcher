@@ -267,6 +267,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         
         // Start System Monitor (Always On)
         startHubUpdates()
+        
+        // Start Voice Assistant (Always On - Hands Free)
+        // Note: In real app, check permission!
+        setVoiceListening(true)
     }
     
     override fun onCleared() {
