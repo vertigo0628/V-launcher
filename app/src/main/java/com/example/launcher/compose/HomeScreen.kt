@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -302,17 +303,28 @@ fun SearchBar(onSearchClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
-            .padding(horizontal = 24.dp, vertical = 8.dp)
+            .padding(horizontal = 24.dp, vertical = 8.dp) // Padding first for margins
+            .height(48.dp)
             .background(Color(0x33FFFFFF), CircleShape)
-            .clickable { onSearchClick() },
+            .clickable(onClick = onSearchClick), // Clickable on the entire background area
         contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            text = "Search apps, web, & more...",
-            color = Color.White.copy(alpha = 0.7f),
-            modifier = Modifier.padding(start = 16.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            Icon(
+                painter = painterResource(id = android.R.drawable.ic_menu_search),
+                contentDescription = "Search",
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Search apps, web, & more...",
+                color = Color.White.copy(alpha = 0.7f)
+            )
+        }
     }
 }
 
