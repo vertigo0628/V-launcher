@@ -108,6 +108,12 @@ class MainActivity : AppCompatActivity() {
         viewModel.reloadSettings()
     }
     
+    override fun onPause() {
+        super.onPause()
+        // Stop background resources to save battery
+        viewModel.onActivityPause()
+    }
+    
     private fun applyTheme() {
         val prefs = getSharedPreferences("theme_prefs", android.content.Context.MODE_PRIVATE)
         val amoledMode = prefs.getBoolean("amoled_mode", false)

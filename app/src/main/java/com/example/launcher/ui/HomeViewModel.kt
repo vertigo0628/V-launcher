@@ -290,6 +290,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun reloadSettings() {
         // Voice
         val voiceEnabled = prefs.getBoolean("voice_assistant_enabled", true)
+        // Only start if enabled. If disabled, stop.
         setVoiceListening(voiceEnabled)
         
         // Neural Hub
@@ -299,6 +300,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         } else if (!hubEnabled) {
             hubUpdateJob?.cancel()
         }
+    }
+    
+    // Call from Activity onPause to save battery
+    fun onActivityPause() {
+        // Stop listening (system will kill it anyway if we don't)
+        voiceManager.stopListening()
+        
+        // Stop updating hub stats since they aren't visible
+        hubUpdateJob?.cancel()
     }
     
     private fun processVoiceCommand(text: String) {
