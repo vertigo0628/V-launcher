@@ -9,8 +9,13 @@ import com.example.launcher.model.AppCategory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
+import com.example.launcher.logic.VoiceManager
+import com.example.launcher.data.WeatherRepository
+import android.location.Location
+import android.location.LocationManager
+import android.content.Context
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -164,6 +169,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     
     // Flow Launcher Features State
     
+    // Flow Launcher Features State
+    
+    // Universal Search
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    
+    private val _filteredApps = MutableStateFlow<List<AppModel>>(emptyList())
+    val filteredApps: StateFlow<List<AppModel>> = _filteredApps.asStateFlow()
+    
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+        if (query.isBlank()) {
+            _filteredApps.value = emptyList()
+        } else {
+            val all = _apps.value
+            _filteredApps.value = all.filter { app ->
+                app.label.contains(query, ignoreCase = true)
+            }
+        }
+    }
+    
     // Weather
     data class WeatherState(
         val temp: String = "--°",
@@ -174,18 +200,77 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _weatherState = MutableStateFlow(WeatherState())
     val weatherState: StateFlow<WeatherState> = _weatherState.asStateFlow()
     
+    private val weatherRepository = WeatherRepository()
+    
+    private fun fetchWeather() {
+        viewModelScope.launch {
+            // Check permissions first? For prototype assume granted or use default location (London)
+            // In real app, we would request location updates
+            val lat = 51.5074
+            val long = -0.1278
+            
+            val response = weatherRepository.getCurrentWeather(lat, long)
+            response?.current?.let { current ->
+                val conditionText = interpretWeatherCode(current.weatherCode)
+                val icon = getWeatherIcon(current.weatherCode)
+                
+                _weatherState.value = WeatherState(
+                    temp = "${current.temperature}°",
+                    condition = conditionText,
+                    iconRes = icon
+                )
+            }
+        }
+    }
+    
+    // Simple WMO Code interpretation
+    private fun interpretWeatherCode(code: Int): String {
+        return when (code) {
+            0 -> "Clear Sky"
+            1, 2, 3 -> "Partly Cloudy"
+            45, 48 -> "Foggy"
+            51, 53, 55 -> "Drizzle"
+            61, 63, 65 -> "Rain"
+            71, 73, 75 -> "Snow"
+            95, 96, 99 -> "Thunderstorm"
+            else -> "Unknown"
+        }
+    }
+    
+    private fun getWeatherIcon(code: Int): Int {
+        return when (code) {
+            0 -> android.R.drawable.ic_menu_day
+            1, 2, 3 -> android.R.drawable.ic_menu_sort_by_size // Cloud-like
+            else -> android.R.drawable.ic_menu_report_image // Rain-like
+        }
+    }
+    
     // Voice Assistant
-    private val _isVoiceListening = MutableStateFlow(false)
-    val isVoiceListening: StateFlow<Boolean> = _isVoiceListening.asStateFlow()
+    private val voiceManager = VoiceManager(application)
+    val isVoiceListening: StateFlow<Boolean> = voiceManager.isListening
     
     fun setVoiceListening(listening: Boolean) {
-        _isVoiceListening.value = listening
+        if (listening) {
+            voiceManager.startListening()
+        } else {
+            voiceManager.stopListening()
+        }
     }
     
     init {
-        // Mock Weather Data for prototype
-        viewModelScope.launch {
-            _weatherState.value = WeatherState("72°", "Sunny", android.R.drawable.ic_menu_day)
+        // Voice Callback
+        voiceManager.onSpeechResult = { text ->
+             // On voice result, we can either set search query or parse command
+             // For now, let's pipe it into search
+             onSearchQueryChanged(text)
         }
+        
+        // Fetch real weather
+        fetchWeather()
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        voiceManager.destroy()
     }
 }

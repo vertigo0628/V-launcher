@@ -53,9 +53,9 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             
-            // Flow Launcher States
             val weatherState by viewModel.weatherState.collectAsState()
             val isVoiceListening by viewModel.isVoiceListening.collectAsState()
+            val filteredApps by viewModel.filteredApps.collectAsState()
             
             var showSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
             
@@ -77,6 +77,8 @@ class MainActivity : AppCompatActivity() {
                     },
                     showSearch = showSearch,
                     onSearchToggle = { showSearch = it },
+                    filteredApps = filteredApps,
+                    onSearchQuery = { viewModel.onSearchQueryChanged(it) },
                     onSettings = { 
                         startActivity(Intent(this, LauncherSettingsActivity::class.java))
                     }

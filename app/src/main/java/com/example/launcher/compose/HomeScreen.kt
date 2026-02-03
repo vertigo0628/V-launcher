@@ -49,6 +49,8 @@ fun HomeScreen(
     onVoiceClick: () -> Unit,
     showSearch: Boolean,
     onSearchToggle: (Boolean) -> Unit,
+    filteredApps: List<AppModel>,
+    onSearchQuery: (String) -> Unit,
     onSettings: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
@@ -168,7 +170,9 @@ fun HomeScreen(
         if (showSearch) {
             UniversalSearch(
                 onClose = { onSearchToggle(false) },
-                onAppClick = onAppClick
+                onAppClick = onAppClick,
+                filteredApps = filteredApps,
+                onQueryChange = onSearchQuery
             )
         }
     }

@@ -18,14 +18,22 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.launcher.model.AppModel
 
 @Composable
 fun UniversalSearch(
     onClose: () -> Unit,
-    onAppClick: (AppModel) -> Unit
+    onAppClick: (AppModel) -> Unit,
+    filteredApps: List<AppModel>,
+    onQueryChange: (String) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
+    
+    // Sync local query with parent
+    LaunchedEffect(query) {
+        onQueryChange(query)
+    }
     
     Box(
         modifier = Modifier
@@ -77,7 +85,7 @@ fun UniversalSearch(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Search Results (Mock)
+            // Search Results
             if (query.isNotEmpty()) {
                 LazyColumn(
                     modifier = Modifier
@@ -85,6 +93,7 @@ fun UniversalSearch(
                         .background(Color(0xFF0F172A), RoundedCornerShape(16.dp))
                         .padding(16.dp)
                 ) {
+                    // WEB SUGGESTIONS
                     item {
                         Text(
                             text = "WEB SUGGESTIONS",
@@ -97,7 +106,8 @@ fun UniversalSearch(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 12.dp),
+                                .padding(vertical = 12.dp)
+                                .clickable { /* Open Web */ },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
@@ -113,7 +123,47 @@ fun UniversalSearch(
                                 fontSize = 16.sp
                             )
                         }
-                        if (i < 2) Divider(color = Color(0xFF334155))
+                        Divider(color = Color(0xFF334155))
+                    }
+                    
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                    
+                    // APP RESULTS
+                     if (filteredApps.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "APPS",
+                                color = Color(0xFF00F0FF),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                         items(filteredApps.size) { i ->
+                            val app = filteredApps[i]
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp)
+                                    .clickable { onAppClick(app) },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // App Icon (Using AndroidView for Drawable)
+                                AndroidView(
+                                    factory = { context ->
+                                        android.widget.ImageView(context).apply {
+                                            setImageDrawable(app.icon)
+                                        }
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = app.label,
+                                    color = Color.White,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
                     }
                 }
             }
