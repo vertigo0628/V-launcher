@@ -198,13 +198,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val weatherState: StateFlow<WeatherState> = _weatherState.asStateFlow()
     
     private val weatherRepository = WeatherRepository()
+    private val locationHelper = com.example.launcher.logic.LocationHelper(application)
     
     private fun fetchWeather() {
         viewModelScope.launch {
-            // Check permissions first? For prototype assume granted or use default location (London)
-            // In real app, we would request location updates
-            val lat = 51.5074
-            val long = -0.1278
+            // Try to get real location first
+            val location = locationHelper.getLastKnownLocation() 
+                ?: locationHelper.getCurrentLocation()
+            
+            // Use real location or fallback to London
+            val lat = location?.latitude ?: 51.5074
+            val long = location?.longitude ?: -0.1278
             
             val response = weatherRepository.getCurrentWeather(lat, long)
             response?.current?.let { current ->
