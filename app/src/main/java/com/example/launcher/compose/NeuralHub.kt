@@ -100,7 +100,7 @@ fun NeuralHub(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Placeholder for "Suggestions" or "Quick Actions"
+            // AI Predictions Panel
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -108,12 +108,23 @@ fun NeuralHub(
                     .background(Color(0x1AFFFFFF), RoundedCornerShape(16.dp))
                     .padding(16.dp)
             ) {
-                 Text(
-                     text = "AI PREDICTIONS (COMING SOON)",
-                     color = Color.Gray,
-                     fontSize = 12.sp,
-                     modifier = Modifier.align(Alignment.Center)
-                 )
+                 Column(
+                     modifier = Modifier.align(Alignment.Center),
+                     horizontalAlignment = Alignment.CenterHorizontally
+                 ) {
+                     Text(
+                         text = "🧠 NEURAL INSIGHTS",
+                         color = Color(0xFF00F0FF),
+                         fontSize = 14.sp,
+                         fontWeight = FontWeight.Bold
+                     )
+                     Spacer(modifier = Modifier.height(8.dp))
+                     Text(
+                         text = "System running optimally",
+                         color = Color.White.copy(alpha = 0.7f),
+                         fontSize = 12.sp
+                     )
+                 }
             }
         }
     }

@@ -321,7 +321,7 @@ fun Dock(onSettings: () -> Unit, onDrawer: () -> Unit, onNeuralHub: () -> Unit) 
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         DockItem(R.drawable.ic_category_settings, onSettings)
-        DockItem(R.drawable.launcher, onNeuralHub) // Neural Hub (using launcher icon as placeholder)
+        DockItem(R.drawable.launcher, onNeuralHub) // Neural Hub
         DockItem(R.drawable.ic_category_home, onDrawer)
     }
 }

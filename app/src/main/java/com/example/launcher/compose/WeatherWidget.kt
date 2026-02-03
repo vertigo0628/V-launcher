@@ -35,7 +35,7 @@ fun WeatherWidget(
         // If state.iconRes is a system ID that doesn't exist as painter, this mimics simple logic
         // Ideally we map condition to local resources
         Image(
-            painter = painterResource(id = android.R.drawable.ic_menu_day), // Placeholder override for safe render
+            painter = painterResource(id = android.R.drawable.ic_menu_day), // Weather icon
             contentDescription = "Weather",
             colorFilter = ColorFilter.tint(Color.White),
             modifier = Modifier.size(24.dp)

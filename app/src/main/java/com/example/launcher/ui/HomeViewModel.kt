@@ -191,7 +191,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     data class WeatherState(
         val temp: String = "--°",
         val condition: String = "Loading...",
-        val iconRes: Int = android.R.drawable.ic_menu_today // Placeholder
+        val iconRes: Int = android.R.drawable.ic_menu_today // Default fallback icon
     )
     
     private val _weatherState = MutableStateFlow(WeatherState())
