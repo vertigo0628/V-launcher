@@ -93,37 +93,96 @@ fun UniversalSearch(
                         .background(Color(0xFF0F172A), RoundedCornerShape(16.dp))
                         .padding(16.dp)
                 ) {
-                    // WEB SUGGESTIONS
-                    item {
-                        Text(
-                            text = "WEB SUGGESTIONS",
-                            color = Color(0xFF00F0FF),
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
-                    items(3) { i ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp)
-                                .clickable { /* Open Web */ },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                painter = painterResource(id = android.R.drawable.ic_menu_search),
-                                contentDescription = null,
-                                tint = Color.Gray,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
+                    // ASST. AGENT ACTIONS
+                    if (query.isNotEmpty()) {
+                        item {
                             Text(
-                                text = "$query suggestion $i",
-                                color = Color.White,
-                                fontSize = 16.sp
+                                text = "WEB AGENTS",
+                                color = Color(0xFF00F0FF),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
-                        Divider(color = Color(0xFF334155))
+                        
+                        // Search Google
+                        item {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp)
+                                    .clickable { 
+                                        val intent = android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            android.net.Uri.parse("https://www.google.com/search?q=$query")
+                                        )
+                                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(intent)
+                                    },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = android.R.drawable.ic_menu_search),
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = "Search Google",
+                                        color = Color.White,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = "Browser Search: \"$query\"",
+                                        color = Color.Gray,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                            Divider(color = Color(0xFF334155))
+                        }
+
+                        // Search YouTube
+                        item {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp)
+                                    .clickable { 
+                                        val intent = android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            android.net.Uri.parse("https://www.youtube.com/results?search_query=$query")
+                                        )
+                                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(intent)
+                                    },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = android.R.drawable.ic_media_play),
+                                    contentDescription = null,
+                                    tint = Color(0xFFFF0000), // YouTube Red
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = "Watch on YouTube",
+                                        color = Color.White,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = "Video Search: \"$query\"",
+                                        color = Color.Gray,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                            Divider(color = Color(0xFF334155))
+                        }
                     }
                     
                     item { Spacer(modifier = Modifier.height(16.dp)) }
