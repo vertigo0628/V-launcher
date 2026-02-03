@@ -14,6 +14,13 @@ import java.util.Locale
 
 class VoiceManager(context: Context) {
     
+    companion object {
+        private const val TAG = "VoiceManager"
+        private const val BASE_DELAY_MS = 1000L       // Start with 1 second
+        private const val MAX_DELAY_MS = 30000L       // Cap at 30 seconds
+        private const val MAX_CONSECUTIVE_ERRORS = 5  // Stop after 5 consecutive errors
+    }
+    
     private val speechRecognizer: SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
     
     // Track intent separately from actual state
@@ -28,12 +35,21 @@ class VoiceManager(context: Context) {
     // Callback for ViewModel to handle end of speech
     var onSpeechResult: ((String) -> Unit)? = null
     
+    // Error tracking for backoff
+    private var consecutiveErrors = 0
+    private var currentDelayMs = BASE_DELAY_MS
+    
     // Handler for restarting
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var restartRunnable: Runnable? = null
     
     init {
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onReadyForSpeech(params: Bundle?) {
+                // Reset error count on successful ready
+                consecutiveErrors = 0
+                currentDelayMs = BASE_DELAY_MS
+            }
             
             override fun onBeginningOfSpeech() {
                 _isListening.value = true
@@ -44,13 +60,46 @@ class VoiceManager(context: Context) {
             
             override fun onEndOfSpeech() {
                 _isListening.value = false
-                restartListeningIfNeeded()
+                // Normal end, restart with short delay
+                scheduleRestart(500)
             }
             
             override fun onError(error: Int) {
                 _isListening.value = false
-                Log.e("VoiceManager", "Speech error: $error")
-                restartListeningIfNeeded()
+                val errorName = getErrorName(error)
+                Log.w(TAG, "Speech error: $error ($errorName)")
+                
+                when (error) {
+                    SpeechRecognizer.ERROR_NO_MATCH,
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
+                        // Normal "no speech detected" - restart with short delay
+                        scheduleRestart(500)
+                    }
+                    
+                    SpeechRecognizer.ERROR_CLIENT,
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
+                        // Client error or busy - use exponential backoff
+                        handleRetryWithBackoff()
+                    }
+                    
+                    SpeechRecognizer.ERROR_NETWORK,
+                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> {
+                        // Network issue - longer delay
+                        scheduleRestart(5000)
+                    }
+                    
+                    SpeechRecognizer.ERROR_AUDIO,
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
+                        // Critical error - stop trying
+                        Log.e(TAG, "Critical speech error, stopping: $errorName")
+                        shouldBeListening = false
+                    }
+                    
+                    else -> {
+                        // Unknown error - use backoff
+                        handleRetryWithBackoff()
+                    }
+                }
             }
             
             override fun onResults(results: Bundle?) {
@@ -60,8 +109,7 @@ class VoiceManager(context: Context) {
                     _spokenText.value = text
                     onSpeechResult?.invoke(text)
                 }
-                // Restart happens in onEndOfSpeech usually, but just in case
-                restartListeningIfNeeded()
+                // onEndOfSpeech handles restart
             }
             
             override fun onPartialResults(partialResults: Bundle?) {}
@@ -69,21 +117,55 @@ class VoiceManager(context: Context) {
         })
     }
     
-    private fun restartListeningIfNeeded() {
-        if (shouldBeListening) {
-            // Tiny delay to prevent tight loop crash
-            handler.postDelayed({
-                startListeningInternal()
-            }, 100)
+    private fun handleRetryWithBackoff() {
+        consecutiveErrors++
+        
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            Log.e(TAG, "Too many consecutive errors ($consecutiveErrors), pausing for $MAX_DELAY_MS ms")
+            currentDelayMs = MAX_DELAY_MS
+            consecutiveErrors = 0 // Reset for next cycle
+        } else {
+            // Exponential backoff: 1s, 2s, 4s, 8s...
+            currentDelayMs = (currentDelayMs * 2).coerceAtMost(MAX_DELAY_MS)
         }
+        
+        scheduleRestart(currentDelayMs)
+    }
+    
+    private fun scheduleRestart(delayMs: Long) {
+        if (!shouldBeListening) return
+        
+        // Cancel any pending restart
+        restartRunnable?.let { handler.removeCallbacks(it) }
+        
+        restartRunnable = Runnable {
+            startListeningInternal()
+        }
+        handler.postDelayed(restartRunnable!!, delayMs)
+    }
+    
+    private fun getErrorName(error: Int): String = when (error) {
+        SpeechRecognizer.ERROR_AUDIO -> "ERROR_AUDIO"
+        SpeechRecognizer.ERROR_CLIENT -> "ERROR_CLIENT"
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "ERROR_INSUFFICIENT_PERMISSIONS"
+        SpeechRecognizer.ERROR_NETWORK -> "ERROR_NETWORK"
+        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "ERROR_NETWORK_TIMEOUT"
+        SpeechRecognizer.ERROR_NO_MATCH -> "ERROR_NO_MATCH"
+        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "ERROR_RECOGNIZER_BUSY"
+        SpeechRecognizer.ERROR_SERVER -> "ERROR_SERVER"
+        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "ERROR_SPEECH_TIMEOUT"
+        else -> "UNKNOWN($error)"
     }
     
     fun startListening() {
         shouldBeListening = true
+        consecutiveErrors = 0
+        currentDelayMs = BASE_DELAY_MS
         startListeningInternal()
     }
     
     private fun startListeningInternal() {
+        if (!shouldBeListening) return
         if (_isListening.value) return
         
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -94,20 +176,22 @@ class VoiceManager(context: Context) {
         try {
             speechRecognizer.startListening(intent)
         } catch (e: Exception) {
-            Log.e("VoiceManager", "Start listening failed", e)
+            Log.e(TAG, "Start listening failed", e)
             _isListening.value = false
-            restartListeningIfNeeded()
+            handleRetryWithBackoff()
         }
     }
     
     fun stopListening() {
         shouldBeListening = false
+        restartRunnable?.let { handler.removeCallbacks(it) }
+        restartRunnable = null
         speechRecognizer.stopListening()
         _isListening.value = false
     }
     
     fun destroy() {
-        shouldBeListening = false
+        stopListening()
         speechRecognizer.destroy()
     }
 }
