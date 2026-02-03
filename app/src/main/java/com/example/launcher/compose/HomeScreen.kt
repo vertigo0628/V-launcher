@@ -62,8 +62,9 @@ fun HomeScreen(
     showSearch: Boolean,
     onSearchToggle: (Boolean) -> Unit,
     searchQuery: String,
-    filteredApps: List<AppModel>,
+    searchResults: List<com.example.launcher.utils.SearchManager.SearchResult>,
     onSearchQuery: (String) -> Unit,
+    onSearchResultClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit,
     onAddToGrid: (AppModel) -> Unit,
     onRemoveFromGrid: (AppModel) -> Unit,
     onHideApp: (AppModel) -> Unit,
@@ -279,9 +280,9 @@ fun HomeScreen(
             UniversalSearch(
                 query = searchQuery,
                 onClose = { onSearchToggle(false) },
-                onAppClick = onAppClick,
-                filteredApps = filteredApps,
-                onQueryChange = onSearchQuery
+                searchResults = searchResults,
+                onQueryChange = onSearchQuery,
+                onResultClick = onSearchResultClick
             )
         }
     }

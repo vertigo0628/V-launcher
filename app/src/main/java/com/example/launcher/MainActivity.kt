@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
             
             val weatherState by viewModel.weatherState.collectAsState()
             val isVoiceListening by viewModel.isVoiceListening.collectAsState()
-            val filteredApps by viewModel.filteredApps.collectAsState()
+            val searchResults by viewModel.searchResults.collectAsState()
             val searchQuery by viewModel.searchQuery.collectAsState()
             
             var showSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -90,8 +90,9 @@ class MainActivity : AppCompatActivity() {
                     showSearch = showSearch,
                     onSearchToggle = { showSearch = it },
                     searchQuery = searchQuery, // Pass query state
-                    filteredApps = filteredApps,
+                    searchResults = searchResults,
                     onSearchQuery = { viewModel.onSearchQueryChanged(it) },
+                    onSearchResultClick = { result -> viewModel.performSearchAction(result.action) },
                     onAddToGrid = { app -> viewModel.addToGrid(app) },
                     onRemoveFromGrid = { app -> viewModel.removeFromGrid(app) },
                     onHideApp = { app -> viewModel.hideApp(app) },
@@ -172,6 +173,12 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
             != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+        }
+        
+        // Check Contacts permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
         }
         
         if (permissionsToRequest.isNotEmpty()) {

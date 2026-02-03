@@ -22,14 +22,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.launcher.model.AppModel
+import com.example.launcher.R
 
 @Composable
 fun UniversalSearch(
     query: String, // Clean hoisting
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
-    onAppClick: (AppModel) -> Unit,
-    filteredApps: List<AppModel>
+    searchResults: List<com.example.launcher.utils.SearchManager.SearchResult>,
+    onResultClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit
 ) {
     // Focus requester to show keyboard automatically
     val focusRequester = remember { FocusRequester() }
@@ -102,8 +103,14 @@ fun UniversalSearch(
                         .background(Color(0xFF0F172A), RoundedCornerShape(16.dp))
                         .padding(16.dp)
                 ) {
-                    // ASST. AGENT ACTIONS
-                    if (query.isNotEmpty()) {
+                    // Group results by type
+                    val apps = searchResults.filter { it.type == com.example.launcher.utils.SearchManager.ResultType.APP }
+                    val contacts = searchResults.filter { it.type == com.example.launcher.utils.SearchManager.ResultType.CONTACT }
+                    val web = searchResults.filter { it.type == com.example.launcher.utils.SearchManager.ResultType.WEB_SEARCH }
+                    val settings = searchResults.filter { it.type == com.example.launcher.utils.SearchManager.ResultType.SETTING }
+                    
+                    // Web First
+                    if (web.isNotEmpty()) {
                         item {
                             Text(
                                 text = "WEB AGENTS",
@@ -113,91 +120,49 @@ fun UniversalSearch(
                             )
                         }
                         
-                        // Search Google
-                        item {
-                            val context = androidx.compose.ui.platform.LocalContext.current
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 12.dp)
-                                    .clickable { 
-                                        val intent = android.content.Intent(
-                                            android.content.Intent.ACTION_VIEW,
-                                            android.net.Uri.parse("https://www.google.com/search?q=$query")
-                                        )
-                                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        context.startActivity(intent)
-                                    },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = android.R.drawable.ic_menu_search),
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column {
-                                    Text(
-                                        text = "Search Google",
-                                        color = Color.White,
-                                        fontSize = 16.sp
-                                    )
-                                    Text(
-                                        text = "Browser Search: \"$query\"",
-                                        color = Color.Gray,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                            Divider(color = Color(0xFF334155))
-                        }
-
-                        // Search YouTube
-                        item {
-                            val context = androidx.compose.ui.platform.LocalContext.current
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 12.dp)
-                                    .clickable { 
-                                        val intent = android.content.Intent(
-                                            android.content.Intent.ACTION_VIEW,
-                                            android.net.Uri.parse("https://www.youtube.com/results?search_query=$query")
-                                        )
-                                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        context.startActivity(intent)
-                                    },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = android.R.drawable.ic_media_play),
-                                    contentDescription = null,
-                                    tint = Color(0xFFFF0000), // YouTube Red
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column {
-                                    Text(
-                                        text = "Watch on YouTube",
-                                        color = Color.White,
-                                        fontSize = 16.sp
-                                    )
-                                    Text(
-                                        text = "Video Search: \"$query\"",
-                                        color = Color.Gray,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                            Divider(color = Color(0xFF334155))
-                        }
+                         items(web.size) { i ->
+                             SearchResultItem(web[i], onResultClick)
+                         }
+                         
+                         // Add explicit YouTube button if not present in generic results
+                         // (Just to be sure we have the cool buttons even if SearchManager logic varies)
+                         // But if we already have web results, duplications might occur if SearchManager provides them.
+                         // SearchManager.search() adds "Search 'query'" generic item.
+                         // It doesn't add YouTube by default unless we type "youtube"? No, line 76 in SearchManager just adds generic.
+                         
+                         // Let's add the YouTube shortcut manually here for better UX
+                         item {
+                             val ytResult = com.example.launcher.utils.SearchManager.SearchResult(
+                                 type = com.example.launcher.utils.SearchManager.ResultType.WEB_SEARCH,
+                                 id = "yt_$query",
+                                 title = "Watch on YouTube",
+                                 subtitle = "Video Search: \"$query\"",
+                                 action = com.example.launcher.utils.SearchManager.SearchAction.WebSearch(query, "youtube")
+                             )
+                             SearchResultItem(ytResult, onResultClick, iconOverride = android.R.drawable.ic_media_play, tintOverride = Color.Red)
+                         }
                     }
                     
                     item { Spacer(modifier = Modifier.height(16.dp)) }
                     
-                    // APP RESULTS
-                     if (filteredApps.isNotEmpty()) {
+                    // Contacts
+                    if (contacts.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "CONTACTS",
+                                color = Color(0xFF00F0FF),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                        items(contacts.size) { i ->
+                            SearchResultItem(contacts[i], onResultClick)
+                        }
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
+                    }
+
+                    // Apps
+                    if (apps.isNotEmpty()) {
                         item {
                             Text(
                                 text = "APPS",
@@ -206,35 +171,99 @@ fun UniversalSearch(
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
-                         items(filteredApps.size) { i ->
-                            val app = filteredApps[i]
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 12.dp)
-                                    .clickable { onAppClick(app) },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // App Icon (Using AndroidView for Drawable)
-                                AndroidView(
-                                    factory = { context ->
-                                        android.widget.ImageView(context).apply {
-                                            setImageDrawable(app.icon)
-                                        }
-                                    },
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Text(
-                                    text = app.label,
-                                    color = Color.White,
-                                    fontSize = 16.sp
-                                )
-                            }
+                        items(apps.size) { i ->
+                            SearchResultItem(apps[i], onResultClick)
+                        }
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
+                    }
+                    
+                    // Settings
+                    if (settings.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "SETTINGS",
+                                color = Color(0xFF00F0FF),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                        items(settings.size) { i ->
+                            SearchResultItem(settings[i], onResultClick)
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+fun SearchResultItem(
+    result: com.example.launcher.utils.SearchManager.SearchResult,
+    onClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit,
+    iconOverride: Int? = null,
+    tintOverride: Color? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+            .clickable { onClick(result) },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (result.type == com.example.launcher.utils.SearchManager.ResultType.APP) {
+            // Load App Icon from Package Manager
+             AndroidView(
+                factory = { context ->
+                    android.widget.ImageView(context).apply {
+                        try {
+                            val icon = context.packageManager.getApplicationIcon(result.id)
+                            setImageDrawable(icon)
+                        } catch (e: Exception) {
+                            setImageResource(android.R.drawable.sym_def_app_icon)
+                        }
+                    }
+                },
+                modifier = Modifier.size(32.dp)
+            )
+        } else {
+            // Use generic icon
+            val iconRes = iconOverride ?: when (result.type) {
+                com.example.launcher.utils.SearchManager.ResultType.CONTACT -> android.R.drawable.sym_action_call
+                com.example.launcher.utils.SearchManager.ResultType.WEB_SEARCH -> android.R.drawable.ic_menu_search
+                com.example.launcher.utils.SearchManager.ResultType.SETTING -> R.drawable.ic_category_settings
+                else -> android.R.drawable.ic_menu_help
+            }
+            
+            val tint = tintOverride ?: when(result.type) {
+                com.example.launcher.utils.SearchManager.ResultType.CONTACT -> Color.Green
+                else -> Color.White
+            }
+            
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column {
+            Text(
+                text = result.title,
+                color = Color.White,
+                fontSize = 16.sp
+            )
+            if (!result.subtitle.isNullOrBlank()) {
+                Text(
+                    text = result.subtitle,
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
+        }
+    }
+    androidx.compose.material3.Divider(color = Color(0xFF334155))
 }

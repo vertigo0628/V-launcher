@@ -195,18 +195,60 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     
-    private val _filteredApps = MutableStateFlow<List<AppModel>>(emptyList())
-    val filteredApps: StateFlow<List<AppModel>> = _filteredApps.asStateFlow()
+    private val searchManager = com.example.launcher.utils.SearchManager(application)
+    private val _searchResults = MutableStateFlow<List<com.example.launcher.utils.SearchManager.SearchResult>>(emptyList())
+    val searchResults: StateFlow<List<com.example.launcher.utils.SearchManager.SearchResult>> = _searchResults.asStateFlow()
     
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
-        if (query.isBlank()) {
-            _filteredApps.value = emptyList()
-        } else {
-            // Search across ALL installed apps, not just the current view/category
-            val all = allApps
-            _filteredApps.value = all.filter { app ->
-                app.label.contains(query, ignoreCase = true)
+        viewModelScope.launch {
+            if (query.isBlank()) {
+                _searchResults.value = emptyList()
+            } else {
+                _searchResults.value = searchManager.search(query)
+            }
+        }
+    }
+    
+    fun performSearchAction(action: com.example.launcher.utils.SearchManager.SearchAction) {
+        viewModelScope.launch {
+            try {
+                when (action) {
+                    is com.example.launcher.utils.SearchManager.SearchAction.LaunchApp -> {
+                        val intent = getApplication<Application>().packageManager.getLaunchIntentForPackage(action.packageName)
+                        intent?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        intent?.let { getApplication<Application>().startActivity(it) }
+                    }
+                    is com.example.launcher.utils.SearchManager.SearchAction.WebSearch -> {
+                        val url = searchManager.getSearchUrl(action.query, action.provider)
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        getApplication<Application>().startActivity(intent)
+                    }
+                    is com.example.launcher.utils.SearchManager.SearchAction.CallContact -> {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:${action.phoneNumber}"))
+                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        getApplication<Application>().startActivity(intent)
+                    }
+                    is com.example.launcher.utils.SearchManager.SearchAction.MessageContact -> {
+                         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("sms:${action.phoneNumber}"))
+                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                         getApplication<Application>().startActivity(intent)
+                    }
+                    is com.example.launcher.utils.SearchManager.SearchAction.OpenSetting -> {
+                        val intent = android.content.Intent(action.settingAction)
+                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        getApplication<Application>().startActivity(intent)
+                    }
+                    is com.example.launcher.utils.SearchManager.SearchAction.QuickDial -> {
+                         val intent = android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:${action.number}"))
+                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                         getApplication<Application>().startActivity(intent)
+                    }
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -386,31 +428,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         else if (command.startsWith("search") || command.startsWith("google")) {
             val query = command.removePrefix("search").removePrefix("google").trim()
             if (query.isNotEmpty()) {
-                try {
-                    val intent = android.content.Intent(
-                        android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse("https://www.google.com/search?q=${android.net.Uri.encode(query)}")
-                    )
-                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    getApplication<Application>().startActivity(intent)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                performSearchAction(
+                    com.example.launcher.utils.SearchManager.SearchResult(
+                        type = com.example.launcher.utils.SearchManager.ResultType.WEB_SEARCH,
+                        id = "voice_web",
+                        title = query,
+                        action = com.example.launcher.utils.SearchManager.SearchAction.WebSearch(query, "google")
+                    ).action
+                )
             }
         }
         // Command: Open App
         else if (command.startsWith("open")) {
             val appName = command.removePrefix("open").trim()
             onSearchQueryChanged(appName)
-            // Find and launch the first matching app
-            val matchingApp = _filteredApps.value.firstOrNull()
-            matchingApp?.let { app ->
-                try {
-                    val intent = getApplication<Application>().packageManager.getLaunchIntentForPackage(app.packageName)
-                    intent?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    intent?.let { getApplication<Application>().startActivity(it) }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            
+            viewModelScope.launch {
+                // Find and launch the first matching app
+                val results = searchManager.search(appName)
+                val appResult = results.firstOrNull { it.type == com.example.launcher.utils.SearchManager.ResultType.APP }
+                
+                appResult?.let { 
+                    performSearchAction(it.action)
                 }
             }
         }
