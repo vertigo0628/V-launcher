@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -108,20 +109,23 @@ fun HomeScreen(
                 }
             }
         } else {
-            // Portrait Layout
+            // Portrait Layout - Use WindowInsets for proper system bar handling
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 48.dp), // Status bar padding
+                    .statusBarsPadding() // Proper status bar padding
+                    .navigationBarsPadding(), // Proper navigation bar padding
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Spacer(modifier = Modifier.height(8.dp)) // Extra top breathing room
+                
                 // Top: Clock & Widgets
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    ClockWidget(modifier = Modifier.size(280.dp))
+                    ClockWidget(modifier = Modifier.size(260.dp))
                     WeatherWidget(state = weatherState)
                 }
 
-                Box(modifier = Modifier.padding(vertical = 16.dp)) {
+                Box(modifier = Modifier.padding(vertical = 12.dp)) {
                     VoiceAssistantWidget(isListening = isVoiceListening, onClick = onVoiceClick)
                 }
                 
@@ -131,7 +135,7 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(400.dp), // Fixed height area for grid
+                        .height(380.dp), // Fixed height area for grid
                     contentAlignment = Alignment.Center
                 ) {
                     FlowerGrid(apps = flowerApps, onAppClick = onAppClick)
@@ -305,8 +309,8 @@ fun SearchBar(onSearchClick: () -> Unit) {
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
-            text = "Search apps...",
-            color = Color.White,
+            text = "Search apps, web, & more...",
+            color = Color.White.copy(alpha = 0.7f),
             modifier = Modifier.padding(start = 16.dp)
         )
     }
