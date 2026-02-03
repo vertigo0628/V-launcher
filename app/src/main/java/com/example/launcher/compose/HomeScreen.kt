@@ -166,6 +166,12 @@ fun HomeScreen(
                     WeatherWidget(state = weatherState)
                     Spacer(modifier = Modifier.height(32.dp))
                     VoiceAssistantWidget(isListening = isVoiceListening, onClick = onVoiceClick)
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Dock(
+                        onSettings = onSettings,
+                        onDrawer = { onDrawerToggle(true) },
+                        onNeuralHub = { onNeuralHubToggle(true) }
+                    )
                 }
                 
                 // Right Panel: Flower Grid
