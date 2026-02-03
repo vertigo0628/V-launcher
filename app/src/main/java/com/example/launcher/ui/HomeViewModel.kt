@@ -279,11 +279,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val isVoiceListening: StateFlow<Boolean> = voiceManager.isListening
     
     fun setVoiceListening(listening: Boolean) {
+        // Also update preference to persist state across restarts/lifecycle events
+        prefs.edit().putBoolean("voice_assistant_enabled", listening).apply()
+        
         if (listening) {
             voiceManager.startListening()
         } else {
             voiceManager.stopListening()
         }
+    }
+    
+    fun toggleVoiceEnabled() {
+        // Toggle based on current runtime state or preference
+        val current = isVoiceListening.value
+        setVoiceListening(!current)
     }
     
     // SharedPreferences for settings - must use default prefs to match PreferenceFragmentCompat

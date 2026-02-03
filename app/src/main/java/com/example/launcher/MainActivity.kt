@@ -84,8 +84,8 @@ class MainActivity : AppCompatActivity() {
                     weatherState = weatherState,
                     isVoiceListening = isVoiceListening,
                     onVoiceClick = { 
-                        // Toggle Listening
-                        viewModel.setVoiceListening(!isVoiceListening)
+                        // Toggle Listening Persistence
+                        viewModel.toggleVoiceEnabled()
                     },
                     showSearch = showSearch,
                     onSearchToggle = { showSearch = it },
