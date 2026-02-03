@@ -283,8 +283,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun processVoiceCommand(text: String) {
         val command = text.trim().lowercase()
         
+        // Wake word detection: "SUNDAY"
+        val wakeWord = "sunday"
+        
+        if (command.startsWith(wakeWord)) {
+            // Extract command after wake word
+            val actualCommand = command.removePrefix(wakeWord).trim()
+            
+            if (actualCommand.isEmpty()) {
+                // User just said "SUNDAY" - acknowledge but wait for more
+                return
+            }
+            
+            // Process the actual command
+            executeVoiceCommand(actualCommand)
+        }
+        // If no wake word, ignore the speech (background noise detection)
+    }
+    
+    private fun executeVoiceCommand(command: String) {
         // Command: Play Music
-        if (command == "play music" || command == "play some music") {
+        if (command == "play music" || command == "play some music" || command.contains("play music")) {
             try {
                 val intent = android.content.Intent.makeMainSelectorActivity(
                     android.content.Intent.ACTION_MAIN,
@@ -295,9 +314,42 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-        } else {
-            // Fallback: Search
-            onSearchQueryChanged(text)
+        } 
+        // Command: Search Google
+        else if (command.startsWith("search") || command.startsWith("google")) {
+            val query = command.removePrefix("search").removePrefix("google").trim()
+            if (query.isNotEmpty()) {
+                try {
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://www.google.com/search?q=${android.net.Uri.encode(query)}")
+                    )
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    getApplication<Application>().startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+        // Command: Open App
+        else if (command.startsWith("open")) {
+            val appName = command.removePrefix("open").trim()
+            onSearchQueryChanged(appName)
+            // Find and launch the first matching app
+            val matchingApp = _filteredApps.value.firstOrNull()
+            matchingApp?.let { app ->
+                try {
+                    val intent = getApplication<Application>().packageManager.getLaunchIntentForPackage(app.packageName)
+                    intent?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    intent?.let { getApplication<Application>().startActivity(it) }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+        // Fallback: Update search with the command text
+        else {
+            onSearchQueryChanged(command)
         }
     }
 
