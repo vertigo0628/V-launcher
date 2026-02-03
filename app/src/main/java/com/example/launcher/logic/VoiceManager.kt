@@ -161,12 +161,13 @@ class VoiceManager(context: Context) {
         shouldBeListening = true
         consecutiveErrors = 0
         currentDelayMs = BASE_DELAY_MS
+        _isListening.value = true // Optimistic UI update
         startListeningInternal()
     }
     
     private fun startListeningInternal() {
         if (!shouldBeListening) return
-        if (_isListening.value) return
+        // if (_isListening.value) return // Removed to allow optimistic update flow
         
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
