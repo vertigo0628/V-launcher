@@ -38,8 +38,8 @@ fun UniversalSearch(
     
     // Request focus when composable enters composition
     LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(300) // Wait for animation/layout to settle
         focusRequester.requestFocus()
-        kotlinx.coroutines.delay(100) // Slight delay to ensure window focus
         keyboardController?.show()
     }
     
@@ -48,6 +48,7 @@ fun UniversalSearch(
             .fillMaxSize()
             .background(Color(0xB3000000))
             .clickable { onClose() }
+            .windowInsetsPadding(WindowInsets.ime) // push up for keyboard
             .padding(top = 48.dp),
         contentAlignment = Alignment.TopCenter
     ) {
