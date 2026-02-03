@@ -2,6 +2,7 @@ package com.example.launcher.compose
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -89,7 +90,11 @@ fun UniversalSearch(
                         cursorBrush = SolidColor(Color(0xFF00F0FF)),
                         modifier = Modifier
                             .weight(1f)
-                            .focusRequester(focusRequester), // Attach requester
+                            .focusRequester(focusRequester) // Attach requester
+                            .onGloballyPositioned { 
+                                if (!it.isAttached) return@onGloballyPositioned
+                                focusRequester.requestFocus() 
+                            },
                         decorationBox = { innerTextField ->
                             if (query.isEmpty()) {
                                 Text("Search apps, web, & more...", color = Color.Gray)
