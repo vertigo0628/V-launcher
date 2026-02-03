@@ -161,4 +161,31 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val gb = bytes / (1024.0 * 1024.0 * 1024.0)
         return String.format("%.1f GB", gb)
     }
+    
+    // Flow Launcher Features State
+    
+    // Weather
+    data class WeatherState(
+        val temp: String = "--°",
+        val condition: String = "Loading...",
+        val iconRes: Int = android.R.drawable.ic_menu_today // Placeholder
+    )
+    
+    private val _weatherState = MutableStateFlow(WeatherState())
+    val weatherState: StateFlow<WeatherState> = _weatherState.asStateFlow()
+    
+    // Voice Assistant
+    private val _isVoiceListening = MutableStateFlow(false)
+    val isVoiceListening: StateFlow<Boolean> = _isVoiceListening.asStateFlow()
+    
+    fun setVoiceListening(listening: Boolean) {
+        _isVoiceListening.value = listening
+    }
+    
+    init {
+        // Mock Weather Data for prototype
+        viewModelScope.launch {
+            _weatherState.value = WeatherState("72°", "Sunny", android.R.drawable.ic_menu_day)
+        }
+    }
 }

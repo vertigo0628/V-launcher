@@ -27,6 +27,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.launcher.R
 import com.example.launcher.model.AppModel
 import com.example.launcher.ui.CyberClockView
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -40,15 +44,39 @@ fun HomeScreen(
     neuralHubState: com.example.launcher.ui.HomeViewModel.NeuralHubState,
     showNeuralHub: Boolean,
     onNeuralHubToggle: (Boolean) -> Unit,
+    weatherState: com.example.launcher.ui.HomeViewModel.WeatherState,
+    isVoiceListening: Boolean,
+    onVoiceClick: () -> Unit,
+    showSearch: Boolean,
+    onSearchToggle: (Boolean) -> Unit,
     onSettings: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
+    // Gesture Logic
+    var offsetY by remember { mutableFloatStateOf(0f) }
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Transparent) // Show wallpaper
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd = {
+                        if (offsetY < -50f) {
+                            onDrawerToggle(true) // Swipe Up
+                        } else if (offsetY > 50f) {
+                            onSearchToggle(true) // Swipe Down
+                        }
+                        offsetY = 0f
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        offsetY += dragAmount.y
+                    }
+                )
+            }
     ) {
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -62,6 +90,9 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     ClockWidget(modifier = Modifier.size(200.dp))
+                    WeatherWidget(state = weatherState)
+                    Spacer(modifier = Modifier.height(32.dp))
+                    VoiceAssistantWidget(isListening = isVoiceListening, onClick = onVoiceClick)
                 }
                 
                 // Right Panel: Flower Grid
@@ -82,8 +113,15 @@ fun HomeScreen(
                     .padding(top = 48.dp), // Status bar padding
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top: Clock
-                ClockWidget(modifier = Modifier.size(280.dp))
+                // Top: Clock & Widgets
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    ClockWidget(modifier = Modifier.size(280.dp))
+                    WeatherWidget(state = weatherState)
+                }
+
+                Box(modifier = Modifier.padding(vertical = 16.dp)) {
+                    VoiceAssistantWidget(isListening = isVoiceListening, onClick = onVoiceClick)
+                }
                 
                 Spacer(modifier = Modifier.weight(1f))
                 
@@ -100,7 +138,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.weight(1f))
                 
                 // Bottom: Search & Dock
-                SearchBar(onSearchClick = { onDrawerToggle(true) })
+                SearchBar(onSearchClick = { onSearchToggle(true) })
                 Dock(
                     onSettings = onSettings,
                     onDrawer = { onDrawerToggle(true) },
@@ -123,6 +161,14 @@ fun HomeScreen(
             NeuralHub(
                 state = neuralHubState,
                 onClose = { onNeuralHubToggle(false) }
+            )
+        }
+        
+        // Universal Search Overlay
+        if (showSearch) {
+            UniversalSearch(
+                onClose = { onSearchToggle(false) },
+                onAppClick = onAppClick
             )
         }
     }

@@ -53,6 +53,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             
+            // Flow Launcher States
+            val weatherState by viewModel.weatherState.collectAsState()
+            val isVoiceListening by viewModel.isVoiceListening.collectAsState()
+            
+            var showSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
+            
             MaterialTheme {
                 HomeScreen(
                     flowerApps = flowerApps,
@@ -63,6 +69,14 @@ class MainActivity : AppCompatActivity() {
                     neuralHubState = neuralHubState,
                     showNeuralHub = showNeuralHub,
                     onNeuralHubToggle = { showNeuralHub = it },
+                    weatherState = weatherState,
+                    isVoiceListening = isVoiceListening,
+                    onVoiceClick = { 
+                        // Toggle Listening
+                        viewModel.setVoiceListening(!isVoiceListening)
+                    },
+                    showSearch = showSearch,
+                    onSearchToggle = { showSearch = it },
                     onSettings = { 
                         startActivity(Intent(this, LauncherSettingsActivity::class.java))
                     }
@@ -112,6 +126,8 @@ class MainActivity : AppCompatActivity() {
         if (viewModel.isDrawerOpen.value) {
             viewModel.setDrawerOpen(false)
         } else {
+            // Can't easily access local showSearch state here without moving it to ViewModel
+            // For checking purposes, we rely on standard back stack or let users tap outside to close overlays
             super.onBackPressed()
         }
     }
