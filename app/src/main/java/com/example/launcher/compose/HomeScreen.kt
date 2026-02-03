@@ -3,6 +3,7 @@ package com.example.launcher.compose
 import android.content.res.Configuration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -145,7 +146,10 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.weight(1f))
                 
                 // Bottom: Search & Dock
-                SearchBar(onSearchClick = { onSearchToggle(true) })
+                SearchBar(
+                    isListening = isVoiceListening,
+                    onSearchClick = { onSearchToggle(true) }
+                )
                 Dock(
                     onSettings = onSettings,
                     onDrawer = { onDrawerToggle(true) },
@@ -299,14 +303,25 @@ fun AppIcon(app: AppModel, onClick: (AppModel) -> Unit) {
 }
 
 @Composable
-fun SearchBar(onSearchClick: () -> Unit) {
+fun SearchBar(
+    isListening: Boolean,
+    onSearchClick: () -> Unit
+) {
+    val borderColor = if (isListening) Color(0xFF00F0FF) else Color.Transparent
+    val borderWidth = if (isListening) 2.dp else 0.dp
+    val textColor = if (isListening) Color(0xFF00F0FF) else Color.White.copy(alpha = 0.7f)
+    val text = if (isListening) "Listening..." else "Search apps, web, & more..."
+    val icon = if (isListening) android.R.drawable.ic_btn_speak_now else android.R.drawable.ic_menu_search
+    val iconTint = if (isListening) Color(0xFF00F0FF) else Color.White.copy(alpha = 0.7f)
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp) // Padding first for margins
+            .padding(horizontal = 24.dp, vertical = 8.dp)
             .height(48.dp)
+            .border(borderWidth, borderColor, CircleShape)
             .background(Color(0x33FFFFFF), CircleShape)
-            .clickable(onClick = onSearchClick), // Clickable on the entire background area
+            .clickable(onClick = onSearchClick),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
@@ -314,15 +329,15 @@ fun SearchBar(onSearchClick: () -> Unit) {
             modifier = Modifier.padding(horizontal = 16.dp)
         ) {
             Icon(
-                painter = painterResource(id = android.R.drawable.ic_menu_search),
+                painter = painterResource(id = icon),
                 contentDescription = "Search",
-                tint = Color.White.copy(alpha = 0.7f),
+                tint = iconTint,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Search apps, web, & more...",
-                color = Color.White.copy(alpha = 0.7f)
+                text = text,
+                color = textColor
             )
         }
     }
