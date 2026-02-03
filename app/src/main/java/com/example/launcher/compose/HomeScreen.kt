@@ -58,6 +58,7 @@ fun HomeScreen(
     onNeuralHubToggle: (Boolean) -> Unit,
     weatherState: com.example.launcher.ui.HomeViewModel.WeatherState,
     isVoiceListening: Boolean,
+    isVoiceEnabled: Boolean,
     onVoiceClick: () -> Unit,
     showSearch: Boolean,
     onSearchToggle: (Boolean) -> Unit,
@@ -173,7 +174,7 @@ fun HomeScreen(
                     ClockWidget(modifier = Modifier.size(200.dp))
                     WeatherWidget(state = weatherState)
                     Spacer(modifier = Modifier.height(32.dp))
-                    VoiceAssistantWidget(isListening = isVoiceListening, onClick = onVoiceClick)
+                    VoiceAssistantWidget(isEnabled = isVoiceEnabled, isListening = isVoiceListening, onClick = onVoiceClick)
                     Spacer(modifier = Modifier.height(32.dp))
                     Dock(
                         onSettings = onSettings,
@@ -217,7 +218,7 @@ fun HomeScreen(
                 }
 
                 Box(modifier = Modifier.padding(vertical = 12.dp)) {
-                    VoiceAssistantWidget(isListening = isVoiceListening, onClick = onVoiceClick)
+                    VoiceAssistantWidget(isEnabled = isVoiceEnabled, isListening = isVoiceListening, onClick = onVoiceClick)
                 }
                 
                 Spacer(modifier = Modifier.weight(1f))

@@ -22,11 +22,12 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun VoiceAssistantWidget(
+    isEnabled: Boolean,
     isListening: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Pulse animation for Active state
+    // Pulse animation for Listening state
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1.0f,
@@ -46,19 +47,16 @@ fun VoiceAssistantWidget(
         colors = listOf(Color(0xFFEF4444), Color(0xFF991B1B)) // Red "Off"
     )
     
-    val bgBrush = if (isListening) activeGradient else inactiveGradient
+    // Main state driven by isEnabled (Intention), not just isListening (Hardware)
+    val bgBrush = if (isEnabled) activeGradient else inactiveGradient
     
-    val iconRes = if (isListening) android.R.drawable.ic_btn_speak_now else android.R.drawable.ic_lock_silent_mode_off
-    // Fallback icon if silent mode off isn't standard, checking: 
-    // actually ic_lock_silent_mode_off might not be universal.
-    // Let's use ic_menu_call for mic and ic_menu_close_clear_cancel for off?
-    // Better: ic_btn_speak_now (mic) vs ic_menu_close_clear_cancel (X)
+    val iconRes = if (isEnabled) android.R.drawable.ic_btn_speak_now else android.R.drawable.ic_menu_close_clear_cancel
     
-    val statusText = if (isListening) "LISTENING" else "MIC OFF"
+    val statusText = if (isEnabled) "VOICE ON" else "VOICE OFF"
 
     Box(
         modifier = modifier
-            .scale(pulseScale)
+            .scale(if (isEnabled && isListening) pulseScale else 1.0f) // Only pulse if enabled AND listening
             .clip(RoundedCornerShape(32.dp))
             .background(bgBrush)
             .clickable { onClick() }
@@ -69,7 +67,7 @@ fun VoiceAssistantWidget(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                painter = painterResource(id = if (isListening) android.R.drawable.ic_btn_speak_now else android.R.drawable.ic_menu_close_clear_cancel),
+                painter = painterResource(id = iconRes),
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(20.dp)

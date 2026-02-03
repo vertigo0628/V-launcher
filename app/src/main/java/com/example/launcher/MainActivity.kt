@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
             
             val weatherState by viewModel.weatherState.collectAsState()
             val isVoiceListening by viewModel.isVoiceListening.collectAsState()
+            val isVoiceEnabled by viewModel.isVoiceEnabled.collectAsState()
             val searchResults by viewModel.searchResults.collectAsState()
             val searchQuery by viewModel.searchQuery.collectAsState()
             
@@ -83,6 +84,7 @@ class MainActivity : AppCompatActivity() {
                     onNeuralHubToggle = { showNeuralHub = it },
                     weatherState = weatherState,
                     isVoiceListening = isVoiceListening,
+                    isVoiceEnabled = isVoiceEnabled,
                     onVoiceClick = { 
                         // Toggle Listening Persistence
                         viewModel.toggleVoiceEnabled()

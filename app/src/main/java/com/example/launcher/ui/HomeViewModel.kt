@@ -321,9 +321,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val voiceManager = VoiceManager(application)
     val isVoiceListening: StateFlow<Boolean> = voiceManager.isListening
     
+    private val _isVoiceEnabled = MutableStateFlow(false)
+    val isVoiceEnabled: StateFlow<Boolean> = _isVoiceEnabled.asStateFlow()
+    
     fun setVoiceListening(listening: Boolean) {
-        // Also update preference to persist state across restarts/lifecycle events
+        // Update persistent state & UI toggle state
         prefs.edit().putBoolean("voice_assistant_enabled", listening).apply()
+        _isVoiceEnabled.value = listening
         
         if (listening) {
             voiceManager.startListening()
@@ -333,8 +337,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun toggleVoiceEnabled() {
-        // Toggle based on current runtime state or preference
-        val current = isVoiceListening.value
+        val current = _isVoiceEnabled.value
         setVoiceListening(!current)
     }
     
