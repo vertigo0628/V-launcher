@@ -93,6 +93,7 @@ fun UniversalSearch(
                             .focusRequester(focusRequester) // Attach requester
                             .onGloballyPositioned { 
                                 if (!it.isAttached) return@onGloballyPositioned
+                                // Request focus (we rely on WindowInsetsController for the soft keyboard)
                                 focusRequester.requestFocus() 
                             },
                         decorationBox = { innerTextField ->
