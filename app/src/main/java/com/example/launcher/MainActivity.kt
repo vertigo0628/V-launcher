@@ -90,7 +90,10 @@ class MainActivity : AppCompatActivity() {
                         viewModel.toggleVoiceEnabled()
                     },
                     showSearch = showSearch,
-                    onSearchToggle = { showSearch = it },
+                    onSearchToggle = { 
+                        android.util.Log.d("MainActivity", "onSearchToggle called with: $it")
+                        showSearch = it 
+                    },
                     searchQuery = searchQuery, // Pass query state
                     searchResults = searchResults,
                     onSearchQuery = { viewModel.onSearchQueryChanged(it) },

@@ -454,7 +454,10 @@ fun SearchBar(
             .height(48.dp)
             .border(borderWidth, borderColor, CircleShape)
             .background(Color(0x33FFFFFF), CircleShape)
-            .clickable(onClick = onSearchClick),
+            .clickable(onClick = { 
+                android.util.Log.d("SearchBar", "Search bar clicked!")
+                onSearchClick()
+            }),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
