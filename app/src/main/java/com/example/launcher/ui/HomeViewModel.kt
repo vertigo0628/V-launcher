@@ -200,12 +200,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val searchResults: StateFlow<List<com.example.launcher.utils.SearchManager.SearchResult>> = _searchResults.asStateFlow()
     
     fun onSearchQueryChanged(query: String) {
+        android.util.Log.d("HomeViewModel", "Search query changed: '$query'")
         _searchQuery.value = query
         viewModelScope.launch {
             if (query.isBlank()) {
+                android.util.Log.d("HomeViewModel", "Query blank, clearing results")
                 _searchResults.value = emptyList()
             } else {
-                _searchResults.value = searchManager.search(query)
+                android.util.Log.d("HomeViewModel", "Calling searchManager.search()")
+                val results = searchManager.search(query)
+                android.util.Log.d("HomeViewModel", "Search returned ${results.size} results")
+                _searchResults.value = results
             }
         }
     }

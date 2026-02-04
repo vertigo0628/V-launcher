@@ -97,10 +97,12 @@ fun UniversalSearch(
                                 focusRequester.requestFocus() 
                             },
                         decorationBox = { innerTextField ->
-                            if (query.isEmpty()) {
-                                Text("Search apps, web, & more...", color = Color.Gray)
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (query.isEmpty()) {
+                                    Text("Search apps, web, & more...", color = Color.Gray)
+                                }
+                                innerTextField()
                             }
-                            innerTextField()
                         }
                     )
                 }
@@ -108,7 +110,7 @@ fun UniversalSearch(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Search Results
+            // Search Results - Always show container when typing
             if (query.isNotEmpty()) {
                 LazyColumn(
                     modifier = Modifier
@@ -116,6 +118,16 @@ fun UniversalSearch(
                         .background(Color(0xFF0F172A), RoundedCornerShape(16.dp))
                         .padding(16.dp)
                 ) {
+                    // Debug: Show total results count
+                    item {
+                        Text(
+                            text = "Results: ${searchResults.size}",
+                            color = Color.Gray,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                    
                     // Group results by type
                     val apps = searchResults.filter { it.type == com.example.launcher.utils.SearchManager.ResultType.APP }
                     val contacts = searchResults.filter { it.type == com.example.launcher.utils.SearchManager.ResultType.CONTACT }

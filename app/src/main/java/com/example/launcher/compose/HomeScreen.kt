@@ -546,6 +546,7 @@ fun AppDrawer(
             
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 80.dp),
+                
                 contentPadding = PaddingValues(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
