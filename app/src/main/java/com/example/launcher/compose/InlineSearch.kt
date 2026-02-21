@@ -105,41 +105,14 @@ fun InlineSearchBar(
 fun SearchOverlay(
     query: String,
     onQueryChange: (String) -> Unit,
-    allApps: List<AppModel>,
-    onAppClick: (AppModel) -> Unit,
-    onWebSearch: (String) -> Unit,
+    searchResults: List<com.example.launcher.utils.SearchManager.SearchResult>,
+    onResultClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit,
     onClose: () -> Unit
 ) {
-    // Local state for immediate responsiveness
-    var localQuery by remember { mutableStateOf(query) }
-    
-    // Sync local state when external query changes (e.g. cleared by button)
-    LaunchedEffect(query) {
-        if (query != localQuery) {
-            localQuery = query
-        }
-    }
-
-    var searchResults by remember { mutableStateOf<List<SearchResult>>(emptyList()) }
-    
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
     val view = LocalView.current
     val context = LocalContext.current
-    
-    // Perform search whenever query changes
-    LaunchedEffect(localQuery) {
-        if (localQuery.isNotEmpty()) {
-            searchResults = allApps
-                .filter { it.label.contains(localQuery, ignoreCase = true) }
-                .take(8)
-                .map { SearchResult(it.label, ResultType.APP, it) } +
-                listOf(SearchResult("Search \"$localQuery\" on Google", ResultType.WEB, null))
-        } else {
-            searchResults = emptyList()
-        }
-    }
     
     // Request focus immediately
     LaunchedEffect(Unit) {
@@ -203,11 +176,8 @@ fun SearchOverlay(
                     
                     // Input Field
                     BasicTextField(
-                        value = localQuery,
-                        onValueChange = { 
-                            localQuery = it
-                            onQueryChange(it)
-                        },
+                        value = query,
+                        onValueChange = onQueryChange,
                         textStyle = TextStyle(
                             color = Color.White,
                             fontSize = 20.sp
@@ -217,18 +187,10 @@ fun SearchOverlay(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(
                             onSearch = {
-                                if (localQuery.isNotEmpty()) {
-                                    try {
-                                        val intent = android.content.Intent(
-                                            android.content.Intent.ACTION_VIEW,
-                                            android.net.Uri.parse("https://www.google.com/search?q=${android.net.Uri.encode(localQuery)}")
-                                        )
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        Log.e(TAG, "Error: ${e.message}")
-                                    }
+                                if (query.isNotEmpty()) {
+                                    // If there's a first result, trigger it? 
+                                    // Or just hide keyboard. Let's just hide for now.
                                     keyboardController?.hide()
-                                    onClose()
                                 }
                             }
                         ),
@@ -237,9 +199,9 @@ fun SearchOverlay(
                             .focusRequester(focusRequester),
                         decorationBox = { innerTextField ->
                              Box(contentAlignment = Alignment.CenterStart) {
-                                if (localQuery.isEmpty()) {
+                                if (query.isEmpty()) {
                                     Text(
-                                        "Search apps...",
+                                        "Search apps, web & more...",
                                         color = Color.Gray,
                                         fontSize = 20.sp
                                     )
@@ -248,17 +210,6 @@ fun SearchOverlay(
                             }
                         }
                     )
-                    
-                    // Force Focus Effect
-                    LaunchedEffect(Unit) {
-                         try {
-                            delay(200) 
-                            focusRequester.requestFocus()
-                            keyboardController?.show()
-                        } catch(e: Exception) {
-                            Log.e(TAG, "Focus failed", e)
-                        }
-                    }
                     
                     // Close/Clear button
                     Spacer(modifier = Modifier.width(8.dp))
@@ -269,8 +220,7 @@ fun SearchOverlay(
                         modifier = Modifier
                             .size(24.dp)
                             .clickable {
-                                if (localQuery.isNotEmpty()) {
-                                    localQuery = ""
+                                if (query.isNotEmpty()) {
                                     onQueryChange("")
                                 } else {
                                     keyboardController?.hide()
@@ -283,7 +233,7 @@ fun SearchOverlay(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Search results
+            // Search results using SearchResultItem which handles types correctly
             if (searchResults.isNotEmpty()) {
                 LazyColumn(
                     modifier = Modifier
@@ -300,60 +250,92 @@ fun SearchOverlay(
                 ) {
                     items(searchResults.size) { index ->
                         val result = searchResults[index]
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    Log.d(TAG, "Result clicked: ${result.title}")
-                                    keyboardController?.hide()
-                                    when (result.type) {
-                                        ResultType.APP -> {
-                                            result.appModel?.let { onAppClick(it) }
-                                        }
-                                        ResultType.WEB -> {
-                                            try {
-                                                val intent = android.content.Intent(
-                                                    android.content.Intent.ACTION_VIEW,
-                                                    android.net.Uri.parse("https://www.google.com/search?q=${android.net.Uri.encode(localQuery)}")
-                                                )
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                Log.e(TAG, "Error opening web search: ${e.message}")
-                                            }
-                                            onClose()
-                                        }
-                                    }
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                painter = painterResource(
-                                    id = when (result.type) {
-                                        ResultType.APP -> android.R.drawable.sym_def_app_icon
-                                        ResultType.WEB -> android.R.drawable.ic_menu_search
-                                    }
-                                ),
-                                contentDescription = null,
-                                tint = Color(0xFF00F0FF),
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = result.title,
-                                color = Color.White,
-                                fontSize = 16.sp
-                            )
-                        }
+                        SearchResultItem(
+                            result = result,
+                            onClick = {
+                                keyboardController?.hide()
+                                onResultClick(result)
+                                onClose()
+                            }
+                        )
                     }
                 }
-            } else if (localQuery.isEmpty()) {
+            } else if (query.isEmpty()) {
                 // Show hint when no query
                 Text(
-                    "Type to search apps or the web",
+                    "Type to search apps, contacts or the web",
                     color = Color.Gray,
                     fontSize = 14.sp,
                     modifier = Modifier.padding(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SearchResultItem(
+    result: com.example.launcher.utils.SearchManager.SearchResult,
+    onClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick(result) }
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (result.type == com.example.launcher.utils.SearchManager.ResultType.APP) {
+            // Load App Icon
+            AndroidView(
+                factory = { context ->
+                    android.widget.ImageView(context).apply {
+                        try {
+                            val icon = context.packageManager.getApplicationIcon(result.id)
+                            setImageDrawable(icon)
+                        } catch (e: Exception) {
+                            setImageResource(android.R.drawable.sym_def_app_icon)
+                        }
+                    }
+                },
+                modifier = Modifier.size(32.dp)
+            )
+        } else {
+            // Generic icons for other types
+            val iconRes = when (result.type) {
+                com.example.launcher.utils.SearchManager.ResultType.CONTACT -> android.R.drawable.sym_action_call
+                com.example.launcher.utils.SearchManager.ResultType.WEB_SEARCH -> android.R.drawable.ic_menu_search
+                com.example.launcher.utils.SearchManager.ResultType.SETTING -> android.R.drawable.ic_menu_preferences
+                else -> android.R.drawable.ic_menu_help
+            }
+            
+            val tint = when(result.type) {
+                com.example.launcher.utils.SearchManager.ResultType.CONTACT -> Color.Green
+                com.example.launcher.utils.SearchManager.ResultType.WEB_SEARCH -> Color(0xFF00F0FF)
+                else -> Color.White
+            }
+            
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column {
+            Text(
+                text = result.title,
+                color = Color.White,
+                fontSize = 16.sp
+            )
+            if (!result.subtitle.isNullOrBlank()) {
+                Text(
+                    text = result.subtitle,
+                    color = Color.Gray,
+                    fontSize = 12.sp
                 )
             }
         }

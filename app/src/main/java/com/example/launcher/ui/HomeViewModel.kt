@@ -118,16 +118,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         updateAppList()
     }
     
-    fun searchApps(query: String) {
-        if (query.isBlank()) {
-            updateAppList()
-            return
-        }
-        
-        _apps.value = allApps.filter { 
-            it.label.contains(query, ignoreCase = true) 
-        }
-    }
+    // Unified search logic in onSearchQueryChanged
     
     private fun updateAppList() {
         val category = _selectedCategory.value

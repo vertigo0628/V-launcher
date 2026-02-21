@@ -70,7 +70,6 @@ class MainActivity : AppCompatActivity() {
             val searchResults by viewModel.searchResults.collectAsState()
             val searchQuery by viewModel.searchQuery.collectAsState()
             
-            var showSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
             
             MaterialTheme {
                 HomeScreen(
@@ -88,11 +87,6 @@ class MainActivity : AppCompatActivity() {
                     onVoiceClick = { 
                         // Toggle Listening Persistence
                         viewModel.toggleVoiceEnabled()
-                    },
-                    showSearch = showSearch,
-                    onSearchToggle = { 
-                        android.util.Log.d("MainActivity", "onSearchToggle called with: $it")
-                        showSearch = it 
                     },
                     searchQuery = searchQuery, // Pass query state
                     searchResults = searchResults,

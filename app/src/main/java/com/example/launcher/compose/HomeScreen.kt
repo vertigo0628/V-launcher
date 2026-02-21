@@ -63,8 +63,6 @@ fun HomeScreen(
     isVoiceListening: Boolean,
     isVoiceEnabled: Boolean,
     onVoiceClick: () -> Unit,
-    showSearch: Boolean,
-    onSearchToggle: (Boolean) -> Unit,
     searchQuery: String,
     searchResults: List<com.example.launcher.utils.SearchManager.SearchResult>,
     onSearchQuery: (String) -> Unit,
@@ -284,40 +282,15 @@ fun HomeScreen(
         
         // NEW: Inline Search Overlay (Rendered at Root)
         if (showInlineSearch) {
-            val context = LocalContext.current
             SearchOverlay(
                 query = searchQuery,
                 onQueryChange = onSearchQuery,
-                allApps = allApps,
-                onAppClick = { app ->
-                    onAppClick(app)
-                    showInlineSearch = false
-                },
-                onWebSearch = { query ->
-                    // Open browser with search query
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://www.google.com/search?q=${Uri.encode(query)}")
-                    )
-                    try {
-                        context.startActivity(intent)
-                    } catch (e: Exception) {}
-                    showInlineSearch = false
-                },
+                searchResults = searchResults,
+                onResultClick = onSearchResultClick,
                 onClose = { showInlineSearch = false }
             )
         }
         
-        // Universal Search Overlay (Legacy param support)
-        if (showSearch) {
-            UniversalSearch(
-                query = searchQuery,
-                onClose = { onSearchToggle(false) },
-                searchResults = searchResults,
-                onQueryChange = onSearchQuery,
-                onResultClick = onSearchResultClick
-            )
-        }
     }
 }
 
@@ -491,7 +464,6 @@ fun SearchBar(
             .border(borderWidth, borderColor, CircleShape)
             .background(Color(0x33FFFFFF), CircleShape)
             .clickable(onClick = { 
-                android.util.Log.d("SearchBar", "Search bar clicked!")
                 onSearchClick()
             }),
         contentAlignment = Alignment.CenterStart
