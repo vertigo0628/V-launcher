@@ -332,9 +332,9 @@ fun FlowerGrid(
         contentAlignment = Alignment.Center,
         modifier = Modifier.fillMaxSize()
     ) {
-        val width = constraints.maxWidth.toFloat()
-        val height = constraints.maxHeight.toFloat()
-        val minDim = kotlin.math.min(width, height)
+        val widthPx = with(LocalDensity.current) { maxWidth.toPx() }
+        val heightPx = with(LocalDensity.current) { maxHeight.toPx() }
+        val minDim = kotlin.math.min(widthPx, heightPx)
         val density = LocalDensity.current.density
         
         // Adaptive Logic
@@ -366,10 +366,10 @@ fun FlowerGrid(
                     AppIcon(app, onAppClick, onAppLongClick, iconSizeDp)
                 }
             }
-        ) { measurables, constraints ->
-            val placeables = measurables.map { it.measure(constraints) }
-            val cx = constraints.maxWidth / 2f
-            val cy = constraints.maxHeight / 2f
+        ) { measurables, innerConstraints ->
+            val placeables = measurables.map { it.measure(innerConstraints) }
+            val cx = innerConstraints.maxWidth / 2f
+            val cy = innerConstraints.maxHeight / 2f
             
             val layoutList = mutableListOf<Pair<Int, Pair<Int, Int>>>()
             
@@ -413,7 +413,7 @@ fun FlowerGrid(
                 ring++
             }
             
-            layout(constraints.maxWidth, constraints.maxHeight) {
+            layout(innerConstraints.maxWidth, innerConstraints.maxHeight) {
                 layoutList.forEach { (idx, pos) ->
                     placeables[idx].placeRelative(pos.first, pos.second)
                 }
