@@ -331,9 +331,9 @@ fun FlowerGrid(
     BoxWithConstraints(
         contentAlignment = Alignment.Center,
         modifier = Modifier.fillMaxSize()
-    ) {
-        val width = constraints.maxWidth.toFloat()
-        val height = constraints.maxHeight.toFloat()
+    ) { scope ->
+        val width = scope.constraints.maxWidth.toFloat()
+        val height = scope.constraints.maxHeight.toFloat()
         val minDim = minOf(width, height)
         val density = LocalDensity.current.density
         
