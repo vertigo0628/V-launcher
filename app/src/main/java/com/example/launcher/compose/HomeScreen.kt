@@ -1,6 +1,8 @@
 package com.example.launcher.compose
 
 import android.content.res.Configuration
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -31,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -73,6 +76,9 @@ fun HomeScreen(
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
+    // Internal state for the inline search overlay
+    var showInlineSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
     
     // Gesture Logic Removed: Swipe Up/Down disabled as per request
     
@@ -242,10 +248,10 @@ fun HomeScreen(
                 
                 Spacer(modifier = Modifier.weight(1f))
                 
-                // Bottom: Search & Dock
-                SearchBar(
-                    isListening = isVoiceListening,
-                    onSearchClick = { onSearchToggle(true) }
+                // Bottom: Inline Search & Dock
+                InlineSearchBar(
+                    isVoiceListening = isVoiceListening,
+                    onSearchClick = { showInlineSearch = true }
                 )
                 Dock(
                     onSettings = onSettings,
@@ -276,7 +282,33 @@ fun HomeScreen(
             )
         }
         
-        // Universal Search Overlay
+        // NEW: Inline Search Overlay (Rendered at Root)
+        if (showInlineSearch) {
+            val context = LocalContext.current
+            SearchOverlay(
+                query = searchQuery,
+                onQueryChange = onSearchQuery,
+                allApps = allApps,
+                onAppClick = { app ->
+                    onAppClick(app)
+                    showInlineSearch = false
+                },
+                onWebSearch = { query ->
+                    // Open browser with search query
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://www.google.com/search?q=${Uri.encode(query)}")
+                    )
+                    try {
+                        context.startActivity(intent)
+                    } catch (e: Exception) {}
+                    showInlineSearch = false
+                },
+                onClose = { showInlineSearch = false }
+            )
+        }
+        
+        // Universal Search Overlay (Legacy param support)
         if (showSearch) {
             UniversalSearch(
                 query = searchQuery,
@@ -446,6 +478,10 @@ fun SearchBar(
     val text = if (isListening) "Listening..." else "Search apps, web, & more..."
     val icon = if (isListening) android.R.drawable.ic_btn_speak_now else android.R.drawable.ic_menu_search
     val iconTint = if (isListening) Color(0xFF00F0FF) else Color.White.copy(alpha = 0.7f)
+    
+    // Debug: Log every time this composable is rendered
+    android.util.Log.d("SearchBar", "SearchBar composable rendered - isListening: $isListening")
+
 
     Box(
         modifier = Modifier
