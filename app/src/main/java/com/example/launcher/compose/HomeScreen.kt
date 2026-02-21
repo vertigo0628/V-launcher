@@ -331,10 +331,10 @@ fun FlowerGrid(
     BoxWithConstraints(
         contentAlignment = Alignment.Center,
         modifier = Modifier.fillMaxSize()
-    ) { scope ->
-        val width = scope.constraints.maxWidth.toFloat()
-        val height = scope.constraints.maxHeight.toFloat()
-        val minDim = minOf(width, height)
+    ) {
+        val width = constraints.maxWidth.toFloat()
+        val height = constraints.maxHeight.toFloat()
+        val minDim = kotlin.math.min(width, height)
         val density = LocalDensity.current.density
         
         // Adaptive Logic
@@ -354,7 +354,7 @@ fun FlowerGrid(
         
         // Clamp icon size: Min 48dp, Max 80dp (or user preference base)
         val calculatedSizeDp = (maxIconSizePx / density).dp
-        val iconSizeDp = maxOf(40.dp, minOf(80.dp, calculatedSizeDp))
+        val iconSizeDp = androidx.compose.ui.unit.max(40.dp, androidx.compose.ui.unit.min(80.dp, calculatedSizeDp))
         
         // Use custom Layout for precise positioning
         val iconSizePx = with(LocalDensity.current) { iconSizeDp.toPx() }
@@ -391,7 +391,7 @@ fun FlowerGrid(
                         val angle1 = Math.toRadians(-90.0 + 60 * side)
                         val angle2 = Math.toRadians(-90.0 + 60 * (side + 1))
                         
-                        val radius = ring * spacing
+                        val radius = ring.toFloat() * spacing
                         
                         val x1 = (radius * cos(angle1)).toFloat()
                         val y1 = (radius * sin(angle1)).toFloat()
@@ -403,8 +403,8 @@ fun FlowerGrid(
                         val py = y1 + (y2 - y1) * fraction
                         
                         val placeable = placeables[vectorIdx]
-                        val lx = (cx + px - placeable.width / 2).toInt()
-                        val ly = (cy + py - placeable.height / 2).toInt()
+                        val lx = (cx + px - (placeable.width / 2f)).toInt()
+                        val ly = (cy + py - (placeable.height / 2f)).toInt()
                         
                         layoutList.add(vectorIdx to (lx to ly))
                         vectorIdx++
