@@ -332,33 +332,26 @@ fun FlowerGrid(
         contentAlignment = Alignment.Center,
         modifier = Modifier.fillMaxSize()
     ) {
-        // Explicitly use 'this' to resolve IDE's "unused scope" warning
-        val widthPx = this.constraints.maxWidth.toFloat()
-        val heightPx = this.constraints.maxHeight.toFloat()
+        val density = LocalDensity.current
+        val widthPx = with(density) { maxWidth.toPx() }
+        val heightPx = with(density) { maxHeight.toPx() }
         val minDimPx = if (widthPx < heightPx) widthPx else heightPx
-        val density = LocalDensity.current.density
+        val densityValue = density.density
         
         // Adaptive Logic
-        // Determine rings based on available space
-        // Standard Phone: 3 Rings (1+6+12+18 = 37 apps)
-        // Tablet/PC (Small dim > 600dp): 4 Rings (37+24 = 61 apps)
-        val isLargeScreen = (minDimPx / density) > 600
+        val isLargeScreen = (minDimPx / densityValue) > 600
         val targetRings = if (isLargeScreen) 4 else 3
         val maxApps = if (targetRings == 4) 61 else 37
         
-        // Calculate max icon size that fits
-        // Radius = rings * spacing + iconSize/2
-        // spacing = iconSize * 1.25 (tighter packing for adaptive)
-        // minDim/2 >= iconSize * (1.25 * rings + 0.5)
         val spacingFactor = 1.25f
-        val maxIconSizePx = (minDimPx / 2f) / (spacingFactor * targetRings + 0.5f)
+        val maxIconSizePx = (minDimPx / 2f) / (spacingFactor * targetRings.toFloat() + 0.5f)
         
-        // Clamp icon size: Min 48dp, Max 80dp (or user preference base)
-        val calculatedSizeDp = (maxIconSizePx / density).dp
-        val iconSizeDp = androidx.compose.ui.unit.max(40.dp, androidx.compose.ui.unit.min(80.dp, calculatedSizeDp))
+        val iconSizeDp = with(density) {
+            val calcSize = (maxIconSizePx / densityValue).dp
+            if (calcSize < 40.dp) 40.dp else if (calcSize > 80.dp) 80.dp else calcSize
+        }
         
-        // Use custom Layout for precise positioning
-        val iconSizePx = with(LocalDensity.current) { iconSizeDp.toPx() }
+        val iconSizePx = with(density) { iconSizeDp.toPx() }
         val spacing = iconSizePx * spacingFactor
         
         Layout(
@@ -367,10 +360,10 @@ fun FlowerGrid(
                     AppIcon(app, onAppClick, onAppLongClick, iconSizeDp)
                 }
             }
-        ) { measurables, innerConstraints ->
-            val placeables = measurables.map { it.measure(innerConstraints) }
-            val cx = innerConstraints.maxWidth / 2f
-            val cy = innerConstraints.maxHeight / 2f
+        ) { measurables, lConstraints ->
+            val placeables = measurables.map { it.measure(lConstraints) }
+            val cx = lConstraints.maxWidth / 2f
+            val cy = lConstraints.maxHeight / 2f
             
             val layoutList = mutableListOf<Pair<Int, Pair<Int, Int>>>()
             
@@ -414,7 +407,7 @@ fun FlowerGrid(
                 ring++
             }
             
-            layout(innerConstraints.maxWidth, innerConstraints.maxHeight) {
+            layout(lConstraints.maxWidth, lConstraints.maxHeight) {
                 layoutList.forEach { (idx, pos) ->
                     placeables[idx].placeRelative(pos.first, pos.second)
                 }
