@@ -332,16 +332,17 @@ fun FlowerGrid(
         contentAlignment = Alignment.Center,
         modifier = Modifier.fillMaxSize()
     ) {
-        val widthPx = with(LocalDensity.current) { maxWidth.toPx() }
-        val heightPx = with(LocalDensity.current) { maxHeight.toPx() }
-        val minDim = kotlin.math.min(widthPx, heightPx)
+        // Explicitly use 'this' to resolve IDE's "unused scope" warning
+        val widthPx = this.constraints.maxWidth.toFloat()
+        val heightPx = this.constraints.maxHeight.toFloat()
+        val minDimPx = if (widthPx < heightPx) widthPx else heightPx
         val density = LocalDensity.current.density
         
         // Adaptive Logic
         // Determine rings based on available space
         // Standard Phone: 3 Rings (1+6+12+18 = 37 apps)
         // Tablet/PC (Small dim > 600dp): 4 Rings (37+24 = 61 apps)
-        val isLargeScreen = (minDim / density) > 600
+        val isLargeScreen = (minDimPx / density) > 600
         val targetRings = if (isLargeScreen) 4 else 3
         val maxApps = if (targetRings == 4) 61 else 37
         
@@ -350,7 +351,7 @@ fun FlowerGrid(
         // spacing = iconSize * 1.25 (tighter packing for adaptive)
         // minDim/2 >= iconSize * (1.25 * rings + 0.5)
         val spacingFactor = 1.25f
-        val maxIconSizePx = (minDim / 2f) / (spacingFactor * targetRings + 0.5f)
+        val maxIconSizePx = (minDimPx / 2f) / (spacingFactor * targetRings + 0.5f)
         
         // Clamp icon size: Min 48dp, Max 80dp (or user preference base)
         val calculatedSizeDp = (maxIconSizePx / density).dp
