@@ -296,14 +296,24 @@ fun HomeScreen(
 
 @Composable
 fun ClockWidget(modifier: Modifier = Modifier) {
+    var currentTime by remember { androidx.compose.runtime.mutableStateOf(System.currentTimeMillis()) }
+    
+    // Ticker to update time every second
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTime = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+
     AndroidView(
         factory = { context ->
             CyberClockView(context).apply {
-                setTime(System.currentTimeMillis())
+                setTime(currentTime)
             }
         },
         update = { view ->
-            view.setTime(System.currentTimeMillis())
+            view.setTime(currentTime)
         },
         modifier = modifier
     )
