@@ -71,10 +71,11 @@ fun HomeScreen(
     onVoiceClick: () -> Unit,
     searchQuery: String,
     searchResults: List<com.example.launcher.utils.SearchManager.SearchResult>,
-    onSearchQuery: (String) -> Unit,
-    onSearchResultClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit,
-    onAddToGrid: (AppModel) -> Unit,
-    onRemoveFromGrid: (AppModel) -> Unit,
+                    onSearchQueryChange: (String) -> Unit = {},
+                    onSearchResultClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit = {},
+                    isSearching: Boolean = false,
+                    onAddToGrid: (AppModel) -> Unit,
+                    onRemoveFromGrid: (AppModel) -> Unit,
     onHideApp: (AppModel) -> Unit,
     onSettings: () -> Unit,
     musicState: com.example.launcher.ui.HomeViewModel.MusicState = com.example.launcher.ui.HomeViewModel.MusicState(),
@@ -387,7 +388,15 @@ fun HomeScreen(
                     WeatherWidget(state = weatherState)
                     Spacer(modifier = Modifier.height(32.dp))
                     VoiceAssistantWidget(isEnabled = isVoiceEnabled, isListening = isVoiceListening, onClick = onVoiceClick)
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    // Search Bar in Landscape
+                    InlineSearchBar(
+                        isVoiceListening = isVoiceListening,
+                        onSearchClick = { showInlineSearch = true }
+                    )
+                    
+                    Spacer(modifier = Modifier.weight(1f))
                     Dock(
                         onSettings = onSettings,
                         onDrawer = { onDrawerToggle(true) },
@@ -511,10 +520,11 @@ fun HomeScreen(
         if (showInlineSearch) {
             SearchOverlay(
                 query = searchQuery,
-                onQueryChange = onSearchQuery,
+                onQueryChange = onSearchQueryChange,
                 searchResults = searchResults,
                 onResultClick = onSearchResultClick,
-                onClose = { showInlineSearch = false }
+                onClose = { showInlineSearch = false },
+                isSearching = isSearching
             )
         }
         
@@ -886,6 +896,7 @@ fun NotificationDot(count: Int, modifier: Modifier = Modifier) {
         )
     }
 }
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FolderIcon(
     name: String,

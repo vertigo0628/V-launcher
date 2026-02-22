@@ -21,6 +21,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -108,7 +110,8 @@ fun SearchOverlay(
     onQueryChange: (String) -> Unit,
     searchResults: List<com.example.launcher.utils.SearchManager.SearchResult>,
     onResultClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    isSearching: Boolean = false
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -175,60 +178,70 @@ fun SearchOverlay(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     
-                    // Input Field
-                    BasicTextField(
+                    // Input Field (Upgraded to TextField for better stability and cursor visibility)
+                    TextField(
                         value = query,
                         onValueChange = onQueryChange,
                         textStyle = TextStyle(
                             color = Color.White,
-                            fontSize = 20.sp
+                            fontSize = 18.sp
                         ),
+                        placeholder = {
+                            Text(
+                                "Search apps, web & more...",
+                                color = Color.White.copy(alpha = 0.4f),
+                                fontSize = 18.sp
+                            )
+                        },
                         singleLine = true,
-                        cursorBrush = SolidColor(Color(0xFF00F0FF)), 
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            cursorColor = Color(0xFF00F0FF),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(
                             onSearch = {
                                 if (query.isNotEmpty()) {
-                                    // If there's a first result, trigger it? 
-                                    // Or just hide keyboard. Let's just hide for now.
                                     keyboardController?.hide()
                                 }
                             }
                         ),
                         modifier = Modifier
                             .weight(1f)
-                            .focusRequester(focusRequester),
-                        decorationBox = { innerTextField ->
-                             Box(contentAlignment = Alignment.CenterStart) {
-                                if (query.isEmpty()) {
-                                    Text(
-                                        "Search apps, web & more...",
-                                        color = Color.Gray,
-                                        fontSize = 20.sp
-                                    )
-                                }
-                                innerTextField()
-                            }
-                        }
+                            .focusRequester(focusRequester)
                     )
                     
-                    // Close/Clear button
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                        contentDescription = "Close",
-                        tint = Color.White.copy(alpha = 0.7f),
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clickable {
-                                if (query.isNotEmpty()) {
-                                    onQueryChange("")
-                                } else {
-                                    keyboardController?.hide()
-                                    onClose()
+                    
+                    // Close/Clear button or Loading indicator
+                    if (isSearching) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color(0xFF00F0FF),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
+                            contentDescription = "Close",
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable {
+                                    if (query.isNotEmpty()) {
+                                        onQueryChange("")
+                                    } else {
+                                        keyboardController?.hide()
+                                        onClose()
+                                    }
                                 }
-                            }
-                    )
+                        )
+                    }
                 }
             }
             

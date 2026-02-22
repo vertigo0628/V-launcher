@@ -23,6 +23,7 @@ import android.graphics.drawable.Drawable
 import android.content.Intent
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -470,6 +471,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _searchResults = MutableStateFlow<List<com.example.launcher.utils.SearchManager.SearchResult>>(emptyList())
     val searchResults: StateFlow<List<com.example.launcher.utils.SearchManager.SearchResult>> = _searchResults.asStateFlow()
     
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+    
     fun onSearchQueryChanged(query: String) {
         android.util.Log.d("HomeViewModel", "Search query changed: '$query'")
         _searchQuery.value = query
@@ -477,11 +481,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             if (query.isBlank()) {
                 android.util.Log.d("HomeViewModel", "Query blank, clearing results")
                 _searchResults.value = emptyList()
+                _isSearching.value = false
             } else {
                 android.util.Log.d("HomeViewModel", "Calling searchManager.search()")
+                _isSearching.value = true
                 val results = searchManager.search(query)
                 android.util.Log.d("HomeViewModel", "Search returned ${results.size} results")
                 _searchResults.value = results
+                _isSearching.value = false
             }
         }
     }

@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity() {
             val notificationCounts by viewModel.notificationCounts.collectAsState()
             val folders by viewModel.folders.collectAsState()
             val shortcuts by viewModel.shortcuts.collectAsState()
+            val isSearching by viewModel.isSearching.collectAsState()
             
             
             MaterialTheme {
@@ -97,8 +98,9 @@ class MainActivity : AppCompatActivity() {
                     },
                     searchQuery = searchQuery, // Pass query state
                     searchResults = searchResults,
-                    onSearchQuery = { viewModel.onSearchQueryChanged(it) },
+                    onSearchQueryChange = { viewModel.onSearchQueryChanged(it) },
                     onSearchResultClick = { result -> viewModel.performSearchAction(result.action) },
+                    isSearching = isSearching,
                     onAddToGrid = { app -> viewModel.addToGrid(app) },
                     onRemoveFromGrid = { app -> viewModel.removeFromGrid(app) },
                     onHideApp = { app -> viewModel.hideApp(app) },
