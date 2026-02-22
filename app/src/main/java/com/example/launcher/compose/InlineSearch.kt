@@ -118,10 +118,11 @@ fun SearchOverlay(
     val view = LocalView.current
     val context = LocalContext.current
     
-    // Request focus immediately
+    // Request focus immediately with a slightly longer delay for stability
     LaunchedEffect(Unit) {
-        delay(100)
+        delay(300)
         focusRequester.requestFocus()
+        Log.d(TAG, "SearchOverlay Focus Requested")
         try {
             val window = (context as? Activity)?.window
             if (window != null) {
@@ -129,7 +130,12 @@ fun SearchOverlay(
                     WindowInsetsCompat.Type.ime()
                 )
             }
-        } catch (e: Exception) {
+        }
+    
+    // Log query updates for debugging
+    LaunchedEffect(query) {
+        Log.d(TAG, "SearchOverlay Query State: '$query'")
+    } catch (e: Exception) {
             Log.e(TAG, "Error showing keyboard: ${e.message}")
         }
     }
@@ -154,7 +160,12 @@ fun SearchOverlay(
                 .fillMaxWidth()
                 .statusBarsPadding() // Avoid status bar
                 .padding(top = 16.dp, start = 16.dp, end = 16.dp)
-                .clickable(enabled = false) {} // Block clicks from propagating
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    // Consume clicks to prevent them from hitting the background scrim
+                }
         ) {
             // Search input bar at the top
             Box(
@@ -181,7 +192,10 @@ fun SearchOverlay(
                     // Input Field (Upgraded to TextField for better stability and cursor visibility)
                     TextField(
                         value = query,
-                        onValueChange = onQueryChange,
+                        onValueChange = { 
+                            Log.d(TAG, "Search query changing: '$query' -> '$it'")
+                            onQueryChange(it) 
+                        },
                         textStyle = TextStyle(
                             color = Color.White,
                             fontSize = 18.sp
