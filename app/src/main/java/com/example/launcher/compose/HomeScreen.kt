@@ -41,6 +41,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -484,7 +486,10 @@ fun HomeScreen(
                     appPendingAction = app
                     actionType = "DRAWER_OPTIONS"
                     onLoadShortcuts(app.packageName)
-                }
+                },
+                folders = folders,
+                onFolderClick = { activeFolder = it },
+                onDeleteFolder = onDeleteFolder
             )
         }
         
@@ -770,7 +775,10 @@ fun AppDrawer(
     onAppClick: (AppModel) -> Unit,
     onClose: () -> Unit,
     onAppLongClick: (AppModel) -> Unit,
-    notificationCounts: Map<String, Int> = emptyMap()
+    notificationCounts: Map<String, Int> = emptyMap(),
+    folders: Map<String, Set<String>> = emptyMap(),
+    onFolderClick: (String) -> Unit = {},
+    onDeleteFolder: (String) -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -805,14 +813,14 @@ fun AppDrawer(
                 modifier = Modifier.fillMaxSize()
             ) {
                 // Phase 13: Render Folders
-                folders.forEach { (name, packages) ->
+                folders.entries.forEach { (name, packages) ->
                     item {
                         val folderApps = apps.filter { packages.contains(it.packageName) }
                         val folderNotifCount = folderApps.sumOf { notificationCounts[it.packageName] ?: 0 }
                         FolderIcon(
                             name = name,
                             apps = folderApps,
-                            onClick = { activeFolder = name },
+                            onClick = { onFolderClick(name) },
                             onLongClick = { onDeleteFolder(name) },
                             notificationCount = folderNotifCount
                         )

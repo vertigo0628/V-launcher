@@ -16,13 +16,13 @@ import com.example.launcher.data.WeatherRepository
 import android.location.Location
 import android.location.LocationManager
 import android.content.Context
-import android.media.session.PlaybackState
 import android.content.pm.LauncherApps
 import android.content.pm.ShortcutInfo
-import android.content.pm.ShortcutQuery
 import android.os.Process
 import android.graphics.drawable.Drawable
 import android.content.Intent
+import android.media.session.MediaController
+import android.media.session.MediaSessionManager
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -406,7 +406,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun refreshMusicState() {
         try {
             val mgr = mediaSessionManager ?: return
-            val sessions = mgr.getActiveSessions(null)
+            val sessions: List<MediaController> = mgr.getActiveSessions(null)
             val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
                 ?: sessions.firstOrNull()
             if (active == null) {
@@ -427,7 +427,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun musicPlayPause() {
         try {
-            val sessions = mediaSessionManager?.getActiveSessions(null) ?: return
+            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(null) ?: return
             val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
                 ?: sessions.firstOrNull() ?: return
             val controls = active.transportControls
@@ -442,17 +442,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun musicSkipNext() {
         try {
-            val sessions = mediaSessionManager?.getActiveSessions(null) ?: return
-            (sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-                ?: sessions.firstOrNull())?.transportControls?.skipToNext()
+            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(null) ?: return
+            val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                ?: sessions.firstOrNull()
+            active?.transportControls?.skipToNext()
         } catch (e: Exception) { e.printStackTrace() }
     }
 
     fun musicSkipPrev() {
         try {
-            val sessions = mediaSessionManager?.getActiveSessions(null) ?: return
-            (sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-                ?: sessions.firstOrNull())?.transportControls?.skipToPrevious()
+            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(null) ?: return
+            val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                ?: sessions.firstOrNull()
+            active?.transportControls?.skipToPrevious()
         } catch (e: Exception) { e.printStackTrace() }
     }
     
@@ -750,7 +752,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         voiceManager.destroy()
-        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(application)
+        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
             .unregisterReceiver(notificationReceiver)
         hubUpdateJob?.cancel()
         musicPollJob?.cancel()
