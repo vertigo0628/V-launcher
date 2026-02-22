@@ -83,4 +83,7 @@ dependencies {
     
     // Location Services
     implementation("com.google.android.gms:play-services-location:21.0.1")
+
+    // Biometric authentication (Privacy Shield)
+    implementation("androidx.biometric:biometric:1.1.0")
 }

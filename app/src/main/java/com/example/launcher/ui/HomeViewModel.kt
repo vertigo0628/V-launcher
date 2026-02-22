@@ -16,12 +16,31 @@ import com.example.launcher.data.WeatherRepository
 import android.location.Location
 import android.location.LocationManager
 import android.content.Context
+import android.media.session.PlaybackState
+import android.content.pm.LauncherApps
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutQuery
+import android.os.Process
+import android.graphics.drawable.Drawable
+import android.content.Intent
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = AppRepository(application)
     private val flowerGridManager = com.example.launcher.utils.FlowerGridManager(application)
     private val preferencesManager = com.example.launcher.utils.PreferencesManager(application)
+    private val launcherApps = application.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+    
+    // Shortcut Model
+    data class AppShortcut(
+        val id: String,
+        val label: String,
+        val icon: Drawable?,
+        val packageName: String
+    )
+    
+    private val _shortcuts = MutableStateFlow<List<AppShortcut>>(emptyList())
+    val shortcuts: StateFlow<List<AppShortcut>> = _shortcuts.asStateFlow()
     
     // Original full list
     private var allApps: List<AppModel> = emptyList()
@@ -133,10 +152,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     data class NeuralHubState(
         val batteryLevel: Int = 0,
         val isCharging: Boolean = false,
+        val batteryTemp: Float = 0f,
+        val batteryHealth: String = "Unknown",
+        val batteryVoltage: Int = 0,
+        val batteryTech: String = "Unknown",
         val ramPercent: Int = 0,
         val ramText: String = "",
+        val ramUsed: Long = 0,
+        val ramTotal: Long = 0,
         val storagePercent: Int = 0,
-        val storageText: String = ""
+        val storageText: String = "",
+        val storageUsed: Long = 0,
+        val storageTotal: Long = 0,
+        val cpuLoad: Int = 0
     )
     
     private val _neuralHubState = MutableStateFlow(NeuralHubState())
@@ -156,26 +184,276 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    // Removed stopHubUpdates since we want it always on
+    fun boostRam() {
+        viewModelScope.launch {
+            // 1. Suggest GC
+            System.gc()
+            // 2. Clear internal caches if any
+            // 3. Update stats immediately
+            updateHubStats()
+        }
+    }
     
     private fun updateHubStats() {
         val battery = systemMonitor.getBatteryInfo()
         val ram = systemMonitor.getRamInfo()
         val storage = systemMonitor.getStorageInfo()
-        
-        _neuralHubState.value = NeuralHubState(
-            batteryLevel = battery.level,
-            isCharging = battery.isCharging,
-            ramPercent = ram.percentUsed,
-            ramText = "${formatSize(ram.used)} / ${formatSize(ram.total)}",
+        val cpu = systemMonitor.getCpuLoad()
+
+        val newState = NeuralHubState(
+            batteryLevel   = battery.level,
+            isCharging     = battery.isCharging,
+            batteryTemp    = battery.temperature,
+            batteryHealth  = battery.health,
+            batteryVoltage = battery.voltage,
+            batteryTech    = battery.technology,
+            ramPercent     = ram.percentUsed,
+            ramText        = "${formatSize(ram.used)} / ${formatSize(ram.total)}",
+            ramUsed        = ram.used,
+            ramTotal       = ram.total,
             storagePercent = storage.percentUsed,
-            storageText = "${formatSize(storage.total - storage.available)} / ${formatSize(storage.total)}"
+            storageText    = "${formatSize(storage.used)} / ${formatSize(storage.total)}",
+            storageUsed    = storage.used,
+            storageTotal   = storage.total,
+            cpuLoad        = cpu
         )
+        _neuralHubState.value = newState
+        pushCpuSample(cpu)
+        _neuralInsight.value = computeInsight(newState)
     }
     
     private fun formatSize(bytes: Long): String {
         val gb = bytes / (1024.0 * 1024.0 * 1024.0)
         return String.format("%.1f GB", gb)
+    }
+
+    // ─── Music Player ────────────────────────────────────────────────────────
+    data class MusicState(
+        val title: String = "",
+        val artist: String = "",
+        val isPlaying: Boolean = false
+    )
+
+    private val _musicState = MutableStateFlow(MusicState())
+    val musicState: StateFlow<MusicState> = _musicState.asStateFlow()
+
+    private var mediaSessionManager: MediaSessionManager? = null
+    private var musicPollJob: kotlinx.coroutines.Job? = null
+
+    fun startMusicMonitor() {
+        if (musicPollJob?.isActive == true) return
+        mediaSessionManager = getApplication<Application>()
+            .getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
+        musicPollJob = viewModelScope.launch {
+            while (coroutineContext.isActive) {
+                refreshMusicState()
+                kotlinx.coroutines.delay(2000)
+            }
+        }
+    }
+
+    fun stopMusicMonitor() {
+        musicPollJob?.cancel()
+    }
+
+    // ─── Dynamic Theme Engine ────────────────────────────────────────────────
+    private val themeEngine = com.example.launcher.utils.ThemeEngine(application)
+
+    private val _themeColors = MutableStateFlow(
+        themeEngine.extractWallpaperColors()
+            ?: themeEngine.getThemePreset(com.example.launcher.utils.ThemeEngine.ThemePreset.NEON_CYAN)
+    )
+    val themeColors: StateFlow<com.example.launcher.utils.ThemeEngine.DynamicThemeColors> = _themeColors.asStateFlow()
+
+    fun refreshTheme() {
+        _themeColors.value = themeEngine.extractWallpaperColors()
+            ?: themeEngine.getThemePreset(com.example.launcher.utils.ThemeEngine.ThemePreset.NEON_CYAN)
+    }
+
+    fun applyPreset(preset: com.example.launcher.utils.ThemeEngine.ThemePreset) {
+        _themeColors.value = themeEngine.getThemePreset(preset)
+    }
+
+    // ─── CPU History Ring Buffer (for Phase 11 graph) ──────────────────────
+    private val _cpuHistory = MutableStateFlow<List<Int>>(emptyList())
+    val cpuHistory: StateFlow<List<Int>> = _cpuHistory.asStateFlow()
+
+    private val _neuralInsight = MutableStateFlow("System running optimally")
+    val neuralInsight: StateFlow<String> = _neuralInsight.asStateFlow()
+
+    private fun pushCpuSample(value: Int) {
+        val current = _cpuHistory.value.toMutableList()
+        current.add(value)
+        if (current.size > 30) current.removeAt(0)  // Keep last 30 samples
+        _cpuHistory.value = current
+    }
+
+    private fun computeInsight(state: NeuralHubState): String {
+        return when {
+            state.batteryLevel < 15 && !state.isCharging -> "🔋 Critical battery – plug in soon!"
+            state.batteryLevel < 30 && !state.isCharging -> "⚡ Low battery – connect charger"
+            state.ramPercent > 85 -> "💾 High RAM usage – try closing background apps"
+            state.cpuLoad > 80 -> "⚠️ High CPU – some apps are working hard"
+            state.storagePercent > 90 -> "📂 Storage almost full – consider cleaning up"
+            state.isCharging && state.batteryLevel == 100 -> "✅ Fully charged! Safe to unplug"
+            state.isCharging -> "⚡ Charging… ${state.batteryLevel}% - ${100 - state.batteryLevel}% to go"
+            else -> "🛡️ System running optimally"
+        }
+    }
+
+    // ─── Privacy Shield ───────────────────────────────────────────────────────
+    private val _lockedApps = MutableStateFlow(preferencesManager.getLockedApps())
+    val lockedApps: StateFlow<Set<String>> = _lockedApps.asStateFlow()
+
+    fun lockApp(app: AppModel) {
+        preferencesManager.lockApp(app.packageName)
+        _lockedApps.value = preferencesManager.getLockedApps()
+    }
+
+    fun unlockApp(app: AppModel) {
+        preferencesManager.unlockApp(app.packageName)
+        _lockedApps.value = preferencesManager.getLockedApps()
+    }
+
+    fun isAppLocked(app: AppModel): Boolean = preferencesManager.isAppLocked(app.packageName)
+
+    // ─── Notification Bridge ────────────────────────────────────────────────
+    private val _notificationCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val notificationCounts: StateFlow<Map<String, Int>> = _notificationCounts.asStateFlow()
+
+    private val notificationReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            updateNotificationCounts()
+        }
+    }
+
+    private fun updateNotificationCounts() {
+        val counts = mutableMapOf<String, Int>()
+        // We can't directy access the service instance easily, but we can have the service 
+        // provide the counts. The existing service uses a static map for now as a simple bridge.
+        val packages = apps.value.map { it.packageName }
+        for (pkg in packages) {
+            val count = com.example.launcher.service.LauncherNotificationService.getNotificationCount(pkg)
+            if (count > 0) counts[pkg] = count
+        }
+        _notificationCounts.value = counts
+    }
+
+    // ─── Folder Support ──────────────────────────────────────────────────────
+    private val _folders = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+    val folders: StateFlow<Map<String, Set<String>>> = _folders.asStateFlow()
+
+    fun createFolder(name: String, packageNames: Set<String> = emptySet()) {
+        val current = _folders.value.toMutableMap()
+        current[name] = packageNames
+        preferencesManager.saveFolders(current)
+        _folders.value = current
+    }
+
+    fun addAppToFolder(folderName: String, packageName: String) {
+        preferencesManager.addAppToFolder(folderName, packageName)
+        _folders.value = preferencesManager.getFolders()
+    }
+
+    fun removeAppFromFolder(folderName: String, packageName: String) {
+        preferencesManager.removeAppFromFolder(folderName, packageName)
+        _folders.value = preferencesManager.getFolders()
+    }
+
+    fun deleteFolder(folderName: String) {
+        preferencesManager.deleteFolder(folderName)
+        _folders.value = preferencesManager.getFolders()
+    }
+
+    // ─── App Shortcuts ──────────────────────────────────────────────────────
+    fun loadShortcutsForApp(packageName: String) {
+        viewModelScope.launch {
+            try {
+                val query = LauncherApps.ShortcutQuery().apply {
+                    setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or 
+                                LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or 
+                                LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+                    setPackage(packageName)
+                }
+                
+                val shortcutList = launcherApps.getShortcuts(query, Process.myUserHandle()) ?: emptyList()
+                _shortcuts.value = shortcutList.map { info ->
+                    AppShortcut(
+                        id = info.id,
+                        label = (info.shortLabel ?: info.longLabel ?: "Shortcut").toString(),
+                        icon = try { launcherApps.getShortcutIconDrawable(info, 0) } catch (e: Exception) { null },
+                        packageName = packageName
+                    )
+                }
+            } catch (e: Exception) {
+                _shortcuts.value = emptyList()
+            }
+        }
+    }
+
+    fun launchShortcut(shortcut: AppShortcut) {
+        try {
+            launcherApps.startShortcut(shortcut.packageName, shortcut.id, null, null, Process.myUserHandle())
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun clearShortcuts() {
+        _shortcuts.value = emptyList()
+    }
+
+    private fun refreshMusicState() {
+        try {
+            val mgr = mediaSessionManager ?: return
+            val sessions = mgr.getActiveSessions(null)
+            val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                ?: sessions.firstOrNull()
+            if (active == null) {
+                _musicState.value = MusicState()
+                return
+            }
+            val meta = active.metadata
+            _musicState.value = MusicState(
+                title = meta?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: "",
+                artist = meta?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)
+                    ?: meta?.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST) ?: "",
+                isPlaying = active.playbackState?.state == PlaybackState.STATE_PLAYING
+            )
+        } catch (e: Exception) {
+            // SecurityException if MEDIA_CONTENT_CONTROL not granted – fail silently
+        }
+    }
+
+    fun musicPlayPause() {
+        try {
+            val sessions = mediaSessionManager?.getActiveSessions(null) ?: return
+            val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                ?: sessions.firstOrNull() ?: return
+            val controls = active.transportControls
+            if (active.playbackState?.state == PlaybackState.STATE_PLAYING) controls.pause()
+            else controls.play()
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(300)
+                refreshMusicState()
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    fun musicSkipNext() {
+        try {
+            val sessions = mediaSessionManager?.getActiveSessions(null) ?: return
+            (sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                ?: sessions.firstOrNull())?.transportControls?.skipToNext()
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    fun musicSkipPrev() {
+        try {
+            val sessions = mediaSessionManager?.getActiveSessions(null) ?: return
+            (sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                ?: sessions.firstOrNull())?.transportControls?.skipToPrevious()
+        } catch (e: Exception) { e.printStackTrace() }
     }
     
     // Flow Launcher Features State
@@ -358,6 +636,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         if (prefs.getBoolean("voice_assistant_enabled", true)) {
             setVoiceListening(true)
         }
+
+        // Notification Bridge
+        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(application)
+            .registerReceiver(notificationReceiver, android.content.IntentFilter(com.example.launcher.service.LauncherNotificationService.ACTION_NOTIFICATION_CHANGED))
+        updateNotificationCounts()
     }
     
     // Public method to reload settings (call from Activity onResume)
@@ -377,6 +660,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         } else if (!hubEnabled) {
             hubUpdateJob?.cancel()
         }
+
+        // Refresh Notifications
+        updateNotificationCounts()
+
+        // Refresh Folders
+        _folders.value = preferencesManager.getFolders()
     }
     
     // Call from Activity onPause to save battery
@@ -461,5 +750,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         voiceManager.destroy()
+        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(application)
+            .unregisterReceiver(notificationReceiver)
+        hubUpdateJob?.cancel()
+        musicPollJob?.cancel()
     }
 }

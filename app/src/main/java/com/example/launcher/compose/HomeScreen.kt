@@ -2,7 +2,12 @@ package com.example.launcher.compose
 
 import android.content.res.Configuration
 import android.content.Intent
+import android.content.Context
 import android.net.Uri
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -24,17 +29,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -73,7 +74,24 @@ fun HomeScreen(
     onAddToGrid: (AppModel) -> Unit,
     onRemoveFromGrid: (AppModel) -> Unit,
     onHideApp: (AppModel) -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    musicState: com.example.launcher.ui.HomeViewModel.MusicState = com.example.launcher.ui.HomeViewModel.MusicState(),
+    onMusicPlayPause: () -> Unit = {},
+    onMusicNext: () -> Unit = {},
+    onMusicPrev: () -> Unit = {},
+    lockedApps: Set<String> = emptySet(),
+    onLockApp: (AppModel) -> Unit = {},
+    onUnlockApp: (AppModel) -> Unit = {},
+    cpuHistory: List<Int> = emptyList(),
+    neuralInsight: String = "System running optimally",
+    notificationCounts: Map<String, Int> = emptyMap(),
+    folders: Map<String, Set<String>> = emptyMap(),
+    onAddAppToFolder: (String, String) -> Unit = { _, _ -> },
+    onDeleteFolder: (String) -> Unit = {},
+    shortcuts: List<com.example.launcher.ui.HomeViewModel.AppShortcut> = emptyList(),
+    onLoadShortcuts: (String) -> Unit = {},
+    onShortcutClick: (com.example.launcher.ui.HomeViewModel.AppShortcut) -> Unit = {},
+    onClearShortcuts: () -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -83,14 +101,44 @@ fun HomeScreen(
     
     // Gesture Logic Removed: Swipe Up/Down disabled as per request
     
+    // Internal state for folder view
+    var activeFolder by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    
+    // Parallax State (Phase 15)
+    var roll by remember { androidx.compose.runtime.mutableStateOf(0f) }
+    var pitch by remember { androidx.compose.runtime.mutableStateOf(0f) }
+    val sensorManager = androidx.compose.ui.platform.LocalContext.current.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    
+    DisposableEffect(Unit) {
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+                if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
+                    roll = event.values[0] * 2f // Sensitivity
+                    pitch = event.values[1] * 2f
+                }
+            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        sensorManager.registerListener(listener, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_UI)
+        onDispose {
+            sensorManager.unregisterListener(listener)
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .graphicsLayer {
+                translationX = -roll
+                translationY = pitch
+            }
             .background(Color.Transparent) // Show wallpaper
     ) {
         // Mutable Grid State
         var appPendingAction by remember { androidx.compose.runtime.mutableStateOf<AppModel?>(null) }
         var actionType by remember { androidx.compose.runtime.mutableStateOf<String?>(null) } // "ADD" or "REMOVE"
+        // Privacy Shield: track app pending biometric unlock
+        var lockedAppPending by remember { androidx.compose.runtime.mutableStateOf<AppModel?>(null) }
 
         if (appPendingAction != null && actionType != null) {
             if (actionType == "REMOVE") {
@@ -125,42 +173,197 @@ fun HomeScreen(
                     onDismissRequest = { 
                         appPendingAction = null
                         actionType = null
+                        onClearShortcuts()
                     },
                     title = { Text(appPendingAction?.label ?: "Options", color = Color.White) },
                     text = { Text("Choose an action:", color = Color.LightGray) },
                     confirmButton = {
-                        Row {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row {
+                                Button(
+                                    onClick = {
+                                        appPendingAction?.let { onAddToGrid(it) }
+                                        appPendingAction = null
+                                        actionType = null
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF))
+                                ) { Text("Add to Grid", color = Color.Black) }
+                                
+                                Spacer(modifier = Modifier.width(8.dp))
+                                
+                                Button(
+                                    onClick = {
+                                        appPendingAction?.let { onHideApp(it) }
+                                        appPendingAction = null
+                                        actionType = null
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                                ) { Text("Hide App", color = Color.White) }
+                            }
+                            // Lock / Unlock toggle
+                            val isCurrentlyLocked = appPendingAction?.packageName?.let { lockedApps.contains(it) } ?: false
                             Button(
                                 onClick = {
-                                    appPendingAction?.let { onAddToGrid(it) }
+                                    appPendingAction?.let {
+                                        if (isCurrentlyLocked) onUnlockApp(it) else onLockApp(it)
+                                    }
                                     appPendingAction = null
                                     actionType = null
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF))
-                            ) { Text("Add to Grid", color = Color.Black) }
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isCurrentlyLocked) Color(0xFF6B21A8) else Color(0xFF7E22CE)
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    if (isCurrentlyLocked) "🔓 Unlock App" else "🔒 Lock App",
+                                    color = Color.White
+                                )
+                            }
                             
-                            Spacer(modifier = Modifier.width(8.dp))
+                            // Phase 14: App Shortcuts
+                            if (shortcuts.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    "QUICK ACTIONS",
+                                    color = Color.Cyan,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 200.dp)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    shortcuts.forEach { shortcut ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable { onShortcutClick(shortcut); appPendingAction = null; actionType = null }
+                                                .padding(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (shortcut.icon != null) {
+                                                AndroidView(
+                                                    factory = { ctx ->
+                                                        android.widget.ImageView(ctx).apply {
+                                                            setImageDrawable(shortcut.icon)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                            }
+                                            Text(
+                                                text = shortcut.label,
+                                                color = Color.White,
+                                                fontSize = 14.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             
+                            // Phase 13: Add to Folder
                             Button(
                                 onClick = {
-                                    appPendingAction?.let { onHideApp(it) }
-                                    appPendingAction = null
-                                    actionType = null
+                                    actionType = "ADD_TO_FOLDER"
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)) // Red
-                            ) { Text("Hide App", color = Color.White) }
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("📁 Add to Folder", color = Color.White)
+                            }
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = {
                             appPendingAction = null
                             actionType = null
+                            onClearShortcuts()
                         }) { Text("Cancel", color = Color.Gray) }
                     },
                     containerColor = Color(0xFF1E293B),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
                 )
             }
+        }
+        
+        // Add to Folder Dialog (Phase 13)
+        if (actionType == "ADD_TO_FOLDER") {
+            var folderName by remember { androidx.compose.runtime.mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { actionType = null; appPendingAction = null },
+                title = { Text("Add to Folder", color = Color.White) },
+                text = {
+                    Column {
+                        Text("Enter folder name:", color = Color.LightGray)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.TextField(
+                            value = folderName,
+                            onValueChange = { folderName = it },
+                            placeholder = { Text("Cyber-Folder-01", color = Color.Gray) },
+                            singleLine = true,
+                            colors = androidx.compose.material3.TextFieldDefaults.colors(
+                                focusedContainerColor = Color(0x33FFFFFF),
+                                unfocusedContainerColor = Color(0x1AFFFFFF),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            )
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        if (folderName.isNotBlank() && appPendingAction != null) {
+                            onAddAppToFolder(folderName, appPendingAction!!.packageName)
+                        }
+                        actionType = null
+                        appPendingAction = null
+                    }) { Text("ADD", color = Color(0xFF00F0FF)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { actionType = null; appPendingAction = null }) { 
+                        Text("CANCEL", color = Color.Gray) 
+                    }
+                },
+                containerColor = Color(0xFF1E293B)
+            )
+        }
+
+        // Privacy Shield overlay
+        lockedAppPending?.let { appToUnlock ->
+            PrivacyShieldPrompt(
+                app = appToUnlock,
+                onUnlocked = {
+                    onAppClick(appToUnlock)
+                    lockedAppPending = null
+                },
+                onDismiss = { lockedAppPending = null }
+            )
+        }
+        
+        // Folder Overlay (Phase 13)
+        activeFolder?.let { folderName ->
+            val folderPackageNames = folders[folderName] ?: emptySet()
+            val folderApps = allApps.filter { folderPackageNames.contains(it.packageName) }
+            FolderOverlay(
+                name = folderName,
+                apps = folderApps,
+                onAppClick = { app ->
+                    onAppClick(app)
+                    activeFolder = null
+                },
+                onClose = { activeFolder = null },
+                onRemoveFromFolder = { app ->
+                    // Logic already handled via onDeleteFolder or add/remove methods in future
+                }
+            )
         }
         if (isLandscape) {
             Row(
@@ -203,7 +406,8 @@ fun HomeScreen(
                         onAppLongClick = { app ->
                             appPendingAction = app
                             actionType = "REMOVE"
-                        }
+                        },
+                        notificationCounts = notificationCounts
                     )
                 }
             }
@@ -243,7 +447,8 @@ fun HomeScreen(
                         onAppLongClick = { app ->
                             appPendingAction = app
                             actionType = "REMOVE"
-                        }
+                        },
+                        notificationCounts = notificationCounts
                     )
                 }
                 
@@ -266,11 +471,19 @@ fun HomeScreen(
         if (showDrawer) {
             AppDrawer(
                 apps = allApps,
-                onAppClick = onAppClick,
+                onAppClick = { app ->
+                    if (lockedApps.contains(app.packageName)) {
+                        lockedAppPending = app
+                    } else {
+                        onAppClick(app)
+                    }
+                },
+                notificationCounts = notificationCounts,
                 onClose = { onDrawerToggle(false) },
                 onAppLongClick = { app ->
                     appPendingAction = app
                     actionType = "DRAWER_OPTIONS"
+                    onLoadShortcuts(app.packageName)
                 }
             )
         }
@@ -279,7 +492,13 @@ fun HomeScreen(
         if (showNeuralHub) {
             NeuralHub(
                 state = neuralHubState,
-                onClose = { onNeuralHubToggle(false) }
+                musicState = musicState,
+                onClose = { onNeuralHubToggle(false) },
+                onMusicPlayPause = onMusicPlayPause,
+                onMusicNext = onMusicNext,
+                onMusicPrev = onMusicPrev,
+                cpuHistory = cpuHistory,
+                neuralInsight = neuralInsight
             )
         }
         
@@ -326,7 +545,8 @@ fun ClockWidget(modifier: Modifier = Modifier) {
 fun FlowerGrid(
     apps: List<AppModel>,
     onAppClick: (AppModel) -> Unit,
-    onAppLongClick: (AppModel) -> Unit
+    onAppLongClick: (AppModel) -> Unit,
+    notificationCounts: Map<String, Int> = emptyMap()
 ) {
     BoxWithConstraints(
         contentAlignment = Alignment.Center,
@@ -357,7 +577,8 @@ fun FlowerGrid(
         Layout(
             content = {
                 apps.take(maxApps).forEach { app ->
-                    AppIcon(app, onAppClick, onAppLongClick, iconSizeDp)
+                    val count = notificationCounts[app.packageName] ?: 0
+                    AppIcon(app, onAppClick, onAppLongClick, iconSizeDp, count)
                 }
             }
         ) { measurables, lConstraints ->
@@ -422,28 +643,43 @@ fun AppIcon(
     app: AppModel,
     onClick: (AppModel) -> Unit,
     onLongClick: (AppModel) -> Unit,
-    size: androidx.compose.ui.unit.Dp = 64.dp
+    size: androidx.compose.ui.unit.Dp = 64.dp,
+    notificationCount: Int = 0
 ) {
     Box(
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(Color(0x3300F0FF))
-            .combinedClickable(
-                onClick = { onClick(app) },
-                onLongClick = { onLongClick(app) }
-            ),
+        modifier = Modifier.size(size),
         contentAlignment = Alignment.Center
     ) {
-        AndroidView(
-            factory = { ctx ->
-                android.widget.ImageView(ctx).apply {
-                    setImageDrawable(app.icon)
-                    scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
-                }
-            },
-            modifier = Modifier.size(size * 0.75f)
-        )
+        Box(
+            modifier = Modifier
+                .size(size * 0.9f)
+                .clip(CircleShape)
+                .background(Color(0x3300F0FF))
+                .combinedClickable(
+                    onClick = { onClick(app) },
+                    onLongClick = { onLongClick(app) }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    android.widget.ImageView(ctx).apply {
+                        setImageDrawable(app.icon)
+                        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                    }
+                },
+                modifier = Modifier.size(size * 0.65f)
+            )
+        }
+        
+        if (notificationCount > 0) {
+            NotificationDot(
+                count = notificationCount,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 2.dp, top = 2.dp)
+            )
+        }
     }
 }
 
@@ -533,7 +769,8 @@ fun AppDrawer(
     apps: List<AppModel>,
     onAppClick: (AppModel) -> Unit,
     onClose: () -> Unit,
-    onAppLongClick: (AppModel) -> Unit
+    onAppLongClick: (AppModel) -> Unit,
+    notificationCounts: Map<String, Int> = emptyMap()
 ) {
     Box(
         modifier = Modifier
@@ -564,11 +801,27 @@ fun AppDrawer(
             
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 80.dp),
-                
                 contentPadding = PaddingValues(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(apps) { app ->
+                // Phase 13: Render Folders
+                folders.forEach { (name, packages) ->
+                    item {
+                        val folderApps = apps.filter { packages.contains(it.packageName) }
+                        val folderNotifCount = folderApps.sumOf { notificationCounts[it.packageName] ?: 0 }
+                        FolderIcon(
+                            name = name,
+                            apps = folderApps,
+                            onClick = { activeFolder = name },
+                            onLongClick = { onDeleteFolder(name) },
+                            notificationCount = folderNotifCount
+                        )
+                    }
+                }
+
+                // Render Apps (filter out those already in folders for cleaner look)
+                val appsInFolders = folders.values.flatten().toSet()
+                items(apps.filter { !appsInFolders.contains(it.packageName) }) { app ->
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
@@ -578,15 +831,22 @@ fun AppDrawer(
                                 onLongClick = { onAppLongClick(app) }
                             )
                     ) {
-                        AndroidView(
-                            factory = { ctx ->
-                                android.widget.ImageView(ctx).apply {
-                                    setImageDrawable(app.icon)
-                                    scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
-                                }
-                            },
-                            modifier = Modifier.size(56.dp)
-                        )
+                        Box(contentAlignment = Alignment.TopEnd) {
+                            AndroidView(
+                                factory = { ctx ->
+                                    android.widget.ImageView(ctx).apply {
+                                        setImageDrawable(app.icon)
+                                        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                                    }
+                                },
+                                modifier = Modifier.size(56.dp)
+                            )
+                            // Notification Dot
+                            val count = notificationCounts[app.packageName] ?: 0
+                            if (count > 0) {
+                                NotificationDot(count = count)
+                            }
+                        }
                         Text(
                             text = app.label,
                             color = Color.White,
@@ -596,6 +856,157 @@ fun AppDrawer(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun NotificationDot(count: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(18.dp)
+            .background(Color(0xFF00F0FF), CircleShape)
+            .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = if (count > 9) "9+" else count.toString(),
+            color = Color.Black,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+@Composable
+fun FolderIcon(
+    name: String,
+    apps: List<AppModel>, // First few apps in folder
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    notificationCount: Int = 0
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(8.dp)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0x33FFFFFF))
+                .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            // 2x2 Grid of mini icons
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.padding(6.dp).size(44.dp),
+                userScrollEnabled = false
+            ) {
+                items(apps.take(4)) { app ->
+                    AndroidView(
+                        factory = { ctx ->
+                            android.widget.ImageView(ctx).apply {
+                                setImageDrawable(app.icon)
+                            }
+                        },
+                        modifier = Modifier.padding(2.dp).size(18.dp)
+                    )
+                }
+            }
+            
+            if (notificationCount > 0) {
+                NotificationDot(
+                    count = notificationCount,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(2.dp)
+                )
+            }
+        }
+        Text(
+            text = name,
+            color = Color.White,
+            fontSize = 12.sp,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+@Composable
+fun FolderOverlay(
+    name: String,
+    apps: List<AppModel>,
+    onAppClick: (AppModel) -> Unit,
+    onClose: () -> Unit,
+    onRemoveFromFolder: (AppModel) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xCC000000))
+            .clickable { onClose() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0x1AFFFFFF))
+                .border(1.dp, Color(0xFF00F0FF).copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                .padding(24.dp)
+                .clickable(enabled = false) {},
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = name.uppercase(),
+                color = Color(0xFF00F0FF),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 70.dp),
+                modifier = Modifier.heightIn(max = 400.dp)
+            ) {
+                items(apps) { app ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .clickable { onAppClick(app) }
+                    ) {
+                        AndroidView(
+                            factory = { ctx ->
+                                android.widget.ImageView(ctx).apply {
+                                    setImageDrawable(app.icon)
+                                }
+                            },
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = app.label,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            TextButton(onClick = onClose) {
+                Text("CLOSE", color = Color.White.copy(alpha = 0.6f))
             }
         }
     }

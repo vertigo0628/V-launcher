@@ -69,6 +69,13 @@ class MainActivity : AppCompatActivity() {
             val isVoiceEnabled by viewModel.isVoiceEnabled.collectAsState()
             val searchResults by viewModel.searchResults.collectAsState()
             val searchQuery by viewModel.searchQuery.collectAsState()
+            val musicState by viewModel.musicState.collectAsState()
+            val lockedApps by viewModel.lockedApps.collectAsState()
+            val cpuHistory by viewModel.cpuHistory.collectAsState()
+            val neuralInsight by viewModel.neuralInsight.collectAsState()
+            val notificationCounts by viewModel.notificationCounts.collectAsState()
+            val folders by viewModel.folders.collectAsState()
+            val shortcuts by viewModel.shortcuts.collectAsState()
             
             
             MaterialTheme {
@@ -97,7 +104,27 @@ class MainActivity : AppCompatActivity() {
                     onHideApp = { app -> viewModel.hideApp(app) },
                     onSettings = {  
                         startActivity(Intent(this, LauncherSettingsActivity::class.java))
-                    }
+                    },
+                    musicState = musicState,
+                    onMusicPlayPause = { viewModel.musicPlayPause() },
+                    onMusicNext = { viewModel.musicSkipNext() },
+                    onMusicPrev = { viewModel.musicSkipPrev() },
+                    lockedApps = lockedApps,
+                    onLockApp = { app -> viewModel.lockApp(app) },
+                    onUnlockApp = { app -> viewModel.unlockApp(app) },
+                    cpuHistory = cpuHistory,
+                    neuralInsight = neuralInsight,
+                    notificationCounts = notificationCounts,
+                    folders = folders,
+                    onAddAppToFolder = { folder, pkg -> viewModel.addAppToFolder(folder, pkg) },
+                    onDeleteFolder = { name -> viewModel.deleteFolder(name) },
+                    shortcuts = shortcuts,
+                    onLoadShortcuts = { pkg -> viewModel.loadShortcutsForApp(pkg) },
+                    onShortcutClick = { shortcut -> 
+                        viewModel.launchShortcut(shortcut)
+                        viewModel.clearShortcuts()
+                    },
+                    onClearShortcuts = { viewModel.clearShortcuts() }
                 )
             }
         }

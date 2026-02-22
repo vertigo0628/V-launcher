@@ -20,7 +20,13 @@ import com.example.launcher.ui.HomeViewModel
 @Composable
 fun NeuralHub(
     state: HomeViewModel.NeuralHubState,
-    onClose: () -> Unit
+    musicState: HomeViewModel.MusicState,
+    onClose: () -> Unit,
+    onMusicPlayPause: () -> Unit = {},
+    onMusicNext: () -> Unit = {},
+    onMusicPrev: () -> Unit = {},
+    cpuHistory: List<Int> = emptyList(),
+    neuralInsight: String = "System running optimally"
 ) {
     // Cyberpunk Gradient Background
     val bgBrush = Brush.verticalGradient(
@@ -100,34 +106,56 @@ fun NeuralHub(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // AI Predictions Panel
+            // Music Player Widget
+            MusicPlayerCard(
+                state = musicState,
+                onPlayPause = onMusicPlayPause,
+                onNext = onMusicNext,
+                onPrev = onMusicPrev
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // CPU History Graph (Phase 11)
+            CpuHistoryGraph(history = cpuHistory)
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Neural Insights Panel
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp)
-                    .background(Color(0x1AFFFFFF), RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0x1AFFFFFF))
                     .padding(16.dp)
             ) {
-                 Column(
-                     modifier = Modifier.align(Alignment.Center),
-                     horizontalAlignment = Alignment.CenterHorizontally
-                 ) {
-                     Text(
-                         text = "🧠 NEURAL INSIGHTS",
-                         color = Color(0xFF00F0FF),
-                         fontSize = 14.sp,
-                         fontWeight = FontWeight.Bold
-                     )
-                     Spacer(modifier = Modifier.height(8.dp))
-                     Text(
-                         text = "System running optimally",
-                         color = Color.White.copy(alpha = 0.7f),
-                         fontSize = 12.sp
-                     )
-                 }
-            }
-        }
-    }
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "🧠 NEURAL INSIGHTS",
+                        color = Color(0xFF00F0FF),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = neuralInsight,
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 12.sp
+                    )
+                }
+            }  // end AI Predictions Box
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Mini Apps Panel
+            MiniAppsPanel()
+
+            Spacer(modifier = Modifier.height(24.dp))
+        } // end Column
+    } // end Box
 }
 
 @Composable

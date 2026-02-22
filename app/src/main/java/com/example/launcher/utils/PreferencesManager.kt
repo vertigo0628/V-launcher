@@ -63,4 +63,70 @@ class PreferencesManager(context: Context) {
     fun clearPin() {
         prefs.edit().remove(PREF_PIN).apply()
     }
+
+    // ─── Privacy Shield: Biometric App Lock ───────────────────────────────────
+    private val PREF_LOCKED_APPS = "locked_apps"
+
+    fun getLockedApps(): Set<String> {
+        return prefs.getStringSet(PREF_LOCKED_APPS, emptySet()) ?: emptySet()
+    }
+
+    fun lockApp(packageName: String) {
+        val locked = getLockedApps().toMutableSet()
+        locked.add(packageName)
+        prefs.edit().putStringSet(PREF_LOCKED_APPS, locked).apply()
+    }
+
+    fun unlockApp(packageName: String) {
+        val locked = getLockedApps().toMutableSet()
+        locked.remove(packageName)
+        prefs.edit().putStringSet(PREF_LOCKED_APPS, locked).apply()
+    }
+
+    fun isAppLocked(packageName: String): Boolean = getLockedApps().contains(packageName)
+
+    // ─── Folder Support ──────────────────────────────────────────────────────
+    private val PREF_FOLDERS = "app_folders"
+    private val gson = com.google.gson.Gson()
+
+    fun getFolders(): Map<String, Set<String>> {
+        val json = prefs.getString(PREF_FOLDERS, null) ?: return emptyMap()
+        val type = object : com.google.gson.reflect.TypeToken<Map<String, Set<String>>>() {}.type
+        return try {
+            gson.fromJson(json, type)
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    fun saveFolders(folders: Map<String, Set<String>>) {
+        val json = gson.toJson(folders)
+        prefs.edit().putString(PREF_FOLDERS, json).apply()
+    }
+
+    fun addAppToFolder(folderName: String, packageName: String) {
+        val folders = getFolders().toMutableMap()
+        val apps = folders[folderName]?.toMutableSet() ?: mutableSetOf()
+        apps.add(packageName)
+        folders[folderName] = apps
+        saveFolders(folders)
+    }
+
+    fun removeAppFromFolder(folderName: String, packageName: String) {
+        val folders = getFolders().toMutableMap()
+        val apps = folders[folderName]?.toMutableSet() ?: return
+        apps.remove(packageName)
+        if (apps.isEmpty()) {
+            folders.remove(folderName)
+        } else {
+            folders[folderName] = apps
+        }
+        saveFolders(folders)
+    }
+
+    fun deleteFolder(folderName: String) {
+        val folders = getFolders().toMutableMap()
+        folders.remove(folderName)
+        saveFolders(folders)
+    }
 }
