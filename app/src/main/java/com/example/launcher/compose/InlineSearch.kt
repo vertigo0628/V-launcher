@@ -130,14 +130,14 @@ fun SearchOverlay(
                     WindowInsetsCompat.Type.ime()
                 )
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing keyboard: ${e.message}")
         }
+    }
     
     // Log query updates for debugging
     LaunchedEffect(query) {
         Log.d(TAG, "SearchOverlay Query State: '$query'")
-    } catch (e: Exception) {
-            Log.e(TAG, "Error showing keyboard: ${e.message}")
-        }
     }
     
     // Full-screen overlay
