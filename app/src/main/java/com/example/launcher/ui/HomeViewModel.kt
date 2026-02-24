@@ -456,6 +456,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun promptNotificationAccess() {
+        val intent = android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        getApplication<Application>().startActivity(intent)
+        android.widget.Toast.makeText(getApplication<Application>(), "Please grant V-Launcher Notification Access to control music.", android.widget.Toast.LENGTH_LONG).show()
+    }
+
     fun musicPlayPause() {
         try {
             val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(getNotificationServiceComponent()) ?: return
@@ -468,7 +475,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 kotlinx.coroutines.delay(300)
                 refreshMusicState()
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: SecurityException) {
+            promptNotificationAccess()
+        } catch (e: Exception) { 
+            e.printStackTrace() 
+        }
     }
 
     fun musicSkipNext() {
@@ -477,7 +488,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
                 ?: sessions.firstOrNull()
             active?.transportControls?.skipToNext()
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: SecurityException) {
+            promptNotificationAccess()
+        } catch (e: Exception) { 
+            e.printStackTrace() 
+        }
     }
 
     fun musicSkipPrev() {
@@ -486,7 +501,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
                 ?: sessions.firstOrNull()
             active?.transportControls?.skipToPrevious()
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: SecurityException) {
+            promptNotificationAccess()
+        } catch (e: Exception) { 
+            e.printStackTrace() 
+        }
     }
     
     // Flow Launcher Features State
@@ -923,6 +942,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         
         // Fetch Calendar Events
         fetchTodayEvents()
+        
+        // Start Music Monitor
+        startMusicMonitor()
         
         // Start System Monitor if enabled
         if (prefs.getBoolean("neural_hub_enabled", true)) {
