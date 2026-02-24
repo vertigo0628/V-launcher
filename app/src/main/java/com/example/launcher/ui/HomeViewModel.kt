@@ -438,17 +438,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val sessions: List<MediaController> = mgr.getActiveSessions(getNotificationServiceComponent())
             val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
                 ?: sessions.firstOrNull()
+            
             if (active == null) {
-                _musicState.value = MusicState()
+                // If there's no active session, just mark as not playing but KEEP the track info
+                _musicState.value = _musicState.value.copy(isPlaying = false)
                 return
             }
+            
             val meta = active.metadata
             _musicState.value = MusicState(
-                title = meta?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: "",
+                title = meta?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: _musicState.value.title,
                 artist = meta?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)
-                    ?: meta?.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST) ?: "",
+                    ?: meta?.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST) 
+                    ?: _musicState.value.artist,
                 isPlaying = active.playbackState?.state == PlaybackState.STATE_PLAYING,
-                albumArt = meta?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART)
+                albumArt = meta?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART) ?: _musicState.value.albumArt
             )
         } catch (e: Exception) {
             // SecurityException if MEDIA_CONTENT_CONTROL not granted – fail silently
