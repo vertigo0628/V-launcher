@@ -77,6 +77,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private var _flashlightState = false
 
+    // ─── Calendar Events ───────────────────────────────────────────────────
+    data class CalendarEvent(
+        val title: String,
+        val startTimeMs: Long,
+        val endTimeMs: Long,
+        val location: String?,
+        val color: Int?
+    )
+    
+    private val _todayEvents = MutableStateFlow<List<CalendarEvent>>(emptyList())
+    val todayEvents: StateFlow<List<CalendarEvent>> = _todayEvents.asStateFlow()
+
     init {
         loadApps()
     }
@@ -818,16 +830,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ─── Calendar Events ───────────────────────────────────────────────────
-    data class CalendarEvent(
-        val title: String,
-        val startTimeMs: Long,
-        val endTimeMs: Long,
-        val location: String?,
-        val color: Int?
-    )
-    
-    private val _todayEvents = MutableStateFlow<List<CalendarEvent>>(emptyList())
-    val todayEvents: StateFlow<List<CalendarEvent>> = _todayEvents.asStateFlow()
     
     fun fetchTodayEvents() {
         if (ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
