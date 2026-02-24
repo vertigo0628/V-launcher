@@ -33,15 +33,15 @@ import java.util.Calendar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.launcher.ui.HomeViewModel
 
 // ─── Data models ───────────────────────────────────────────────────────────────
-
 data class TaskItem(val id: Long = System.currentTimeMillis(), val text: String, val done: Boolean = false)
-
+data class NoteItem(val id: Long = System.currentTimeMillis(), val text: String)
 // ─── Mini-Apps Hub Composable ─────────────────────────────────────────────────
 
 @Composable
-fun MiniAppsPanel(modifier: Modifier = Modifier) {
+fun MiniAppsPanel(modifier: Modifier = Modifier, viewModel: HomeViewModel? = null) {
     val tabs = listOf("📅 Calendar", "📝 Notes", "✅ Tasks")
     var selectedTab by remember { mutableStateOf(0) }
 
@@ -91,7 +91,7 @@ fun MiniAppsPanel(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(16.dp))
 
         when (selectedTab) {
-            0 -> CalendarCard()
+            0 -> CalendarCard(events = viewModel?.todayEvents?.collectAsState()?.value ?: emptyList())
             1 -> NotesCard()
             2 -> TasksCard()
         }
@@ -101,7 +101,7 @@ fun MiniAppsPanel(modifier: Modifier = Modifier) {
 // ─── Calendar Card ─────────────────────────────────────────────────────────────
 
 @Composable
-fun CalendarCard() {
+fun CalendarCard(events: List<HomeViewModel.CalendarEvent>) {
     val cal = remember { Calendar.getInstance() }
     val today = cal.get(Calendar.DAY_OF_MONTH)
     val month = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
@@ -146,67 +146,160 @@ fun CalendarCard() {
         Divider(color = Color(0x2200F0FF))
         Spacer(modifier = Modifier.height(8.dp))
 
-        Text(
-            text = "No events today",
-            color = Color.Gray,
-            fontSize = 11.sp,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
+        if (events.isEmpty()) {
+            Text(
+                text = "No events today",
+                color = Color.Gray,
+                fontSize = 11.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 150.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                events.forEach { event ->
+                    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+                    val startTime = timeFormat.format(Date(event.startTimeMs))
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0x1AFFFFFF))
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp, 24.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(event.color?.let { Color(it) } ?: Color(0xFF00F0FF))
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = event.title, color = Color.White, fontSize = 13.sp, maxLines = 1)
+                            Text(text = startTime, color = Color.Gray, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
 // ─── Notes Card ────────────────────────────────────────────────────────────────
 
+private const val NOTES_KEY = "notes_json"
+
+private fun loadNotes(prefs: SharedPreferences): MutableList<NoteItem> {
+    val json = prefs.getString(NOTES_KEY, null) ?: return mutableListOf()
+    return try {
+        val type = object : TypeToken<MutableList<NoteItem>>() {}.type
+        Gson().fromJson(json, type)
+    } catch (e: Exception) { mutableListOf() }
+}
+
+private fun saveNotes(prefs: SharedPreferences, notes: List<NoteItem>) {
+    prefs.edit().putString(NOTES_KEY, Gson().toJson(notes)).apply()
+}
+
 @Composable
 fun NotesCard() {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("mini_apps_prefs", Context.MODE_PRIVATE) }
-    var noteText by remember { mutableStateOf(prefs.getString("note_content", "") ?: "") }
+    var notes by remember { mutableStateOf(loadNotes(prefs)) }
+    var newNoteText by remember { mutableStateOf("") }
 
     Column {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0x1AFFFFFF))
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(12.dp))
-                .padding(12.dp)
-        ) {
-            BasicTextField(
-                value = noteText,
-                onValueChange = { noteText = it },
-                textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
-                cursorBrush = SolidColor(Color(0xFF00F0FF)),
-                modifier = Modifier.fillMaxSize(),
-                decorationBox = { inner ->
-                    if (noteText.isEmpty()) {
-                        Text("Tap to write a note...", color = Color.Gray, fontSize = 13.sp)
+        // Add new note input
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x1AFFFFFF))
+                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                BasicTextField(
+                    value = newNoteText,
+                    onValueChange = { newNoteText = it },
+                    textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
+                    cursorBrush = SolidColor(Color(0xFF00F0FF)),
+                    decorationBox = { inner ->
+                        if (newNoteText.isEmpty()) Text("Write a new note...", color = Color.Gray, fontSize = 13.sp)
+                        inner()
                     }
-                    inner()
-                }
-            )
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF00F0FF))
+                    .clickable {
+                        if (newNoteText.isNotBlank()) {
+                            val updated = notes.toMutableList().also { it.add(0, NoteItem(text = newNoteText.trim())) }
+                            notes = updated
+                            saveNotes(prefs, updated)
+                            newNoteText = ""
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("+", color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { prefs.edit().putString("note_content", noteText).apply() },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF)),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                modifier = Modifier.height(32.dp)
-            ) { Text("Save", color = Color.Black, fontSize = 11.sp) }
+        // Note list
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            notes.forEach { note ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0x1AFFFFFF))
+                        .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text(
+                            text = note.text,
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // Delete Button
+                        Text(
+                            text = "✕",
+                            color = Color(0x66FF4444),
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .clickable {
+                                    val updated = notes.filter { it.id != note.id }.toMutableList()
+                                    notes = updated
+                                    saveNotes(prefs, updated)
+                                }
+                        )
+                    }
+                }
+            }
 
-            OutlinedButton(
-                onClick = {
-                    noteText = ""
-                    prefs.edit().remove("note_content").apply()
-                },
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                modifier = Modifier.height(32.dp)
-            ) { Text("Clear", color = Color.Gray, fontSize = 11.sp) }
+            if (notes.isEmpty()) {
+                Text(
+                    text = "No notes yet. Add one above!",
+                    color = Color.Gray,
+                    fontSize = 11.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)
+                )
+            }
         }
     }
 }

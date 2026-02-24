@@ -209,6 +209,12 @@ class MainActivity : AppCompatActivity() {
             permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
         }
         
+        // Check Calendar permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.READ_CALENDAR)
+        }
+        
         if (permissionsToRequest.isNotEmpty()) {
             permissionLauncher.launch(permissionsToRequest.toTypedArray())
         }

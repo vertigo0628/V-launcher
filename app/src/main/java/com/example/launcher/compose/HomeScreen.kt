@@ -71,12 +71,13 @@ fun HomeScreen(
     onVoiceClick: () -> Unit,
     searchQuery: String,
     searchResults: List<com.example.launcher.utils.SearchManager.SearchResult>,
-                    onSearchQueryChange: (String) -> Unit = {},
-                    onSearchResultClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit = {},
-                    isSearching: Boolean = false,
-                    onAddToGrid: (AppModel) -> Unit,
-                    onRemoveFromGrid: (AppModel) -> Unit,
+    onSearchQueryChange: (String) -> Unit = {},
+    onSearchResultClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit = {},
+    isSearching: Boolean = false,
+    onAddToGrid: (AppModel) -> Unit,
+    onRemoveFromGrid: (AppModel) -> Unit,
     onHideApp: (AppModel) -> Unit,
+    viewModel: com.example.launcher.ui.HomeViewModel? = null,
     onSettings: () -> Unit,
     musicState: com.example.launcher.ui.HomeViewModel.MusicState = com.example.launcher.ui.HomeViewModel.MusicState(),
     onMusicPlayPause: () -> Unit = {},
@@ -498,7 +499,8 @@ fun HomeScreen(
                 },
                 folders = folders,
                 onFolderClick = { activeFolder = it },
-                onDeleteFolder = onDeleteFolder
+                onDeleteFolder = onDeleteFolder,
+                viewModel = viewModel // Pass ViewModel to AppDrawer
             )
         }
         
@@ -788,7 +790,8 @@ fun AppDrawer(
     notificationCounts: Map<String, Int> = emptyMap(),
     folders: Map<String, Set<String>> = emptyMap(),
     onFolderClick: (String) -> Unit = {},
-    onDeleteFolder: (String) -> Unit = {}
+    onDeleteFolder: (String) -> Unit = {},
+    viewModel: com.example.launcher.ui.HomeViewModel? = null
 ) {
     Box(
         modifier = Modifier

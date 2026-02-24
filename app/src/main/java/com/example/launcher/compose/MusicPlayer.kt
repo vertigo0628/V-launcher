@@ -16,6 +16,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -93,11 +96,20 @@ fun MusicPlayerCard(
                         .border(1.dp, Color(0xFF00F0FF).copy(alpha = pulseAlpha), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "♪",
-                        color = Color(0xFF00F0FF).copy(alpha = pulseAlpha),
-                        fontSize = 24.sp
-                    )
+                    if (state.albumArt != null) {
+                        Image(
+                            bitmap = state.albumArt.asImageBitmap(),
+                            contentDescription = "Album Art",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            text = "♪",
+                            color = Color(0xFF00F0FF).copy(alpha = pulseAlpha),
+                            fontSize = 24.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))

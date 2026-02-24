@@ -24,6 +24,11 @@ import android.content.Intent
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.provider.CalendarContract
+import java.util.Calendar
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -232,7 +237,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     data class MusicState(
         val title: String = "",
         val artist: String = "",
-        val isPlaying: Boolean = false
+        val isPlaying: Boolean = false,
+        val albumArt: android.graphics.Bitmap? = null
     )
 
     private val _musicState = MutableStateFlow(MusicState())
@@ -240,6 +246,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private var mediaSessionManager: MediaSessionManager? = null
     private var musicPollJob: kotlinx.coroutines.Job? = null
+    
+    private fun getNotificationServiceComponent(): android.content.ComponentName {
+        return android.content.ComponentName(getApplication<Application>(), com.example.launcher.service.LauncherNotificationService::class.java)
+    }
 
     fun startMusicMonitor() {
         if (musicPollJob?.isActive == true) return
@@ -407,7 +417,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun refreshMusicState() {
         try {
             val mgr = mediaSessionManager ?: return
-            val sessions: List<MediaController> = mgr.getActiveSessions(null)
+            val sessions: List<MediaController> = mgr.getActiveSessions(getNotificationServiceComponent())
             val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
                 ?: sessions.firstOrNull()
             if (active == null) {
@@ -419,16 +429,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 title = meta?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: "",
                 artist = meta?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)
                     ?: meta?.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST) ?: "",
-                isPlaying = active.playbackState?.state == PlaybackState.STATE_PLAYING
+                isPlaying = active.playbackState?.state == PlaybackState.STATE_PLAYING,
+                albumArt = meta?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART)
             )
         } catch (e: Exception) {
             // SecurityException if MEDIA_CONTENT_CONTROL not granted – fail silently
+            e.printStackTrace()
         }
     }
 
     fun musicPlayPause() {
         try {
-            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(null) ?: return
+            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(getNotificationServiceComponent()) ?: return
             val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
                 ?: sessions.firstOrNull() ?: return
             val controls = active.transportControls
@@ -443,7 +455,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun musicSkipNext() {
         try {
-            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(null) ?: return
+            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(getNotificationServiceComponent()) ?: return
             val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
                 ?: sessions.firstOrNull()
             active?.transportControls?.skipToNext()
@@ -452,7 +464,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun musicSkipPrev() {
         try {
-            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(null) ?: return
+            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(getNotificationServiceComponent()) ?: return
             val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
                 ?: sessions.firstOrNull()
             active?.transportControls?.skipToPrevious()
@@ -636,6 +648,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         // Fetch real weather
         fetchWeather()
         
+        // Fetch Calendar Events
+        fetchTodayEvents()
+        
         // Start System Monitor if enabled
         if (prefs.getBoolean("neural_hub_enabled", true)) {
             startHubUpdates()
@@ -753,6 +768,85 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         // Fallback: Update search with the command text
         else {
             onSearchQueryChanged(command)
+        }
+    }
+
+    // ─── Calendar Events ───────────────────────────────────────────────────
+    data class CalendarEvent(
+        val title: String,
+        val startTimeMs: Long,
+        val endTimeMs: Long,
+        val location: String?,
+        val color: Int?
+    )
+    
+    private val _todayEvents = MutableStateFlow<List<CalendarEvent>>(emptyList())
+    val todayEvents: StateFlow<List<CalendarEvent>> = _todayEvents.asStateFlow()
+    
+    fun fetchTodayEvents() {
+        if (ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+        
+        viewModelScope.launch {
+            try {
+                val cal = Calendar.getInstance()
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                val startOfDay = cal.timeInMillis
+                
+                cal.add(Calendar.DAY_OF_MONTH, 1)
+                val endOfDay = cal.timeInMillis
+                
+                val projection = arrayOf(
+                    CalendarContract.Events._ID,
+                    CalendarContract.Events.TITLE,
+                    CalendarContract.Events.DTSTART,
+                    CalendarContract.Events.DTEND,
+                    CalendarContract.Events.EVENT_LOCATION,
+                    CalendarContract.Events.DISPLAY_COLOR
+                )
+                
+                // Query events that start OR end within today, or span across today
+                val selection = "(${CalendarContract.Events.DTSTART} < ?) AND (${CalendarContract.Events.DTEND} >= ?)"
+                val selectionArgs = arrayOf(endOfDay.toString(), startOfDay.toString())
+                
+                val uri = CalendarContract.Events.CONTENT_URI
+                val cursor = getApplication<Application>().contentResolver.query(
+                    uri,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    "${CalendarContract.Events.DTSTART} ASC"
+                )
+                
+                val events = mutableListOf<CalendarEvent>()
+                cursor?.use {
+                    val titleIdx = it.getColumnIndexOrThrow(CalendarContract.Events.TITLE)
+                    val startIdx = it.getColumnIndexOrThrow(CalendarContract.Events.DTSTART)
+                    val endIdx = it.getColumnIndexOrThrow(CalendarContract.Events.DTEND)
+                    val locIdx = it.getColumnIndex(CalendarContract.Events.EVENT_LOCATION)
+                    val colorIdx = it.getColumnIndex(CalendarContract.Events.DISPLAY_COLOR)
+                    
+                    while (it.moveToNext()) {
+                        events.add(
+                            CalendarEvent(
+                                title = it.getString(titleIdx) ?: "No Title",
+                                startTimeMs = it.getLong(startIdx),
+                                endTimeMs = it.getLong(endIdx),
+                                location = if (locIdx >= 0) it.getString(locIdx) else null,
+                                color = if (colorIdx >= 0 && !it.isNull(colorIdx)) it.getInt(colorIdx) else null
+                            )
+                        )
+                    }
+                }
+                _todayEvents.value = events
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _todayEvents.value = emptyList()
+            }
         }
     }
 
