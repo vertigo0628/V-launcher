@@ -11,6 +11,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -34,6 +36,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import com.example.launcher.ui.HomeViewModel
+import com.example.launcher.utils.rememberBouncyOverscrollModifier
 
 // ─── Data models ───────────────────────────────────────────────────────────────
 data class TaskItem(val id: Long = System.currentTimeMillis(), val text: String, val done: Boolean = false)
@@ -157,7 +160,9 @@ fun CalendarCard(events: List<HomeViewModel.CalendarEvent>) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 150.dp),
+                    .heightIn(max = 150.dp)
+                    .then(rememberBouncyOverscrollModifier())
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 events.forEach { event ->
@@ -258,7 +263,14 @@ fun NotesCard() {
         Spacer(modifier = Modifier.height(10.dp))
 
         // Note list
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 240.dp)
+                .then(rememberBouncyOverscrollModifier())
+                .verticalScroll(rememberScrollState())
+        ) {
             notes.forEach { note ->
                 Box(
                     modifier = Modifier
@@ -374,7 +386,14 @@ fun TasksCard() {
         Spacer(modifier = Modifier.height(10.dp))
 
         // Task list
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 240.dp)
+                .then(rememberBouncyOverscrollModifier())
+                .verticalScroll(rememberScrollState())
+        ) {
             tasks.forEach { task ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

@@ -32,8 +32,8 @@ fun NeuralHub(
     // Cyberpunk Gradient Background
     val bgBrush = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF0F172A), // Dark Blue
-            Color(0xFF000000)  // Black
+            Color(0xB30F172A), // 70% Dark Blue
+            Color(0xB3000000)  // 70% Black
         )
     )
     
@@ -41,17 +41,30 @@ fun NeuralHub(
         modifier = Modifier
             .fillMaxSize()
             .background(bgBrush)
-            .clickable(enabled = false) {} // Catch clicks
+            .clickable(enabled = false) {}, // Catch clicks
+        contentAlignment = Alignment.Center
     ) {
-        // Content
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Header
+            val isWideScreen = maxWidth > 600.dp
+            val containerWidth = if (isWideScreen) 500.dp else maxWidth
+
+            Box(
+                modifier = Modifier
+                    .width(containerWidth)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                // Content
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -156,7 +169,9 @@ fun NeuralHub(
 
             Spacer(modifier = Modifier.height(24.dp))
         } // end Column
-    } // end Box
+            } // end Box (width constraint)
+        } // end BoxWithConstraints
+    } // end Main Background Box
 }
 
 @Composable

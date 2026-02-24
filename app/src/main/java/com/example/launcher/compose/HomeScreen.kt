@@ -46,6 +46,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.draw.blur
+import com.example.launcher.utils.rememberBouncyOverscrollModifier
 import com.example.launcher.R
 import com.example.launcher.model.AppModel
 import com.example.launcher.ui.CyberClockView
@@ -54,6 +56,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.cos
 import kotlin.math.sin
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 
 @Composable
 fun HomeScreen(
@@ -129,6 +133,8 @@ fun HomeScreen(
         }
     }
 
+    var accumulatedDragY by remember { mutableFloatStateOf(0f) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -137,6 +143,24 @@ fun HomeScreen(
                 translationY = pitch
             }
             .background(Color.Transparent) // Show wallpaper
+            .pointerInput(showDrawer, showInlineSearch, showNeuralHub) {
+                if (!showDrawer && !showInlineSearch && !showNeuralHub) {
+                    detectDragGestures(
+                        onDragEnd = { accumulatedDragY = 0f },
+                        onDragCancel = { accumulatedDragY = 0f },
+                        onDrag = { change, dragAmount -> 
+                            accumulatedDragY += dragAmount.y
+                            if (accumulatedDragY > 150f) {
+                                showInlineSearch = true
+                                accumulatedDragY = 0f
+                            } else if (accumulatedDragY < -150f) {
+                                onDrawerToggle(true)
+                                accumulatedDragY = 0f
+                            }
+                        }
+                    )
+                }
+            }
     ) {
         // Mutable Grid State
         var appPendingAction by remember { androidx.compose.runtime.mutableStateOf<AppModel?>(null) }
@@ -369,9 +393,17 @@ fun HomeScreen(
                 }
             )
         }
+        // Blur Animation for Home Screen Desktop
+        val isOverlayOpen = showDrawer || showNeuralHub || showInlineSearch || (lockedAppPending != null) || (actionType != null)
+        val blurRadius by animateDpAsState(
+            targetValue = if (isOverlayOpen) 16.dp else 0.dp,
+            animationSpec = tween(durationMillis = 300)
+        )
+        val desktopModifier = Modifier.blur(blurRadius)
+
         if (isLandscape) {
             Row(
-                modifier = Modifier
+                modifier = desktopModifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing) // Fix System UI interference
             ) {
@@ -426,7 +458,7 @@ fun HomeScreen(
         } else {
             // Portrait Layout - Use WindowInsets for proper system bar handling
             Column(
-                modifier = Modifier
+                modifier = desktopModifier
                     .fillMaxSize()
                     .statusBarsPadding() // Proper status bar padding
                     .navigationBarsPadding(), // Proper navigation bar padding
@@ -480,7 +512,17 @@ fun HomeScreen(
         }
         
         // App Drawer Overlay
-        if (showDrawer) {
+        AnimatedVisibility(
+            visible = showDrawer,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+            ) + fadeIn(animationSpec = tween(300)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+            ) + fadeOut(animationSpec = tween(300))
+        ) {
             AppDrawer(
                 apps = allApps,
                 onAppClick = { app ->
@@ -505,7 +547,17 @@ fun HomeScreen(
         }
         
         // Neural Hub Overlay
-        if (showNeuralHub) {
+        AnimatedVisibility(
+            visible = showNeuralHub,
+            enter = scaleIn(
+                initialScale = 0.9f, 
+                animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)
+            ) + fadeIn(animationSpec = tween(300)),
+            exit = scaleOut(
+                targetScale = 0.9f,
+                animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)
+            ) + fadeOut(animationSpec = tween(300))
+        ) {
             NeuralHub(
                 state = neuralHubState,
                 musicState = musicState,
@@ -519,7 +571,17 @@ fun HomeScreen(
         }
         
         // NEW: Inline Search Overlay (Rendered at Root)
-        if (showInlineSearch) {
+        AnimatedVisibility(
+            visible = showInlineSearch,
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+            ) + fadeIn(animationSpec = tween(300)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+            ) + fadeOut(animationSpec = tween(300))
+        ) {
             SearchOverlay(
                 query = searchQuery,
                 onQueryChange = onSearchQueryChange,
@@ -796,7 +858,7 @@ fun AppDrawer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xB3000000)) // Dark scrim
+            .background(Color(0x66000000)) // Translucent glass scrim
             .clickable { onClose() }
             .padding(top = 40.dp)
     ) {
@@ -823,7 +885,9 @@ fun AppDrawer(
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 80.dp),
                 contentPadding = PaddingValues(16.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(rememberBouncyOverscrollModifier())
             ) {
                 // Phase 13: Render Folders
                 folders.entries.forEach { (name, packages) ->
@@ -978,6 +1042,7 @@ fun FolderOverlay(
         Column(
             modifier = Modifier
                 .fillMaxWidth(0.85f)
+                .widthIn(max = 400.dp) // Max out at reasonable modal width on tablets
                 .clip(RoundedCornerShape(24.dp))
                 .background(Color(0x1AFFFFFF))
                 .border(1.dp, Color(0xFF00F0FF).copy(alpha = 0.3f), RoundedCornerShape(24.dp))

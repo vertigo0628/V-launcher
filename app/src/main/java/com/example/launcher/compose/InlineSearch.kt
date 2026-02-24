@@ -144,7 +144,7 @@ fun SearchOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xDD000000)) // Dark semi-transparent background
+            .background(Color(0x66000000)) // Translucent glass background
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
@@ -155,29 +155,33 @@ fun SearchOverlay(
             },
         contentAlignment = Alignment.TopCenter
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding() // Avoid status bar
-                .padding(top = 16.dp, start = 16.dp, end = 16.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    // Consume clicks to prevent them from hitting the background scrim
-                }
-        ) {
-            // Search input bar at the top
-            Box(
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isWideScreen = maxWidth > 600.dp
+            val containerWidth = if (isWideScreen) 600.dp else maxWidth
+
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(Color(0xFF1E293B))
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterStart
+                    .width(containerWidth)
+                    .statusBarsPadding() // Avoid status bar
+                    .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        // Consume clicks to prevent them from hitting the background scrim
+                    }
             ) {
-                Row(
+                // Search input bar at the top
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color(0xFF1E293B))
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -288,7 +292,6 @@ fun SearchOverlay(
                         )
                     }
                 }
-            } else if (query.isEmpty()) {
                 // Show hint when no query
                 Text(
                     "Type to search apps, contacts or the web",
@@ -297,8 +300,9 @@ fun SearchOverlay(
                     modifier = Modifier.padding(16.dp)
                 )
             }
-        }
-    }
+        } // end Column
+        } // end BoxWithConstraints
+    } // end background Box
 }
 
 @Composable
