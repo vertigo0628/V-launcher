@@ -855,7 +855,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     CalendarContract.Events.DISPLAY_COLOR
                 )
                 
-                // Query events that start OR end within today, or span across today
                 val selection = "(${CalendarContract.Events.DTSTART} < ?) AND (${CalendarContract.Events.DTEND} >= ?)"
                 val selectionArgs = arrayOf(endOfDay.toString(), startOfDay.toString())
                 
@@ -903,5 +902,39 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             .unregisterReceiver(notificationReceiver)
         hubUpdateJob?.cancel()
         musicPollJob?.cancel()
+    }
+
+    init {
+        loadApps()
+        
+        // Listen to intent broadcasts (apps installed/uninstalled)
+        // Handled by LauncherAppsCallback in MainActivity usually, but we can poll or use Flow if needed.
+        // For now, reload on resume via a public method is easiest.
+
+        // Voice Assistant Setup
+        voiceManager.onSpeechResult = { text ->
+             processVoiceCommand(text)
+        }
+        
+        // Fetch real weather
+        fetchWeather()
+        
+        // Fetch Calendar Events
+        fetchTodayEvents()
+        
+        // Start System Monitor if enabled
+        if (prefs.getBoolean("neural_hub_enabled", true)) {
+            startHubUpdates()
+        }
+        
+        // Start Voice Assistant if enabled
+        if (prefs.getBoolean("voice_assistant_enabled", true)) {
+            setVoiceListening(true)
+        }
+
+        // Notification Bridge
+        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
+            .registerReceiver(notificationReceiver, android.content.IntentFilter(com.example.launcher.service.LauncherNotificationService.ACTION_NOTIFICATION_CHANGED))
+        updateNotificationCounts()
     }
 }
