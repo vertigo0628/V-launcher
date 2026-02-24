@@ -29,6 +29,10 @@ import java.util.Calendar
 import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
+import android.widget.Toast
+import android.content.ClipboardManager
+import android.content.ClipData
+import android.hardware.camera2.CameraManager
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -70,6 +74,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun setDrawerOpen(isOpen: Boolean) {
         _isDrawerOpen.value = isOpen
     }
+
+    private var _flashlightState = false
 
     init {
         loadApps()
@@ -520,6 +526,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                         getApplication<Application>().startActivity(intent)
                     }
+                    is com.example.launcher.utils.SearchManager.SearchAction.WebUrl -> {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(action.url))
+                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        getApplication<Application>().startActivity(intent)
+                    }
                     is com.example.launcher.utils.SearchManager.SearchAction.CallContact -> {
                         val intent = android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:${action.phoneNumber}"))
                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -539,6 +550,41 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                          val intent = android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:${action.number}"))
                          intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                          getApplication<Application>().startActivity(intent)
+                    }
+                    is com.example.launcher.utils.SearchManager.SearchAction.OpenFile -> {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                        intent.setDataAndType(android.net.Uri.parse(action.uri), action.mimeType)
+                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        getApplication<Application>().startActivity(intent)
+                    }
+                    is com.example.launcher.utils.SearchManager.SearchAction.CopyToClipboard -> {
+                        val clipboard = getApplication<Application>().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = ClipData.newPlainText(action.label, action.text)
+                        clipboard.setPrimaryClip(clip)
+                        Toast.makeText(getApplication<Application>(), "${action.label} copied", Toast.LENGTH_SHORT).show()
+                    }
+                    is com.example.launcher.utils.SearchManager.SearchAction.ToggleFlashlight -> {
+                        val cameraManager = getApplication<Application>().getSystemService(Context.CAMERA_SERVICE) as CameraManager
+                        try {
+                            val cameraId = cameraManager.cameraIdList.firstOrNull { id ->
+                                cameraManager.getCameraCharacteristics(id).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+                            }
+                            if (cameraId != null) {
+                                // Toggle logic: We need state, but for a quick action, let's just turn it on or toggle if we could track state.
+                                // Simplest robust way without tracking complex state is just to try turning it on, if it throws, try off. 
+                                // Actually, API 23+ has torchCallback, but for a simple toggle, we can just flip a boolean we store locally.
+                                val currentState = _flashlightState
+                                cameraManager.setTorchMode(cameraId, !currentState)
+                                _flashlightState = !currentState
+                                val status = if (_flashlightState) "On" else "Off"
+                                Toast.makeText(getApplication<Application>(), "Flashlight $status", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(getApplication<Application>(), "No flashlight found", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(getApplication<Application>(), "Failed to toggle flashlight", Toast.LENGTH_SHORT).show()
+                        }
                     }
                     else -> {}
                 }

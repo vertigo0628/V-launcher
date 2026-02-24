@@ -338,12 +338,23 @@ fun SearchResultItem(
                 com.example.launcher.utils.SearchManager.ResultType.CONTACT -> android.R.drawable.sym_action_call
                 com.example.launcher.utils.SearchManager.ResultType.WEB_SEARCH -> android.R.drawable.ic_menu_search
                 com.example.launcher.utils.SearchManager.ResultType.SETTING -> android.R.drawable.ic_menu_preferences
+                com.example.launcher.utils.SearchManager.ResultType.FILE -> {
+                    val subtitle = result.subtitle?.lowercase() ?: ""
+                    when {
+                        subtitle.contains("image") -> android.R.drawable.ic_menu_gallery
+                        subtitle.contains("video") -> android.R.drawable.ic_menu_slideshow
+                        subtitle.contains("audio") -> android.R.drawable.ic_media_play
+                        subtitle.contains("pdf") -> android.R.drawable.ic_menu_edit
+                        else -> android.R.drawable.ic_menu_save
+                    }
+                }
                 else -> android.R.drawable.ic_menu_help
             }
             
             val tint = when(result.type) {
                 com.example.launcher.utils.SearchManager.ResultType.CONTACT -> Color.Green
                 com.example.launcher.utils.SearchManager.ResultType.WEB_SEARCH -> Color(0xFF00F0FF)
+                com.example.launcher.utils.SearchManager.ResultType.FILE -> Color(0xFFFFD700) // Gold/Yellow for files
                 else -> Color.White
             }
             
