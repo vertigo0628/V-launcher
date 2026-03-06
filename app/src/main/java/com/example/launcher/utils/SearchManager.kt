@@ -66,8 +66,20 @@ class SearchManager(private val context: Context) {
         if (query.isBlank()) return emptyList()
         
         val results = mutableListOf<SearchResult>()
-        val queryLower = query.lowercase()
+        val queryLower = query.lowercase().trim()
         
+        // Add direct URL option if it looks like one
+        if (isUrl(queryLower)) {
+            val url = if (queryLower.startsWith("http")) queryLower else "https://$queryLower"
+            results.add(SearchResult(
+                type = ResultType.WEB_SEARCH,
+                id = "url_$queryLower",
+                title = "Go to $queryLower",
+                subtitle = "Open in browser",
+                action = SearchAction.WebUrl(url)
+            ))
+        }
+
         // Search apps
         results.addAll(searchApps(queryLower))
         
@@ -92,6 +104,13 @@ class SearchManager(private val context: Context) {
         ))
         
         return results.take(15) // Limit results
+    }
+
+    private fun isUrl(query: String): Boolean {
+        // Simple URL detection: starts with http OR contains a dot without spaces
+        return query.startsWith("http://") || 
+               query.startsWith("https://") || 
+               (query.contains(".") && !query.contains(" ") && query.length > 3 && query.substringAfterLast(".").length >= 2)
     }
     
     private fun searchApps(query: String): List<SearchResult> {

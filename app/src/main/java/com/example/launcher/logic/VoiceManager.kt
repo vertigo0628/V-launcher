@@ -46,6 +46,9 @@ class VoiceManager(context: Context) {
     init {
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
+                Log.d(TAG, "onReadyForSpeech")
+                _isListening.value = true
+                _spokenText.value = "" // Clear previous session's text
                 // Reset error count on successful ready
                 consecutiveErrors = 0
                 currentDelayMs = BASE_DELAY_MS
@@ -65,10 +68,18 @@ class VoiceManager(context: Context) {
             }
             
             override fun onError(error: Int) {
+                val lastHeard = _spokenText.value
                 _isListening.value = false
                 val errorName = getErrorName(error)
-                Log.w(TAG, "Speech error: $error ($errorName)")
+                Log.w(TAG, "Speech error: $error ($errorName). Last heard: '$lastHeard'")
                 
+                if (error == SpeechRecognizer.ERROR_NO_MATCH && lastHeard.isNotBlank()) {
+                    Log.d(TAG, "Falling back to partial result: '$lastHeard'")
+                    onSpeechResult?.invoke(lastHeard)
+                    scheduleRestart(500)
+                    return
+                }
+
                 when (error) {
                     SpeechRecognizer.ERROR_NO_MATCH,
                     SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
@@ -104,15 +115,24 @@ class VoiceManager(context: Context) {
             
             override fun onResults(results: Bundle?) {
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                Log.d(TAG, "onResults: ${matches?.joinToString(", ")}")
                 if (!matches.isNullOrEmpty()) {
                     val text = matches[0]
                     _spokenText.value = text
                     onSpeechResult?.invoke(text)
                 }
-                // onEndOfSpeech handles restart
+                // onEndOfSpeech usually handles restart, but call scheduleRestart here too just in case
+                scheduleRestart(500)
             }
             
-            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onPartialResults(partialResults: Bundle?) {
+                val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!matches.isNullOrEmpty()) {
+                    val text = matches[0]
+                    _spokenText.value = text
+                    // We don't invoke onSpeechResult for partials, just update the flow for UI feedback
+                }
+            }
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
     }
@@ -167,11 +187,13 @@ class VoiceManager(context: Context) {
     
     private fun startListeningInternal() {
         if (!shouldBeListening) return
-        // if (_isListening.value) return // Removed to allow optimistic update flow
+        
+        Log.d(TAG, "startListeningInternal")
         
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         }
         
         try {
@@ -191,6 +213,11 @@ class VoiceManager(context: Context) {
         _isListening.value = false
     }
     
+    
+    fun clearSpokenText() {
+        _spokenText.value = ""
+    }
+
     fun destroy() {
         stopListening()
         speechRecognizer.destroy()

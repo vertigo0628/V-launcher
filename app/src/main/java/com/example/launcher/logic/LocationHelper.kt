@@ -17,25 +17,28 @@ class LocationHelper(context: Context) {
     
     /**
      * Get current location. Returns null if location unavailable or permission denied.
-     * Note: Caller must ensure location permission is granted before calling.
      */
     @SuppressLint("MissingPermission")
     suspend fun getCurrentLocation(): Location? {
-        return suspendCancellableCoroutine { continuation ->
-            val cancellationTokenSource = CancellationTokenSource()
-            
-            fusedLocationClient.getCurrentLocation(
-                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                cancellationTokenSource.token
-            ).addOnSuccessListener { location ->
-                continuation.resume(location)
-            }.addOnFailureListener {
-                continuation.resume(null)
+        return try {
+            suspendCancellableCoroutine { continuation ->
+                val cancellationTokenSource = CancellationTokenSource()
+                
+                fusedLocationClient.getCurrentLocation(
+                    Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                    cancellationTokenSource.token
+                ).addOnSuccessListener { location ->
+                    continuation.resume(location)
+                }.addOnFailureListener {
+                    continuation.resume(null)
+                }
+                
+                continuation.invokeOnCancellation {
+                    cancellationTokenSource.cancel()
+                }
             }
-            
-            continuation.invokeOnCancellation {
-                cancellationTokenSource.cancel()
-            }
+        } catch (e: SecurityException) {
+            null
         }
     }
     
@@ -44,14 +47,18 @@ class LocationHelper(context: Context) {
      */
     @SuppressLint("MissingPermission")
     suspend fun getLastKnownLocation(): Location? {
-        return suspendCancellableCoroutine { continuation ->
-            fusedLocationClient.lastLocation
-                .addOnSuccessListener { location ->
-                    continuation.resume(location)
-                }
-                .addOnFailureListener {
-                    continuation.resume(null)
-                }
+        return try {
+            suspendCancellableCoroutine { continuation ->
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+                        continuation.resume(location)
+                    }
+                    .addOnFailureListener {
+                        continuation.resume(null)
+                    }
+            }
+        } catch (e: SecurityException) {
+            null
         }
     }
 }

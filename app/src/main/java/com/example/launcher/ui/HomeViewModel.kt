@@ -6,11 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.example.launcher.data.AppRepository
 import com.example.launcher.model.AppModel
 import com.example.launcher.model.AppCategory
+import com.example.launcher.model.ChatMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.collect
 import com.example.launcher.logic.VoiceManager
 import com.example.launcher.data.WeatherRepository
 import android.location.Location
@@ -36,23 +38,71 @@ import android.hardware.camera2.CameraManager
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = AppRepository(application)
-    private val flowerGridManager = com.example.launcher.utils.FlowerGridManager(application)
-    private val preferencesManager = com.example.launcher.utils.PreferencesManager(application)
-    private val launcherApps = application.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
-    
-    // Shortcut Model
+    // --- Models ---
     data class AppShortcut(
         val id: String,
         val label: String,
         val icon: Drawable?,
         val packageName: String
     )
-    
+
+    data class CalendarEvent(
+        val title: String,
+        val startTimeMs: Long,
+        val endTimeMs: Long,
+        val location: String?,
+        val color: Int?
+    )
+
+    data class NeuralHubState(
+        val batteryLevel: Int = 0,
+        val isCharging: Boolean = false,
+        val batteryTemp: Float = 0f,
+        val batteryHealth: String = "Unknown",
+        val batteryVoltage: Int = 0,
+        val batteryTech: String = "Unknown",
+        val ramPercent: Int = 0,
+        val ramText: String = "",
+        val ramUsed: Long = 0,
+        val ramTotal: Long = 0,
+        val storagePercent: Int = 0,
+        val storageText: String = "",
+        val storageUsed: Long = 0,
+        val storageTotal: Long = 0,
+        val cpuLoad: Int = 0
+    )
+
+    data class MusicState(
+        val title: String = "",
+        val artist: String = "",
+        val isPlaying: Boolean = false,
+        val albumArt: android.graphics.Bitmap? = null
+    )
+
+    data class WeatherState(
+        val temp: String = "--°",
+        val condition: String = "Loading...",
+        val iconRes: Int = android.R.drawable.ic_menu_today
+    )
+
+    // --- Managers & Repositories ---
+    private val repository = AppRepository(application)
+    private val flowerGridManager = com.example.launcher.utils.FlowerGridManager(application)
+    private val preferencesManager = com.example.launcher.utils.PreferencesManager(application)
+    private val launcherApps = application.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+    private val voiceManager = VoiceManager(application)
+    private val searchManager = com.example.launcher.utils.SearchManager(application)
+    private val ollamaClient = com.example.launcher.logic.OllamaClient()
+    private val systemMonitor = com.example.launcher.utils.SystemMonitor(application)
+    private val themeEngine = com.example.launcher.utils.ThemeEngine(application)
+    private val weatherRepository = WeatherRepository()
+    private val locationHelper = com.example.launcher.logic.LocationHelper(application)
+    private val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(application)
+
+    // --- State Flows ---
     private val _shortcuts = MutableStateFlow<List<AppShortcut>>(emptyList())
     val shortcuts: StateFlow<List<AppShortcut>> = _shortcuts.asStateFlow()
     
-    // Original full list
     private var allApps: List<AppModel> = emptyList()
     
     private val _apps = MutableStateFlow<List<AppModel>>(emptyList())
@@ -67,7 +117,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedCategory = MutableStateFlow<AppCategory?>(null)
     val selectedCategory: StateFlow<AppCategory?> = _selectedCategory.asStateFlow()
     
-    // UI State
     private val _isDrawerOpen = MutableStateFlow(false)
     val isDrawerOpen: StateFlow<Boolean> = _isDrawerOpen.asStateFlow()
     
@@ -75,22 +124,128 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _isDrawerOpen.value = isOpen
     }
 
-    private var _flashlightState = false
-
-    // ─── Calendar Events ───────────────────────────────────────────────────
-    data class CalendarEvent(
-        val title: String,
-        val startTimeMs: Long,
-        val endTimeMs: Long,
-        val location: String?,
-        val color: Int?
-    )
-    
     private val _todayEvents = MutableStateFlow<List<CalendarEvent>>(emptyList())
     val todayEvents: StateFlow<List<CalendarEvent>> = _todayEvents.asStateFlow()
 
+    private val _neuralHubState = MutableStateFlow(NeuralHubState())
+    val neuralHubState: StateFlow<NeuralHubState> = _neuralHubState.asStateFlow()
+
+    private val _musicState = MutableStateFlow(MusicState())
+    val musicState: StateFlow<MusicState> = _musicState.asStateFlow()
+
+    private val _themeColors = MutableStateFlow(
+        themeEngine.extractWallpaperColors()
+            ?: themeEngine.getThemePreset(com.example.launcher.utils.ThemeEngine.ThemePreset.NEON_CYAN)
+    )
+    val themeColors: StateFlow<com.example.launcher.utils.ThemeEngine.DynamicThemeColors> = _themeColors.asStateFlow()
+
+    private val _cpuHistory = MutableStateFlow<List<Int>>(emptyList())
+    val cpuHistory: StateFlow<List<Int>> = _cpuHistory.asStateFlow()
+
+    private val _neuralInsight = MutableStateFlow("System running optimally")
+    val neuralInsight: StateFlow<String> = _neuralInsight.asStateFlow()
+
+    private val _lockedApps = MutableStateFlow(preferencesManager.getLockedApps())
+    val lockedApps: StateFlow<Set<String>> = _lockedApps.asStateFlow()
+
+    private val _notificationCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val notificationCounts: StateFlow<Map<String, Int>> = _notificationCounts.asStateFlow()
+
+    private val _folders = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+    val folders: StateFlow<Map<String, Set<String>>> = _folders.asStateFlow()
+
+    private val _chatHistory = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val chatHistory: StateFlow<List<ChatMessage>> = _chatHistory.asStateFlow()
+    
+    private val _currentStreamingResponse = MutableStateFlow<String?>(null)
+    val currentStreamingResponse: StateFlow<String?> = _currentStreamingResponse.asStateFlow()
+    
+    private val _isAiThinking = MutableStateFlow(false)
+    val isAiThinking: StateFlow<Boolean> = _isAiThinking.asStateFlow()
+
+    private var aiQueryJob: kotlinx.coroutines.Job? = null
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _searchResults = MutableStateFlow<List<com.example.launcher.utils.SearchManager.SearchResult>>(emptyList())
+    val searchResults: StateFlow<List<com.example.launcher.utils.SearchManager.SearchResult>> = _searchResults.asStateFlow()
+    
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
+    private val _weatherState = MutableStateFlow(WeatherState())
+    val weatherState: StateFlow<WeatherState> = _weatherState.asStateFlow()
+
+    private val _isVoiceEnabled = MutableStateFlow(false)
+    val isVoiceEnabled: StateFlow<Boolean> = _isVoiceEnabled.asStateFlow()
+
+    val isVoiceListening: StateFlow<Boolean> = voiceManager.isListening
+    val spokenText: StateFlow<String> = voiceManager.spokenText
+
+    private val _isHotwordActive = MutableStateFlow(false)
+    val isHotwordActive: StateFlow<Boolean> = _isHotwordActive.asStateFlow()
+
+    // --- Other Properties ---
+    private var _flashlightState = false
+    private var hubUpdateJob: kotlinx.coroutines.Job? = null
+    private var musicPollJob: kotlinx.coroutines.Job? = null
+    private var mediaSessionManager: MediaSessionManager? = null
+    
+    // Voice State
+    private var hotwordResetJob: kotlinx.coroutines.Job? = null
+
+    private val launcherCallback = object : LauncherApps.Callback() {
+        override fun onPackageRemoved(packageName: String?, user: android.os.UserHandle) { loadApps() }
+        override fun onPackageAdded(packageName: String?, user: android.os.UserHandle) { loadApps() }
+        override fun onPackageChanged(packageName: String?, user: android.os.UserHandle) { loadApps() }
+        override fun onPackagesAvailable(packageNames: Array<out String>?, user: android.os.UserHandle, replacing: Boolean) { loadApps() }
+        override fun onPackagesUnavailable(packageNames: Array<out String>?, user: android.os.UserHandle, replacing: Boolean) { loadApps() }
+    }
+
+    private val notificationReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            updateNotificationCounts()
+        }
+    }
+
     init {
+        // Core data load
         loadApps()
+        
+        // Register for system app changes
+        launcherApps.registerCallback(launcherCallback)
+
+        // Voice Assistant Setup
+        voiceManager.onSpeechResult = { text ->
+             processVoiceCommand(text)
+        }
+        
+        // Initial Fetchers
+        fetchWeather()
+        fetchTodayEvents()
+        
+        // Monitors & Services
+        startMusicMonitor()
+        
+        if (prefs.getBoolean("neural_hub_enabled", true)) {
+            startHubUpdates()
+        }
+        
+        if (prefs.getBoolean("voice_assistant_enabled", true)) {
+            setVoiceListening(true)
+        }
+
+        // Notification Bridge
+        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
+            .registerReceiver(notificationReceiver, android.content.IntentFilter(com.example.launcher.service.LauncherNotificationService.ACTION_NOTIFICATION_CHANGED))
+        updateNotificationCounts()
+        
+        // Start Local LLM Backend silently
+        startOllamaBackend()
+        
+        // Folders initialization
+        _folders.value = preferencesManager.getFolders()
     }
 
     fun loadApps() {
@@ -172,30 +327,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    // Neural Hub State
-    data class NeuralHubState(
-        val batteryLevel: Int = 0,
-        val isCharging: Boolean = false,
-        val batteryTemp: Float = 0f,
-        val batteryHealth: String = "Unknown",
-        val batteryVoltage: Int = 0,
-        val batteryTech: String = "Unknown",
-        val ramPercent: Int = 0,
-        val ramText: String = "",
-        val ramUsed: Long = 0,
-        val ramTotal: Long = 0,
-        val storagePercent: Int = 0,
-        val storageText: String = "",
-        val storageUsed: Long = 0,
-        val storageTotal: Long = 0,
-        val cpuLoad: Int = 0
-    )
+
     
-    private val _neuralHubState = MutableStateFlow(NeuralHubState())
-    val neuralHubState: StateFlow<NeuralHubState> = _neuralHubState.asStateFlow()
-    
-    private var hubUpdateJob: kotlinx.coroutines.Job? = null
-    private val systemMonitor = com.example.launcher.utils.SystemMonitor(application)
+
     
     fun startHubUpdates() {
         if (hubUpdateJob?.isActive == true) return
@@ -252,18 +386,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ─── Music Player ────────────────────────────────────────────────────────
-    data class MusicState(
-        val title: String = "",
-        val artist: String = "",
-        val isPlaying: Boolean = false,
-        val albumArt: android.graphics.Bitmap? = null
-    )
 
-    private val _musicState = MutableStateFlow(MusicState())
-    val musicState: StateFlow<MusicState> = _musicState.asStateFlow()
 
-    private var mediaSessionManager: MediaSessionManager? = null
-    private var musicPollJob: kotlinx.coroutines.Job? = null
+
     
     private fun getNotificationServiceComponent(): android.content.ComponentName {
         return android.content.ComponentName(getApplication<Application>(), com.example.launcher.service.LauncherNotificationService::class.java)
@@ -286,13 +411,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ─── Dynamic Theme Engine ────────────────────────────────────────────────
-    private val themeEngine = com.example.launcher.utils.ThemeEngine(application)
 
-    private val _themeColors = MutableStateFlow(
-        themeEngine.extractWallpaperColors()
-            ?: themeEngine.getThemePreset(com.example.launcher.utils.ThemeEngine.ThemePreset.NEON_CYAN)
-    )
-    val themeColors: StateFlow<com.example.launcher.utils.ThemeEngine.DynamicThemeColors> = _themeColors.asStateFlow()
 
     fun refreshTheme() {
         _themeColors.value = themeEngine.extractWallpaperColors()
@@ -304,11 +423,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ─── CPU History Ring Buffer (for Phase 11 graph) ──────────────────────
-    private val _cpuHistory = MutableStateFlow<List<Int>>(emptyList())
-    val cpuHistory: StateFlow<List<Int>> = _cpuHistory.asStateFlow()
 
-    private val _neuralInsight = MutableStateFlow("System running optimally")
-    val neuralInsight: StateFlow<String> = _neuralInsight.asStateFlow()
 
     private fun pushCpuSample(value: Int) {
         val current = _cpuHistory.value.toMutableList()
@@ -331,8 +446,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ─── Privacy Shield ───────────────────────────────────────────────────────
-    private val _lockedApps = MutableStateFlow(preferencesManager.getLockedApps())
-    val lockedApps: StateFlow<Set<String>> = _lockedApps.asStateFlow()
+
 
     fun lockApp(app: AppModel) {
         preferencesManager.lockApp(app.packageName)
@@ -346,15 +460,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun isAppLocked(app: AppModel): Boolean = preferencesManager.isAppLocked(app.packageName)
 
-    // ─── Notification Bridge ────────────────────────────────────────────────
-    private val _notificationCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val notificationCounts: StateFlow<Map<String, Int>> = _notificationCounts.asStateFlow()
 
-    private val notificationReceiver = object : android.content.BroadcastReceiver() {
-        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
-            updateNotificationCounts()
-        }
-    }
 
     private fun updateNotificationCounts() {
         val counts = mutableMapOf<String, Int>()
@@ -369,8 +475,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ─── Folder Support ──────────────────────────────────────────────────────
-    private val _folders = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
-    val folders: StateFlow<Map<String, Set<String>>> = _folders.asStateFlow()
+
 
     fun createFolder(name: String, packageNames: Set<String> = emptySet()) {
         val current = _folders.value.toMutableMap()
@@ -517,15 +622,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     // Flow Launcher Features State
     
     // Universal Search
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-    
-    private val searchManager = com.example.launcher.utils.SearchManager(application)
-    private val _searchResults = MutableStateFlow<List<com.example.launcher.utils.SearchManager.SearchResult>>(emptyList())
-    val searchResults: StateFlow<List<com.example.launcher.utils.SearchManager.SearchResult>> = _searchResults.asStateFlow()
-    
-    private val _isSearching = MutableStateFlow(false)
-    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
     
     fun onSearchQueryChanged(query: String) {
         android.util.Log.d("HomeViewModel", "Search query changed: '$query'")
@@ -629,18 +726,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    // Weather
-    data class WeatherState(
-        val temp: String = "--°",
-        val condition: String = "Loading...",
-        val iconRes: Int = android.R.drawable.ic_menu_today // Default fallback icon
-    )
+
     
-    private val _weatherState = MutableStateFlow(WeatherState())
-    val weatherState: StateFlow<WeatherState> = _weatherState.asStateFlow()
-    
-    private val weatherRepository = WeatherRepository()
-    private val locationHelper = com.example.launcher.logic.LocationHelper(application)
+
     
     private fun fetchWeather() {
         viewModelScope.launch {
@@ -694,11 +782,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     // Voice Assistant
-    private val voiceManager = VoiceManager(application)
-    val isVoiceListening: StateFlow<Boolean> = voiceManager.isListening
-    
-    private val _isVoiceEnabled = MutableStateFlow(false)
-    val isVoiceEnabled: StateFlow<Boolean> = _isVoiceEnabled.asStateFlow()
+
     
     fun setVoiceListening(listening: Boolean) {
         // Update persistent state & UI toggle state
@@ -718,35 +802,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     // SharedPreferences for settings - must use default prefs to match PreferenceFragmentCompat
-    private val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(application)
-    
-    init {
-        // Voice Callback
-        voiceManager.onSpeechResult = { text ->
-             processVoiceCommand(text)
-        }
-        
-        // Fetch real weather
-        fetchWeather()
-        
-        // Fetch Calendar Events
-        fetchTodayEvents()
-        
-        // Start System Monitor if enabled
-        if (prefs.getBoolean("neural_hub_enabled", true)) {
-            startHubUpdates()
-        }
-        
-        // Start Voice Assistant if enabled
-        if (prefs.getBoolean("voice_assistant_enabled", true)) {
-            setVoiceListening(true)
-        }
 
-        // Notification Bridge
-        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(application)
-            .registerReceiver(notificationReceiver, android.content.IntentFilter(com.example.launcher.service.LauncherNotificationService.ACTION_NOTIFICATION_CHANGED))
-        updateNotificationCounts()
-    }
+    
+
     
     // Public method to reload settings (call from Activity onResume)
     fun reloadSettings() {
@@ -784,26 +842,131 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     
     private fun processVoiceCommand(text: String) {
         val command = text.trim().lowercase()
+        val wakeWords = listOf("sunday", "sandy", "sundae", "sandra", "santa", "santo", "ollama", "llama", "brain", "hola", "mama")
         
-        // Wake word detection: "SUNDAY"
-        val wakeWord = "sunday"
+        android.util.Log.d("VoiceAssistant", "Processing: '$command' (Persistent: ${_isHotwordActive.value})")
         
-        if (command.startsWith(wakeWord)) {
-            // Extract command after wake word
-            val actualCommand = command.removePrefix(wakeWord).trim()
+        val foundWakeWord = wakeWords.find { command.contains(it) }
+        
+        if (foundWakeWord != null) {
+            val index = command.indexOf(foundWakeWord)
+            val actualCommand = command.substring(index + foundWakeWord.length).trim()
             
-            if (actualCommand.isEmpty()) {
-                // User just said "SUNDAY" - acknowledge but wait for more
-                return
+            if (actualCommand.isNotEmpty()) {
+                android.util.Log.d("VoiceAssistant", "Command after wake word ($foundWakeWord): '$actualCommand'")
+                voiceManager.clearSpokenText()
+                _isHotwordActive.value = false
+                hotwordResetJob?.cancel()
+                executeVoiceCommand(actualCommand)
+            } else {
+                android.util.Log.d("VoiceAssistant", "Wake word ($foundWakeWord) only. Window OPEN.")
+                _isHotwordActive.value = true
+                hotwordResetJob?.cancel()
+                hotwordResetJob = viewModelScope.launch {
+                    kotlinx.coroutines.delay(15000) // 15 second window
+                    _isHotwordActive.value = false
+                    android.util.Log.d("VoiceAssistant", "Window CLOSED.")
+                }
             }
-            
-            // Process the actual command
-            executeVoiceCommand(actualCommand)
+        } else if (_isHotwordActive.value && command.isNotEmpty()) {
+            android.util.Log.d("VoiceAssistant", "Processing via persistence: '$command'")
+            _isHotwordActive.value = false
+            hotwordResetJob?.cancel()
+            voiceManager.clearSpokenText()
+            executeVoiceCommand(command)
         }
-        // If no wake word, ignore the speech (background noise detection)
     }
     
+    // ─── AI Brain (Local Ollama via Termux) ────────────────────────────────
+
+    
+    fun clearChatHistory() {
+        _chatHistory.value = emptyList()
+        _currentStreamingResponse.value = null
+    }
+    
+    fun clearAiResponse() {
+        _currentStreamingResponse.value = null
+    }
+    
+    fun sendTextToAiBrain(text: String) {
+        if (text.isBlank()) return
+        processAiQuery(text)
+    }
+
+    private fun processAiQuery(query: String) {
+        // Add User message to history
+        val userMsg = ChatMessage(role = "user", content = query)
+        _chatHistory.value = _chatHistory.value + userMsg
+
+        // Cancel any pending query before starting a new one
+        aiQueryJob?.cancel()
+        
+        aiQueryJob = viewModelScope.launch {
+            _isAiThinking.value = true
+            _currentStreamingResponse.value = null // Keep null so UI shows "Thinking..."
+            
+            val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(getApplication())
+            val selectedModel = prefs.getString("ollama_model_select", "llama3.2:1b") ?: "llama3.2:1b"
+            val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
+            
+            var fullResponse = ""
+            var hasReceivedFirstChunk = false
+            
+            try {
+                android.util.Log.d("HomeViewModel", "Querying AI: '$query' Model: $selectedModel at $baseUrl")
+                
+                ollamaClient.generateResponseStream(query, model = selectedModel, baseUrl = baseUrl).collect { chunk ->
+                    if (!hasReceivedFirstChunk) {
+                        hasReceivedFirstChunk = true
+                        _isAiThinking.value = false
+                    }
+                    fullResponse += chunk
+                    
+                    // Update UI immediately for every chunk to match raw terminal output exactly
+                _currentStreamingResponse.value = fullResponse
+            }
+            
+            _currentStreamingResponse.value = fullResponse // Ensure final result is set
+                
+                // Once finished, move to permanent history and clear stream
+                if (fullResponse.isNotBlank()) {
+                    val assistantMsg = ChatMessage(role = "assistant", content = fullResponse)
+                    _chatHistory.value = _chatHistory.value + assistantMsg
+                } else if (hasReceivedFirstChunk) {
+                     // Empty but finished? 
+                } else {
+                     throw Exception("No response received from model.")
+                }
+                
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    val errorMsg = "Error [${e.javaClass.simpleName}]: ${e.message ?: "Unknown error"}\n\nTarget: $baseUrl"
+                    val assistantMsg = ChatMessage(role = "assistant", content = errorMsg)
+                    _chatHistory.value = _chatHistory.value + assistantMsg
+                    android.util.Log.e("HomeViewModel", "Ollama Error", e)
+                }
+            } finally {
+                _currentStreamingResponse.value = null
+                _isAiThinking.value = false
+                aiQueryJob = null
+            }
+        }
+    }
+
+    fun stopAiResponse() {
+        android.util.Log.d("HomeViewModel", "Stopping AI response manually. Job active: ${aiQueryJob?.isActive}")
+        aiQueryJob?.cancel()
+        // Give immediate UI feedback
+        _isAiThinking.value = false
+        _currentStreamingResponse.value = null
+    }
+
     private fun executeVoiceCommand(command: String) {
+        android.util.Log.d("VoiceAssistant", "Executing command: '$command'")
+        // Clear previous AI response on new command
+        clearAiResponse()
+        
         // Command: Play Music
         if (command == "play music" || command == "play some music" || command.contains("play music")) {
             try {
@@ -846,9 +1009,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        // Fallback: Update search with the command text
+        // Unrecognized command - Query Local Termux Brain
         else {
-            onSearchQueryChanged(command)
+            processAiQuery(command)
         }
     }
 
@@ -923,46 +1086,32 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         voiceManager.destroy()
+        launcherApps.unregisterCallback(launcherCallback)
         androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
             .unregisterReceiver(notificationReceiver)
         hubUpdateJob?.cancel()
         musicPollJob?.cancel()
     }
 
-    init {
-        loadApps()
-        
-        // Listen to intent broadcasts (apps installed/uninstalled)
-        // Handled by LauncherAppsCallback in MainActivity usually, but we can poll or use Flow if needed.
-        // For now, reload on resume via a public method is easiest.
 
-        // Voice Assistant Setup
-        voiceManager.onSpeechResult = { text ->
-             processVoiceCommand(text)
+    
+    private fun startOllamaBackend() {
+        try {
+            val intent = android.content.Intent()
+            intent.setClassName("com.termux", "com.termux.app.RunCommandService")
+            intent.action = "com.termux.RUN_COMMAND"
+            
+            // Start the Ollama server in Termux
+            intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/ollama")
+            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("serve"))
+            intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+            
+            // Using ContextCompat.startForegroundService is safer for background launches, 
+            // but the Launcher is usually in the foreground during init.
+            getApplication<Application>().startService(intent)
+            android.util.Log.d("HomeViewModel", "Sent RUN_COMMAND intent to Termux for Ollama")
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "Failed to start Termux, is it installed?", e)
         }
-        
-        // Fetch real weather
-        fetchWeather()
-        
-        // Fetch Calendar Events
-        fetchTodayEvents()
-        
-        // Start Music Monitor
-        startMusicMonitor()
-        
-        // Start System Monitor if enabled
-        if (prefs.getBoolean("neural_hub_enabled", true)) {
-            startHubUpdates()
-        }
-        
-        // Start Voice Assistant if enabled
-        if (prefs.getBoolean("voice_assistant_enabled", true)) {
-            setVoiceListening(true)
-        }
-
-        // Notification Bridge
-        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
-            .registerReceiver(notificationReceiver, android.content.IntentFilter(com.example.launcher.service.LauncherNotificationService.ACTION_NOTIFICATION_CHANGED))
-        updateNotificationCounts()
     }
 }

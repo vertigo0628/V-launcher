@@ -7,6 +7,8 @@ import android.widget.Toast
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.ListPreference
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.example.launcher.utils.ThemeManager
 import com.example.launcher.utils.IconCustomizer
 import com.example.launcher.utils.PreferencesManager
@@ -23,6 +25,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setupIconPackPreference()
         setupHiddenAppsPreference()
         setupSystemPreferences()
+        setupAiBrainPreference()
     }
     
     private fun setupThemePreference() {
@@ -224,6 +227,62 @@ class SettingsFragment : PreferenceFragmentCompat() {
         
         findPreference<Preference>("notification_access")?.setOnPreferenceClickListener {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            true
+        }
+    }
+    
+    private fun setupAiBrainPreference() {
+        val aiBrainPref = findPreference<Preference>("ollama_model_select")
+        val aiUrlPref = findPreference<Preference>("ollama_base_url")
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext())
+        
+        val currentModel = prefs.getString("ollama_model_select", "llama3.2:1b")
+        aiBrainPref?.summary = currentModel
+        
+        aiBrainPref?.setOnPreferenceClickListener {
+            val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
+            
+            // Show a "Loading..." dialog while we fetch from the configured host
+            val builder = android.app.AlertDialog.Builder(requireContext())
+            builder.setTitle("AI Brain Model")
+            builder.setMessage("Fetching models from $baseUrl...")
+            builder.setCancelable(false)
+            val loadingDialog = builder.create()
+            loadingDialog.show()
+            
+            val ollamaClient = com.example.launcher.logic.OllamaClient()
+            
+            // Launch coroutine to fetch models
+            viewLifecycleOwner.lifecycleScope.launch {
+                val result = ollamaClient.getAvailableModels(baseUrl)
+                loadingDialog.dismiss()
+                
+                if (result.isSuccess) {
+                    val models = result.getOrNull() ?: emptyList()
+                    if (models.isEmpty()) {
+                        Toast.makeText(requireContext(), "No models found at $baseUrl", Toast.LENGTH_LONG).show()
+                        return@launch
+                    }
+                    
+                    val modelArray = models.toTypedArray()
+                    val currentIndex = models.indexOf(currentModel).takeIf { it >= 0 } ?: 0
+                    
+                    android.app.AlertDialog.Builder(requireContext())
+                        .setTitle("Select AI Model")
+                        .setSingleChoiceItems(modelArray, currentIndex) { dialog, which ->
+                            val selectedModel = modelArray[which]
+                            prefs.edit().putString("ollama_model_select", selectedModel).apply()
+                            aiBrainPref.summary = selectedModel
+                            Toast.makeText(requireContext(), "Model changed to $selectedModel", Toast.LENGTH_SHORT).show()
+                            dialog.dismiss()
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                } else {
+                    val error = result.exceptionOrNull()
+                    Toast.makeText(requireContext(), "Failed to connect to $baseUrl\n${error?.message ?: "Unknown error"}", Toast.LENGTH_LONG).show()
+                }
+            }
             true
         }
     }

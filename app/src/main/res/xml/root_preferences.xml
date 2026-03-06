@@ -65,6 +65,18 @@
             app:key="neural_hub_enabled"
             app:title="Neural Hub"
             app:summary="Background system monitoring" />
+            
+        <EditTextPreference
+            app:defaultValue="http://127.0.0.1:11434"
+            app:key="ollama_base_url"
+            app:title="AI Base URL"
+            app:summary="Address of your Ollama server (Local or Cloud)"
+            app:useSimpleSummaryProvider="true" />
+            
+        <Preference
+            app:key="ollama_model_select"
+            app:title="AI Brain Model"
+            app:summary="Select the local or cloud model to use" />
     </PreferenceCategory>
 
 </PreferenceScreen>

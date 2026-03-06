@@ -53,7 +53,8 @@ fun NeuralHub(
             Box(
                 modifier = Modifier
                     .width(containerWidth)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    .align(Alignment.Center),
                 contentAlignment = Alignment.TopCenter
             ) {
                 // Content

@@ -77,7 +77,11 @@ class MainActivity : AppCompatActivity() {
             val folders by viewModel.folders.collectAsState()
             val shortcuts by viewModel.shortcuts.collectAsState()
             val isSearching by viewModel.isSearching.collectAsState()
-            
+            val chatHistory by viewModel.chatHistory.collectAsState()
+            val currentStreamingResponse by viewModel.currentStreamingResponse.collectAsState()
+            val isAiThinking by viewModel.isAiThinking.collectAsState()
+            val spokenText by viewModel.spokenText.collectAsState()
+            val isHotwordActive by viewModel.isHotwordActive.collectAsState()
             
             MaterialTheme {
                 HomeScreen(
@@ -126,7 +130,15 @@ class MainActivity : AppCompatActivity() {
                         viewModel.launchShortcut(shortcut)
                         viewModel.clearShortcuts()
                     },
-                    onClearShortcuts = { viewModel.clearShortcuts() }
+                    onClearShortcuts = { viewModel.clearShortcuts() },
+                    chatHistory = chatHistory,
+                    currentStreamingResponse = currentStreamingResponse,
+                    isAiThinking = isAiThinking,
+                    spokenText = spokenText,
+                    isHotwordActive = isHotwordActive,
+                    onClearAiResponse = { viewModel.clearChatHistory() },
+                    onSendAiText = { text -> viewModel.sendTextToAiBrain(text) },
+                    onStopAiText = { viewModel.stopAiResponse() }
                 )
             }
         }
@@ -177,15 +189,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    override fun onBackPressed() {
-        if (viewModel.isDrawerOpen.value) {
-            viewModel.setDrawerOpen(false)
-        } else {
-            // Can't easily access local showSearch state here without moving it to ViewModel
-            // For checking purposes, we rely on standard back stack or let users tap outside to close overlays
-            super.onBackPressed()
-        }
-    }
     
     private fun requestPermissionsIfNeeded() {
         val permissionsToRequest = mutableListOf<String>()

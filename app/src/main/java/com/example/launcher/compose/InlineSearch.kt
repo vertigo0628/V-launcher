@@ -225,7 +225,11 @@ fun SearchOverlay(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(
                             onSearch = {
-                                if (query.isNotEmpty()) {
+                                if (query.isNotEmpty() && searchResults.isNotEmpty()) {
+                                    val topResult = searchResults.first()
+                                    Log.d(TAG, "Keyboard Search action - triggering top result: ${topResult.title}")
+                                    onResultClick(topResult)
+                                    onClose()
                                     keyboardController?.hide()
                                 }
                             }

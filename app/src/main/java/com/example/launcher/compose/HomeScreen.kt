@@ -8,6 +8,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -58,6 +59,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 
 @Composable
 fun HomeScreen(
@@ -99,7 +102,15 @@ fun HomeScreen(
     shortcuts: List<com.example.launcher.ui.HomeViewModel.AppShortcut> = emptyList(),
     onLoadShortcuts: (String) -> Unit = {},
     onShortcutClick: (com.example.launcher.ui.HomeViewModel.AppShortcut) -> Unit = {},
-    onClearShortcuts: () -> Unit = {}
+    onClearShortcuts: () -> Unit = {},
+    chatHistory: List<com.example.launcher.model.ChatMessage> = emptyList(),
+    currentStreamingResponse: String? = null,
+    isAiThinking: Boolean = false,
+    onClearAiResponse: () -> Unit = {},
+    onSendAiText: (String) -> Unit = {},
+    onStopAiText: () -> Unit = {},
+    spokenText: String = "",
+    isHotwordActive: Boolean = false
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -130,6 +141,22 @@ fun HomeScreen(
         sensorManager.registerListener(listener, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_UI)
         onDispose {
             sensorManager.unregisterListener(listener)
+        }
+    }
+
+    // Intercept Back Press to close overlays instead of crashing/resetting everything
+    BackHandler(enabled = true) {
+        if (showInlineSearch) {
+            showInlineSearch = false
+        } else if (activeFolder != null) {
+            activeFolder = null
+        } else if (showNeuralHub) {
+            onNeuralHubToggle(false)
+        } else if (showDrawer) {
+            onDrawerToggle(false)
+        } else {
+            // Home screen is clean, do nothing (prevents activity finishing)
+            android.util.Log.d("HomeScreen", "Back pressed on clean home screen - ignoring to prevent reset")
         }
     }
 
@@ -420,7 +447,19 @@ fun HomeScreen(
                     ClockWidget(modifier = Modifier.size(200.dp))
                     WeatherWidget(state = weatherState)
                     Spacer(modifier = Modifier.height(32.dp))
-                    VoiceAssistantWidget(isEnabled = isVoiceEnabled, isListening = isVoiceListening, onClick = onVoiceClick)
+                    VoiceAssistantWidget(
+                        isEnabled = isVoiceEnabled, 
+                        isListening = isVoiceListening, 
+                        onClick = onVoiceClick,
+                        chatHistory = chatHistory,
+                        currentStreamingResponse = currentStreamingResponse,
+                        isAiThinking = isAiThinking,
+                        spokenText = spokenText,
+                        isHotwordActive = isHotwordActive,
+                        onClearResponse = onClearAiResponse,
+                        onSendText = onSendAiText,
+                        onStopAi = onStopAiText
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
                     
                     // Search Bar in Landscape
@@ -473,7 +512,19 @@ fun HomeScreen(
                 }
 
                 Box(modifier = Modifier.padding(vertical = 12.dp)) {
-                    VoiceAssistantWidget(isEnabled = isVoiceEnabled, isListening = isVoiceListening, onClick = onVoiceClick)
+                    VoiceAssistantWidget(
+                        isEnabled = isVoiceEnabled, 
+                        isListening = isVoiceListening, 
+                        onClick = onVoiceClick,
+                        chatHistory = chatHistory,
+                        currentStreamingResponse = currentStreamingResponse,
+                        isAiThinking = isAiThinking,
+                        spokenText = spokenText,
+                        isHotwordActive = isHotwordActive,
+                        onClearResponse = onClearAiResponse,
+                        onSendText = onSendAiText,
+                        onStopAi = onStopAiText
+                    )
                 }
                 
                 Spacer(modifier = Modifier.weight(1f))
@@ -652,67 +703,61 @@ fun FlowerGrid(
         
         val iconSizePx = with(density) { iconSizeDp.toPx() }
         val spacing = iconSizePx * spacingFactor
-        
         Layout(
             content = {
                 apps.take(maxApps).forEach { app ->
-                    val count = notificationCounts[app.packageName] ?: 0
-                    AppIcon(app, onAppClick, onAppLongClick, iconSizeDp, count)
+                     key(app.packageName) {
+                        val count = notificationCounts[app.packageName] ?: 0
+                        AppIcon(app, onAppClick, onAppLongClick, iconSizeDp, count)
+                    }
                 }
-            }
-        ) { measurables, lConstraints ->
+            },
+            measurePolicy = { measurables, lConstraints ->
             val placeables = measurables.map { it.measure(lConstraints) }
             val cx = lConstraints.maxWidth / 2f
             val cy = lConstraints.maxHeight / 2f
             
-            val layoutList = mutableListOf<Pair<Int, Pair<Int, Int>>>()
-            
-            if (placeables.isNotEmpty()) {
-                // Center Item
-                val center = placeables[0]
-                layoutList.add(0 to ((cx - center.width / 2).toInt() to (cy - center.height / 2).toInt()))
-            }
-            
-            var vectorIdx = 1
-            var ring = 1
-            
-            while (vectorIdx < placeables.size) {
-                // Number of items in this ring = 6 * ring
-                for (side in 0 until 6) {
-                    for (step in 0 until ring) {
-                        if (vectorIdx >= placeables.size) break
-                        
-                        val angle1 = Math.toRadians(-90.0 + 60 * side)
-                        val angle2 = Math.toRadians(-90.0 + 60 * (side + 1))
-                        
-                        val radius = ring.toFloat() * spacing
-                        
-                        val x1 = (radius * cos(angle1)).toFloat()
-                        val y1 = (radius * sin(angle1)).toFloat()
-                        val x2 = (radius * cos(angle2)).toFloat()
-                        val y2 = (radius * sin(angle2)).toFloat()
-                        
-                        val fraction = step.toFloat() / ring.toFloat()
-                        val px = x1 + (x2 - x1) * fraction
-                        val py = y1 + (y2 - y1) * fraction
-                        
-                        val placeable = placeables[vectorIdx]
-                        val lx = (cx + px - (placeable.width / 2f)).toInt()
-                        val ly = (cy + py - (placeable.height / 2f)).toInt()
-                        
-                        layoutList.add(vectorIdx to (lx to ly))
-                        vectorIdx++
-                    }
-                }
-                ring++
-            }
-            
             layout(lConstraints.maxWidth, lConstraints.maxHeight) {
-                layoutList.forEach { (idx, pos) ->
-                    placeables[idx].placeRelative(pos.first, pos.second)
+                if (placeables.isNotEmpty()) {
+                    // Center Item
+                    val center = placeables[0]
+                    center.placeRelative((cx - center.width / 2).toInt(), (cy - center.height / 2).toInt())
+                }
+                
+                var vectorIdx = 1
+                var ring = 1
+                
+                while (vectorIdx < placeables.size) {
+                    for (side in 0 until 6) {
+                        for (step in 0 until ring) {
+                            if (vectorIdx >= placeables.size) break
+                            
+                            val angle1 = Math.toRadians(-90.0 + 60 * side)
+                            val angle2 = Math.toRadians(-90.0 + 60 * (side + 1))
+                            
+                            val radius = ring.toFloat() * spacing
+                            
+                            val x1 = (radius * cos(angle1)).toFloat()
+                            val y1 = (radius * sin(angle1)).toFloat()
+                            val x2 = (radius * cos(angle2)).toFloat()
+                            val y2 = (radius * sin(angle2)).toFloat()
+                            
+                            val fraction = step.toFloat() / ring.toFloat()
+                            val px = x1 + (x2 - x1) * fraction
+                            val py = y1 + (y2 - y1) * fraction
+                            
+                            val placeable = placeables[vectorIdx]
+                            val lx = (cx + px - (placeable.width / 2f)).toInt()
+                            val ly = (cy + py - (placeable.height / 2f)).toInt()
+                            
+                            placeable.placeRelative(lx, ly)
+                            vectorIdx++
+                        }
+                    }
+                    ring++
                 }
             }
-        }
+        })
     }
 }
 
@@ -740,13 +785,12 @@ fun AppIcon(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            AndroidView(
-                factory = { ctx ->
-                    android.widget.ImageView(ctx).apply {
-                        setImageDrawable(app.icon)
-                        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
-                    }
-                },
+            val iconBitmap = remember(app.packageName) {
+                app.icon.toBitmap().asImageBitmap()
+            }
+            Image(
+                bitmap = iconBitmap,
+                contentDescription = app.label,
                 modifier = Modifier.size(size * 0.65f)
             )
         }
@@ -774,8 +818,7 @@ fun SearchBar(
     val icon = if (isListening) android.R.drawable.ic_btn_speak_now else android.R.drawable.ic_menu_search
     val iconTint = if (isListening) Color(0xFF00F0FF) else Color.White.copy(alpha = 0.7f)
     
-    // Debug: Log every time this composable is rendered
-    android.util.Log.d("SearchBar", "SearchBar composable rendered - isListening: $isListening")
+    // Debug logging removed to optimize performance
 
 
     Box(
