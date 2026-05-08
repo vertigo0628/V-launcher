@@ -286,15 +286,15 @@ fun VoiceAssistantWidget(
                     
                     // Terminal Input Row
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        verticalAlignment = Alignment.Bottom
                     ) {
                         Text(
                             text = ">",
                             color = Color(0xFF00F0FF),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(end = 8.dp)
+                            modifier = Modifier.padding(end = 8.dp, bottom = 14.dp)
                         )
                         
                         TextField(
@@ -313,14 +313,30 @@ fun VoiceAssistantWidget(
                                 unfocusedIndicatorColor = Color.Transparent,
                                 cursorColor = Color(0xFF00F0FF)
                             ),
-                            singleLine = true
+                            minLines = 1,
+                            maxLines = 4,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                                imeAction = androidx.compose.ui.text.input.ImeAction.Send
+                            ),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                                onSend = {
+                                    if (textInput.isNotBlank() && !isAiThinking && currentStreamingResponse == null) {
+                                        onSendText(textInput)
+                                        textInput = ""
+                                    }
+                                }
+                            )
                         )
                         
                         if (textInput.isNotBlank() && !isAiThinking && currentStreamingResponse == null) {
-                            IconButton(onClick = { 
-                                onSendText(textInput)
-                                textInput = "" // Clear input after sending
-                            }) {
+                            IconButton(
+                                onClick = { 
+                                    onSendText(textInput)
+                                    textInput = "" // Clear input after sending
+                                },
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            ) {
                                 Icon(
                                     painter = painterResource(id = android.R.drawable.ic_menu_send),
                                     contentDescription = "Send",
@@ -331,7 +347,10 @@ fun VoiceAssistantWidget(
 
                         // Camera Button: Capture photo for AI vision analysis
                         if (!isAiThinking && currentStreamingResponse == null) {
-                            IconButton(onClick = { onCameraClick() }) {
+                            IconButton(
+                                onClick = { onCameraClick() },
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            ) {
                                 Icon(
                                     painter = painterResource(id = android.R.drawable.ic_menu_camera),
                                     contentDescription = "Take Photo",
@@ -342,10 +361,13 @@ fun VoiceAssistantWidget(
 
                         // Stop Button: Visible only when AI is active
                         if (isAiThinking || currentStreamingResponse != null) {
-                            IconButton(onClick = {
-                                android.util.Log.d("VoiceWidget", "Stop button clicked")
-                                onStopAi()
-                            }) {
+                            IconButton(
+                                onClick = {
+                                    android.util.Log.d("VoiceWidget", "Stop button clicked")
+                                    onStopAi()
+                                },
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            ) {
                                 Icon(
                                     painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
                                     contentDescription = "Stop AI",
