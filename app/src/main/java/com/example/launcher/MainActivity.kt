@@ -27,6 +27,15 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var viewModel: HomeViewModel
     private lateinit var themeEngine: ThemeEngine
+
+    // Camera capture launcher
+    private val cameraLauncher = registerForActivityResult(
+        ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            viewModel.processImageQuery(bitmap)
+        }
+    }
     
     // Permission launcher for Location and Mic
     private val permissionLauncher = registerForActivityResult(
@@ -142,7 +151,8 @@ class MainActivity : AppCompatActivity() {
                     isHotwordActive = isHotwordActive,
                     onClearAiResponse = { viewModel.clearChatHistory() },
                     onSendAiText = { text -> viewModel.sendTextToAiBrain(text) },
-                    onStopAiText = { viewModel.stopAiResponse() }
+                    onStopAiText = { viewModel.stopAiResponse() },
+                    onCameraClick = { cameraLauncher.launch(null) }
                 )
             }
         }
@@ -226,6 +236,12 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) 
             != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.READ_CALENDAR)
+        }
+        
+        // Check Camera permission (for Vision Analysis)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA)
         }
         
         if (permissionsToRequest.isNotEmpty()) {

@@ -55,7 +55,8 @@ fun VoiceAssistantWidget(
     isHotwordActive: Boolean = false,
     onClearResponse: () -> Unit = {},
     onSendText: (String) -> Unit = {},
-    onStopAi: () -> Unit = {}
+    onStopAi: () -> Unit = {},
+    onCameraClick: () -> Unit = {}
 ) {
     // Pulse animation for Listening state
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -185,6 +186,12 @@ fun VoiceAssistantWidget(
                                                 fontFamily = FontFamily.Monospace,
                                                 fontWeight = FontWeight.Bold
                                             )
+                                            if (message.imageUri != null) {
+                                                Text(
+                                                    text = "\uD83D\uDCF7 ",
+                                                    fontSize = 14.sp
+                                                )
+                                            }
                                             Text(
                                                 text = message.content,
                                                 color = Color.White,
@@ -318,6 +325,17 @@ fun VoiceAssistantWidget(
                                     painter = painterResource(id = android.R.drawable.ic_menu_send),
                                     contentDescription = "Send",
                                     tint = Color(0xFF00F0FF)
+                                )
+                            }
+                        }
+
+                        // Camera Button: Capture photo for AI vision analysis
+                        if (!isAiThinking && currentStreamingResponse == null) {
+                            IconButton(onClick = { onCameraClick() }) {
+                                Icon(
+                                    painter = painterResource(id = android.R.drawable.ic_menu_camera),
+                                    contentDescription = "Take Photo",
+                                    tint = Color(0xFF00F0FF).copy(alpha = 0.8f)
                                 )
                             }
                         }

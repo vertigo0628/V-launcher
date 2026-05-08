@@ -93,6 +93,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val voiceManager = VoiceManager(application)
     private val searchManager = com.example.launcher.utils.SearchManager(application)
     private val ollamaClient = com.example.launcher.logic.OllamaClient()
+    private val visionAnalyzer = com.example.launcher.logic.VisionAnalyzer(application)
     private val systemMonitor = com.example.launcher.utils.SystemMonitor(application)
     private val themeEngine = com.example.launcher.utils.ThemeEngine(application)
     private val weatherRepository = WeatherRepository()
@@ -936,6 +937,76 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun sendTextToAiBrain(text: String) {
         if (text.isBlank()) return
         processAiQuery(text)
+    }
+
+    /**
+     * Process an image through ML Kit Vision (labels + OCR) and send to Ollama for description.
+     * Supports printed and handwritten text recognition.
+     */
+    fun processImageQuery(bitmap: android.graphics.Bitmap, imageUriString: String? = null) {
+        // Add user photo message to chat history
+        val userMsg = ChatMessage(
+            role = "user",
+            content = "📷 Sent a photo for analysis",
+            imageUri = imageUriString
+        )
+        _chatHistory.value = _chatHistory.value + userMsg
+
+        // Cancel any pending query
+        aiQueryJob?.cancel()
+
+        aiQueryJob = viewModelScope.launch {
+            _isAiThinking.value = true
+            _currentStreamingResponse.value = null
+
+            try {
+                // Step 1: Run ML Kit analysis (Image Labeling + Text Recognition)
+                android.util.Log.d("HomeViewModel", "Starting ML Kit vision analysis...")
+                val visionResult = visionAnalyzer.analyze(bitmap)
+
+                // Step 2: Build prompt from vision results
+                val prompt = visionAnalyzer.buildPromptFromResult(visionResult)
+                android.util.Log.d("HomeViewModel", "Vision prompt built: ${prompt.take(200)}...")
+
+                // Step 3: Stream to Ollama (reuse existing pipeline)
+                val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(getApplication())
+                val selectedModel = prefs.getString("ollama_model_select", "llama3.2:1b") ?: "llama3.2:1b"
+                val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
+
+                var fullResponse = ""
+                var hasReceivedFirstChunk = false
+
+                ollamaClient.generateResponseStream(prompt, model = selectedModel, baseUrl = baseUrl).collect { chunk ->
+                    if (!hasReceivedFirstChunk) {
+                        hasReceivedFirstChunk = true
+                        _isAiThinking.value = false
+                    }
+                    fullResponse += chunk
+                    _currentStreamingResponse.value = fullResponse
+                }
+
+                _currentStreamingResponse.value = fullResponse
+
+                if (fullResponse.isNotBlank()) {
+                    val assistantMsg = ChatMessage(role = "assistant", content = fullResponse)
+                    _chatHistory.value = _chatHistory.value + assistantMsg
+                } else if (!hasReceivedFirstChunk) {
+                    throw Exception("No response received from model.")
+                }
+
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    val errorMsg = "Vision Error: ${e.message ?: "Unknown"}\n\nMake sure Ollama is running in Termux."
+                    val assistantMsg = ChatMessage(role = "assistant", content = errorMsg)
+                    _chatHistory.value = _chatHistory.value + assistantMsg
+                    android.util.Log.e("HomeViewModel", "Vision analysis error", e)
+                }
+            } finally {
+                _currentStreamingResponse.value = null
+                _isAiThinking.value = false
+                aiQueryJob = null
+            }
+        }
     }
 
     private fun processAiQuery(query: String) {

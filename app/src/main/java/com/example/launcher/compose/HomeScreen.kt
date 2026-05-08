@@ -110,7 +110,8 @@ fun HomeScreen(
     onSendAiText: (String) -> Unit = {},
     onStopAiText: () -> Unit = {},
     spokenText: String = "",
-    isHotwordActive: Boolean = false
+    isHotwordActive: Boolean = false,
+    onCameraClick: () -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -458,7 +459,8 @@ fun HomeScreen(
                         isHotwordActive = isHotwordActive,
                         onClearResponse = onClearAiResponse,
                         onSendText = onSendAiText,
-                        onStopAi = onStopAiText
+                        onStopAi = onStopAiText,
+                        onCameraClick = onCameraClick
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     
@@ -523,7 +525,8 @@ fun HomeScreen(
                         isHotwordActive = isHotwordActive,
                         onClearResponse = onClearAiResponse,
                         onSendText = onSendAiText,
-                        onStopAi = onStopAiText
+                        onStopAi = onStopAiText,
+                        onCameraClick = onCameraClick
                     )
                 }
                 

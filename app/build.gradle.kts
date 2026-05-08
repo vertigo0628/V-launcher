@@ -49,6 +49,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("io.coil-kt:coil:2.5.0")
     
+    // Coroutines Play Services (for ML Kit Task.await())
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    
     // Compose Dependencies
     val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
     implementation(composeBom)
@@ -86,4 +89,8 @@ dependencies {
 
     // Biometric authentication (Privacy Shield)
     implementation("androidx.biometric:biometric:1.1.0")
+
+    // ML Kit Vision (offline image analysis - super recogniser)
+    implementation("com.google.mlkit:image-labeling:17.0.9")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }
