@@ -124,27 +124,6 @@ fun HomeScreen(
     // Internal state for folder view
     var activeFolder by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     
-    // Parallax State (Phase 15)
-    var roll by remember { androidx.compose.runtime.mutableStateOf(0f) }
-    var pitch by remember { androidx.compose.runtime.mutableStateOf(0f) }
-    val sensorManager = androidx.compose.ui.platform.LocalContext.current.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    
-    DisposableEffect(Unit) {
-        val listener = object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent?) {
-                if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
-                    roll = event.values[0] * 2f // Sensitivity
-                    pitch = event.values[1] * 2f
-                }
-            }
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-        }
-        sensorManager.registerListener(listener, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_UI)
-        onDispose {
-            sensorManager.unregisterListener(listener)
-        }
-    }
-
     // Intercept Back Press to close overlays instead of crashing/resetting everything
     BackHandler(enabled = true) {
         if (showInlineSearch) {
@@ -166,10 +145,6 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer {
-                translationX = -roll
-                translationY = pitch
-            }
             .background(Color.Transparent) // Show wallpaper
             .pointerInput(showDrawer, showInlineSearch, showNeuralHub) {
                 if (!showDrawer && !showInlineSearch && !showNeuralHub) {
