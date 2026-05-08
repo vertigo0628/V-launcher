@@ -16,6 +16,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -234,6 +237,15 @@ fun NotesCard() {
                     onValueChange = { newNoteText = it },
                     textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
                     cursorBrush = SolidColor(Color(0xFF00F0FF)),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (newNoteText.isNotBlank()) {
+                            val updated = notes.toMutableList().also { it.add(0, NoteItem(text = newNoteText.trim())) }
+                            notes = updated
+                            saveNotes(prefs, updated)
+                            newNoteText = ""
+                        }
+                    }),
                     decorationBox = { inner ->
                         if (newNoteText.isEmpty()) Text("Write a new note...", color = Color.Gray, fontSize = 13.sp)
                         inner()
@@ -357,6 +369,15 @@ fun TasksCard() {
                     textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
                     cursorBrush = SolidColor(Color(0xFF00F0FF)),
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (newTaskText.isNotBlank()) {
+                            val updated = tasks.toMutableList().also { it.add(TaskItem(text = newTaskText.trim())) }
+                            tasks = updated
+                            saveTasks(prefs, updated)
+                            newTaskText = ""
+                        }
+                    }),
                     decorationBox = { inner ->
                         if (newTaskText.isEmpty()) Text("Add a task...", color = Color.Gray, fontSize = 13.sp)
                         inner()

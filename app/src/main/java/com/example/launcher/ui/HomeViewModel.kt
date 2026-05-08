@@ -611,18 +611,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun musicPlayPause() {
         try {
-            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(getNotificationServiceComponent()) ?: return
-            val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-                ?: sessions.firstOrNull() ?: return
-            val controls = active.transportControls
-            if (active.playbackState?.state == PlaybackState.STATE_PLAYING) controls.pause()
-            else controls.play()
+            val audioManager = getApplication<android.app.Application>().getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+            audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
             viewModelScope.launch {
-                kotlinx.coroutines.delay(300)
+                kotlinx.coroutines.delay(500)
                 refreshMusicState()
             }
-        } catch (e: SecurityException) {
-            promptNotificationAccess()
         } catch (e: Exception) { 
             e.printStackTrace() 
         }
@@ -630,12 +625,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun musicSkipNext() {
         try {
-            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(getNotificationServiceComponent()) ?: return
-            val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-                ?: sessions.firstOrNull()
-            active?.transportControls?.skipToNext()
-        } catch (e: SecurityException) {
-            promptNotificationAccess()
+            val audioManager = getApplication<android.app.Application>().getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_NEXT))
+            audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_NEXT))
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(500)
+                refreshMusicState()
+            }
         } catch (e: Exception) { 
             e.printStackTrace() 
         }
@@ -643,12 +639,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun musicSkipPrev() {
         try {
-            val sessions: List<MediaController> = mediaSessionManager?.getActiveSessions(getNotificationServiceComponent()) ?: return
-            val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-                ?: sessions.firstOrNull()
-            active?.transportControls?.skipToPrevious()
-        } catch (e: SecurityException) {
-            promptNotificationAccess()
+            val audioManager = getApplication<android.app.Application>().getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS))
+            audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS))
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(500)
+                refreshMusicState()
+            }
         } catch (e: Exception) { 
             e.printStackTrace() 
         }

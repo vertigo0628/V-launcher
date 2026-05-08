@@ -61,6 +61,7 @@ fun NeuralHub(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .imePadding()
                         .padding(24.dp)
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally
