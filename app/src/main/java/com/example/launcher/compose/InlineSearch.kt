@@ -120,7 +120,7 @@ fun SearchOverlay(
     
     // Request focus immediately with a slightly longer delay for stability
     LaunchedEffect(Unit) {
-        delay(300)
+        delay(50)
         focusRequester.requestFocus()
         Log.d(TAG, "SearchOverlay Focus Requested")
         try {

@@ -4,6 +4,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.content.Intent
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import java.util.concurrent.ConcurrentHashMap
 
 class LauncherNotificationService : NotificationListenerService() {
 
@@ -12,7 +13,7 @@ class LauncherNotificationService : NotificationListenerService() {
         const val EXTRA_PACKAGE_NAME = "package_name"
         const val EXTRA_COUNT = "count"
         
-        private val notificationCounts = mutableMapOf<String, Int>()
+        private val notificationCounts = ConcurrentHashMap<String, Int>()
         
         fun getNotificationCount(packageName: String): Int {
             return notificationCounts[packageName] ?: 0

@@ -27,9 +27,18 @@ class AppRepository(private val context: Context) {
             // Filter out hidden apps
             if (hiddenApps.contains(activityInfo.packageName)) return@mapNotNull null
 
-            val label = resolveInfo.loadLabel(packageManager).toString()
+            val label = try {
+                resolveInfo.loadLabel(packageManager).toString()
+            } catch (e: Exception) {
+                activityInfo.packageName
+            }
+            
             val packageName = activityInfo.packageName
-            val icon = resolveInfo.loadIcon(packageManager)
+            val icon = try {
+                resolveInfo.loadIcon(packageManager)
+            } catch (e: Exception) {
+                packageManager.defaultActivityIcon
+            }
             
             // Basic categorization logic based on flags or package name (simplified for now)
             val category = categorizeApp(activityInfo.applicationInfo)

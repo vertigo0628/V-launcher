@@ -14,6 +14,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
 import com.example.launcher.compose.HomeScreen
 import com.example.launcher.model.AppModel
@@ -37,13 +40,14 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         
         // Enable edge-to-edge: make status bar and navigation bar transparent
-        window.decorView.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        )
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        
+        // Ensure lighting of status bars matches appearance
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.isAppearanceLightStatusBars = false // Dark mode theme default
+        controller.isAppearanceLightNavigationBars = false
         
         // Initialize managers
         themeEngine = ThemeEngine(this)
@@ -149,25 +153,28 @@ class MainActivity : AppCompatActivity() {
     
     override fun onResume() {
         super.onResume()
-        extractWallpaperColors()
-        // Reload settings in case user changed Voice/Hub toggles
-        viewModel.reloadSettings()
+        try {
+            extractWallpaperColors()
+            viewModel.reloadSettings()
+            applyTheme()
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error in onResume", e)
+        }
     }
     
     override fun onPause() {
         super.onPause()
-        // Stop background resources to save battery
-        viewModel.onActivityPause()
+        try {
+            viewModel.onActivityPause()
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error in onPause", e)
+        }
     }
     
     private fun applyTheme() {
-        val prefs = getSharedPreferences("theme_prefs", android.content.Context.MODE_PRIVATE)
-        val amoledMode = prefs.getBoolean("amoled_mode", false)
-        
-        val bgColor = if (amoledMode) {
-            android.graphics.Color.BLACK
-        } else {
-            android.graphics.Color.TRANSPARENT
+        val bgColor = themeEngine.let {
+            val themeManager = com.example.launcher.utils.ThemeManager(this)
+            themeManager.getBackgroundColor()
         }
         window.decorView.setBackgroundColor(bgColor)
     }
@@ -183,6 +190,9 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun launchApp(app: AppModel) {
+        // Clear notification badge immediately for instant feedback
+        viewModel.clearNotificationBadge(app.packageName)
+        
         val intent = packageManager.getLaunchIntentForPackage(app.packageName)
         if (intent != null) {
             startActivity(intent)

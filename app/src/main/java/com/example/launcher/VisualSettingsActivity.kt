@@ -214,8 +214,12 @@ class VisualSettingsActivity : AppCompatActivity() {
         
         // AMOLED mode - toggle pure black bg
         amoledSwitch.setOnCheckedChangeListener { _, isChecked ->
-            val prefs = getSharedPreferences("theme_prefs", MODE_PRIVATE)
-            prefs.edit().putBoolean("amoled_mode", isChecked).apply()
+            val themeManager = com.example.launcher.utils.ThemeManager(this)
+            if (isChecked) {
+                themeManager.setTheme(com.example.launcher.utils.ThemeManager.THEME_AMOLED)
+            } else {
+                themeManager.setTheme(com.example.launcher.utils.ThemeManager.THEME_DARK)
+            }
         }
     }
     

@@ -150,6 +150,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _notificationCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val notificationCounts: StateFlow<Map<String, Int>> = _notificationCounts.asStateFlow()
+    
+    // Packages to suppress notification updates for a short time after launch
+    private val suppressedPackages = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val SUPPRESSION_MS = 5000L // 5 seconds grace period
 
     private val _folders = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
     val folders: StateFlow<Map<String, Set<String>>> = _folders.asStateFlow()
@@ -463,15 +467,34 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
 
     private fun updateNotificationCounts() {
+        val now = System.currentTimeMillis()
+        
+        // Clean up old suppressions
+        val it = suppressedPackages.entries.iterator()
+        while (it.hasNext()) {
+            if (now - it.next().value > SUPPRESSION_MS) it.remove()
+        }
+        
         val counts = mutableMapOf<String, Int>()
-        // We can't directy access the service instance easily, but we can have the service 
-        // provide the counts. The existing service uses a static map for now as a simple bridge.
         val packages = apps.value.map { it.packageName }
         for (pkg in packages) {
+            // Skip if suppressed
+            if (suppressedPackages.containsKey(pkg)) continue
+            
             val count = com.example.launcher.service.LauncherNotificationService.getNotificationCount(pkg)
             if (count > 0) counts[pkg] = count
         }
         _notificationCounts.value = counts
+    }
+    
+    /**
+     * Clear badge and suppress updates for a specific app (called when launching that app)
+     */
+    fun clearNotificationBadge(packageName: String) {
+        suppressedPackages[packageName] = System.currentTimeMillis()
+        val current = _notificationCounts.value.toMutableMap()
+        current.remove(packageName)
+        _notificationCounts.value = current
     }
 
     // ─── Folder Support ──────────────────────────────────────────────────────
@@ -540,28 +563,41 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun refreshMusicState() {
         try {
             val mgr = mediaSessionManager ?: return
-            val sessions: List<MediaController> = mgr.getActiveSessions(getNotificationServiceComponent())
-            val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-                ?: sessions.firstOrNull()
+            val component = getNotificationServiceComponent()
+            val sessions: List<MediaController> = mgr.getActiveSessions(component)
             
-            if (active == null) {
-                // If there's no active session, just mark as not playing but KEEP the track info
+            if (sessions.isEmpty()) {
                 _musicState.value = _musicState.value.copy(isPlaying = false)
                 return
             }
             
-            val meta = active.metadata
-            _musicState.value = MusicState(
-                title = meta?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: _musicState.value.title,
-                artist = meta?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)
-                    ?: meta?.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST) 
-                    ?: _musicState.value.artist,
-                isPlaying = active.playbackState?.state == PlaybackState.STATE_PLAYING,
-                albumArt = meta?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART) ?: _musicState.value.albumArt
-            )
+            val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                ?: sessions.firstOrNull()
+            
+            if (active == null) {
+                _musicState.value = _musicState.value.copy(isPlaying = false)
+                return
+            }
+            
+            try {
+                val meta = active.metadata
+                val playbackState = active.playbackState
+                
+                _musicState.value = MusicState(
+                    title = meta?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: _musicState.value.title,
+                    artist = meta?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)
+                        ?: meta?.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST) 
+                        ?: _musicState.value.artist,
+                    isPlaying = playbackState?.state == PlaybackState.STATE_PLAYING,
+                    albumArt = try { meta?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART) } catch (e: Exception) { null } ?: _musicState.value.albumArt
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Error extracting metadata from session", e)
+            }
+        } catch (e: SecurityException) {
+            // No permission – fail silently
         } catch (e: Exception) {
-            // SecurityException if MEDIA_CONTENT_CONTROL not granted – fail silently
-            e.printStackTrace()
+            android.util.Log.e("HomeViewModel", "Error refreshing music state", e)
         }
     }
 
@@ -624,22 +660,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     // Universal Search
 
     
+    private var searchJob: kotlinx.coroutines.Job? = null
+    
     fun onSearchQueryChanged(query: String) {
-        android.util.Log.d("HomeViewModel", "Search query changed: '$query'")
         _searchQuery.value = query
-        viewModelScope.launch {
-            if (query.isBlank()) {
-                android.util.Log.d("HomeViewModel", "Query blank, clearing results")
-                _searchResults.value = emptyList()
-                _isSearching.value = false
-            } else {
-                android.util.Log.d("HomeViewModel", "Calling searchManager.search()")
-                _isSearching.value = true
-                val results = searchManager.search(query)
-                android.util.Log.d("HomeViewModel", "Search returned ${results.size} results")
-                _searchResults.value = results
-                _isSearching.value = false
-            }
+        
+        // Cancel any in-flight search immediately
+        searchJob?.cancel()
+        
+        if (query.isBlank()) {
+            _searchResults.value = emptyList()
+            _isSearching.value = false
+            return
+        }
+        
+        // Debounce: wait 150ms after user stops typing before searching
+        searchJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(150)
+            _isSearching.value = true
+            val results = searchManager.search(query)
+            _searchResults.value = results
+            _isSearching.value = false
         }
     }
     
@@ -824,8 +865,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             hubUpdateJob?.cancel()
         }
 
-        // Refresh Notifications
-        updateNotificationCounts()
+        // Refresh Notifications (delay to let system process dismissed notifications)
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(500)
+            updateNotificationCounts()
+        }
 
         // Refresh Folders
         _folders.value = preferencesManager.getFolders()
@@ -1085,10 +1129,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
-        voiceManager.destroy()
-        launcherApps.unregisterCallback(launcherCallback)
-        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
-            .unregisterReceiver(notificationReceiver)
+        try {
+            voiceManager.destroy()
+            launcherApps.unregisterCallback(launcherCallback)
+            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
+                .unregisterReceiver(notificationReceiver)
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "Error during onCleared cleanup", e)
+        }
+        
         hubUpdateJob?.cancel()
         musicPollJob?.cancel()
     }
