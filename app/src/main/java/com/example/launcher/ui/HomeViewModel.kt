@@ -35,6 +35,9 @@ import android.widget.Toast
 import android.content.ClipboardManager
 import android.content.ClipData
 import android.hardware.camera2.CameraManager
+import android.media.MediaPlayer
+import android.net.Uri
+import android.provider.MediaStore
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -195,11 +198,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _isHotwordActive = MutableStateFlow(false)
     val isHotwordActive: StateFlow<Boolean> = _isHotwordActive.asStateFlow()
 
-    // --- Other Properties ---
+    // Other Properties
     private var _flashlightState = false
     private var hubUpdateJob: kotlinx.coroutines.Job? = null
     private var musicPollJob: kotlinx.coroutines.Job? = null
     private var mediaSessionManager: MediaSessionManager? = null
+
+    // Local Music State
+    private var localMediaPlayer: MediaPlayer? = null
+    private var localMusicQueue: List<android.net.Uri> = emptyList()
+    private var localMusicTitles: List<String> = emptyList()
+    private var localMusicArtists: List<String> = emptyList()
+    private var currentMusicIndex = 0
     
     // Voice State
     private var hotwordResetJob: kotlinx.coroutines.Job? = null
@@ -593,7 +603,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val sessions: List<MediaController> = mgr.getActiveSessions(component)
             
             if (sessions.isEmpty()) {
-                _musicState.value = _musicState.value.copy(isPlaying = false)
+                // Fallback to internal player state
+                if (localMediaPlayer != null) {
+                    _musicState.value = MusicState(
+                        title = localMusicTitles.getOrNull(currentMusicIndex) ?: "Local Music",
+                        artist = localMusicArtists.getOrNull(currentMusicIndex) ?: "V-launcher",
+                        isPlaying = localMediaPlayer?.isPlaying == true,
+                        albumArt = _musicState.value.albumArt
+                    )
+                } else {
+                    _musicState.value = _musicState.value.copy(isPlaying = false)
+                }
                 return
             }
             
@@ -601,7 +621,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 ?: sessions.firstOrNull()
             
             if (active == null) {
-                _musicState.value = _musicState.value.copy(isPlaying = false)
+                // Fallback to internal player state
+                if (localMediaPlayer != null) {
+                    _musicState.value = MusicState(
+                        title = localMusicTitles.getOrNull(currentMusicIndex) ?: "Local Music",
+                        artist = localMusicArtists.getOrNull(currentMusicIndex) ?: "V-launcher",
+                        isPlaying = localMediaPlayer?.isPlaying == true,
+                        albumArt = _musicState.value.albumArt
+                    )
+                } else {
+                    _musicState.value = _musicState.value.copy(isPlaying = false)
+                }
                 return
             }
             
@@ -634,8 +664,100 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         android.widget.Toast.makeText(getApplication<Application>(), "Please grant V-Launcher Notification Access to control music.", android.widget.Toast.LENGTH_LONG).show()
     }
 
+    private fun fetchLocalMusic() {
+        val context = getApplication<Application>()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) return
+        } else {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) return
+        }
+
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST
+        )
+        // Select only music
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+        val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
+
+        val uris = mutableListOf<Uri>()
+        val titles = mutableListOf<String>()
+        val artists = mutableListOf<String>()
+
+        context.contentResolver.query(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            projection,
+            selection,
+            null,
+            sortOrder
+        )?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(idColumn)
+                val title = cursor.getString(titleColumn) ?: "Unknown Title"
+                val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
+                val contentUri = android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+                uris.add(contentUri)
+                titles.add(title)
+                artists.add(artist)
+            }
+        }
+        
+        localMusicQueue = uris
+        localMusicTitles = titles
+        localMusicArtists = artists
+        currentMusicIndex = 0
+    }
+
+    private fun playLocalMusic() {
+        if (localMusicQueue.isEmpty()) return
+        val uri = localMusicQueue[currentMusicIndex]
+        
+        try {
+            if (localMediaPlayer == null) {
+                localMediaPlayer = MediaPlayer()
+                localMediaPlayer?.setOnCompletionListener {
+                    musicSkipNext() // Auto-advance track
+                }
+            }
+            localMediaPlayer?.reset()
+            localMediaPlayer?.setDataSource(getApplication(), uri)
+            localMediaPlayer?.prepare()
+            localMediaPlayer?.start()
+            
+            // Re-trigger visual updates
+            refreshMusicState()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     fun musicPlayPause() {
         try {
+            val component = getNotificationServiceComponent()
+            val sessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            
+            if (sessions.isNullOrEmpty()) {
+                // Local Fallback
+                if (localMediaPlayer?.isPlaying == true) {
+                    localMediaPlayer?.pause()
+                    _musicState.value = _musicState.value.copy(isPlaying = false)
+                } else {
+                    if (localMusicQueue.isEmpty()) fetchLocalMusic()
+                    if (localMediaPlayer != null) {
+                        localMediaPlayer?.start()
+                        _musicState.value = _musicState.value.copy(isPlaying = true)
+                    } else {
+                        playLocalMusic()
+                    }
+                }
+                return
+            }
+
             val audioManager = getApplication<android.app.Application>().getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
             audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
             audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
@@ -650,6 +772,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun musicSkipNext() {
         try {
+            val component = getNotificationServiceComponent()
+            val sessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            
+            if (sessions.isNullOrEmpty()) {
+                if (localMusicQueue.isNotEmpty()) {
+                    currentMusicIndex = (currentMusicIndex + 1) % localMusicQueue.size
+                    playLocalMusic()
+                }
+                return
+            }
+
             val audioManager = getApplication<android.app.Application>().getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
             audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_NEXT))
             audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_NEXT))
@@ -664,6 +797,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun musicSkipPrev() {
         try {
+            val component = getNotificationServiceComponent()
+            val sessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            
+            if (sessions.isNullOrEmpty()) {
+                if (localMusicQueue.isNotEmpty()) {
+                    currentMusicIndex = if (currentMusicIndex - 1 < 0) localMusicQueue.size - 1 else currentMusicIndex - 1
+                    playLocalMusic()
+                }
+                return
+            }
+
             val audioManager = getApplication<android.app.Application>().getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
             audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS))
             audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS))
