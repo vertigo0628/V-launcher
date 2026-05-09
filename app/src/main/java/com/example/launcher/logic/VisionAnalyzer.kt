@@ -147,7 +147,11 @@ class VisionAnalyzer(private val context: Context) {
             sb.appendLine()
         }
         
-        sb.appendLine("Based on the data above, describe what this photo shows. If there is text, transcribe it. If it contains a question or math problem, answer it.")
+        sb.appendLine("CRITICAL INSTRUCTIONS:")
+        sb.appendLine("1. Describe the photo STRICTLY using ONLY the detected objects and text listed above.")
+        sb.appendLine("2. If no objects or text are listed, simply say: 'I couldn't detect anything clearly in that photo.'")
+        sb.appendLine("3. DO NOT invent, guess, or hallucinate details that are not in the data above.")
+        sb.appendLine("4. If the text contains a question, answer it concisely.")
         
         return Pair(systemPrompt, sb.toString())
     }
