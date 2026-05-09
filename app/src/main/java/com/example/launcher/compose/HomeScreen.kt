@@ -59,6 +59,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.animation.core.*
 import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 
@@ -866,6 +869,31 @@ fun DockItem(iconRes: Int, onClick: () -> Unit) {
     }
 }
 
+@Composable
+fun rememberParallaxOffset(): State<Offset> {
+    val context = LocalContext.current
+    val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
+    val accelerometer = remember { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
+    val offset = remember { mutableStateOf(Offset.Zero) }
+
+    DisposableEffect(Unit) {
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+                if (event != null && event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                    // X and Y are inverted on screen, applying subtle clamping (x * 4, y * 4) makes it "a bit static"
+                    val pitch = event.values[1] // Tilt up/down
+                    val roll = event.values[0]  // Tilt left/right
+                    offset.value = Offset(roll * 8f, pitch * 8f)
+                }
+            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_UI)
+        onDispose { sensorManager.unregisterListener(listener) }
+    }
+    return offset
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppDrawer(
@@ -906,11 +934,14 @@ fun AppDrawer(
                  )
             }
             
+            val parallax by rememberParallaxOffset()
+            
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 80.dp),
+                columns = GridCells.Adaptive(minSize = 72.dp),
                 contentPadding = PaddingValues(16.dp),
                 modifier = Modifier
                     .fillMaxSize()
+                    .offset { IntOffset(parallax.x.toInt(), parallax.y.toInt()) }
                     .then(rememberBouncyOverscrollModifier())
             ) {
                 // Phase 13: Render Folders
