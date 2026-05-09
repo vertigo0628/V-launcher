@@ -244,7 +244,7 @@ fun HomeScreen(
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                                 modifier = Modifier.fillMaxWidth()
-                            ) { Text("Open in Pop-Up", color = Color.White) }
+                            ) { Text("Floating Window", color = Color.White) }
                             
                             // Lock / Unlock toggle
                             val isCurrentlyLocked = appPendingAction?.packageName?.let { lockedApps.contains(it) } ?: false

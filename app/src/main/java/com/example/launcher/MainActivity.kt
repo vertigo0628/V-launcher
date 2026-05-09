@@ -190,11 +190,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun applyTheme() {
-        val bgColor = themeEngine.let {
-            val themeManager = com.example.launcher.utils.ThemeManager(this)
-            themeManager.getBackgroundColor()
-        }
-        window.decorView.setBackgroundColor(bgColor)
+        window.decorView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
     }
     
     private fun extractWallpaperColors() {
@@ -215,7 +211,8 @@ class MainActivity : AppCompatActivity() {
         if (intent != null) {
             intent.addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or 
-                Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+                Intent.FLAG_ACTIVITY_MULTIPLE_TASK or
+                Intent.FLAG_ACTIVITY_NEW_DOCUMENT
             )
             val metrics = resources.displayMetrics
             val screenWidth = metrics.widthPixels
@@ -243,8 +240,12 @@ class MainActivity : AppCompatActivity() {
             val options = android.app.ActivityOptions.makeBasic()
             options.setLaunchBounds(bounds)
             
+            // Magic: Force WINDOWING_MODE_FREEFORM (constant 5) using deep bundle injection
+            val bundle = options.toBundle()
+            bundle?.putInt("android.activity.windowingMode", 5)
+            
             try {
-                startActivity(intent, options.toBundle())
+                startActivity(intent, bundle)
             } catch (e: Exception) {
                 android.util.Log.e("MainActivity", "Failed to launch freeform", e)
                 startActivity(intent) // Fallback
