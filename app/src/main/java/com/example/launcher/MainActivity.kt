@@ -121,6 +121,7 @@ class MainActivity : AppCompatActivity() {
                     onAddToGrid = { app -> viewModel.addToGrid(app) },
                     onRemoveFromGrid = { app -> viewModel.removeFromGrid(app) },
                     onHideApp = { app -> viewModel.hideApp(app) },
+                    onLaunchPopup = { app -> launchAppInFreeform(app) },
                     viewModel = viewModel,
                     onSettings = {  
                         startActivity(Intent(this, LauncherSettingsActivity::class.java))
@@ -206,6 +207,51 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private var freeformCascadeOffset = 0
+    
+    private fun launchAppInFreeform(app: AppModel) {
+        viewModel.clearNotificationBadge(app.packageName)
+        val intent = packageManager.getLaunchIntentForPackage(app.packageName)
+        if (intent != null) {
+            intent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or 
+                Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+            )
+            val metrics = resources.displayMetrics
+            val screenWidth = metrics.widthPixels
+            val screenHeight = metrics.heightPixels
+            
+            val windowWidth = (screenWidth * 0.7f).toInt()
+            val windowHeight = (screenHeight * 0.6f).toInt()
+            
+            val baseStartX = (screenWidth * 0.1f).toInt()
+            val baseStartY = (screenHeight * 0.15f).toInt()
+            val step = 80 // Stagger step
+            
+            var currentX = baseStartX + (freeformCascadeOffset * step)
+            var currentY = baseStartY + (freeformCascadeOffset * step)
+            
+            if (currentX + windowWidth > screenWidth || currentY + windowHeight > screenHeight) {
+                freeformCascadeOffset = 0
+                currentX = baseStartX
+                currentY = baseStartY
+            }
+            
+            freeformCascadeOffset++ // Advance cascade
+            
+            val bounds = android.graphics.Rect(currentX, currentY, currentX + windowWidth, currentY + windowHeight)
+            val options = android.app.ActivityOptions.makeBasic()
+            options.setLaunchBounds(bounds)
+            
+            try {
+                startActivity(intent, options.toBundle())
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Failed to launch freeform", e)
+                startActivity(intent) // Fallback
+            }
+        }
+    }
+
     private fun launchApp(app: AppModel) {
         // Clear notification badge immediately for instant feedback
         viewModel.clearNotificationBadge(app.packageName)

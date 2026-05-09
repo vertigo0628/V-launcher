@@ -87,6 +87,7 @@ fun HomeScreen(
     onAddToGrid: (AppModel) -> Unit,
     onRemoveFromGrid: (AppModel) -> Unit,
     onHideApp: (AppModel) -> Unit,
+    onLaunchPopup: (AppModel) -> Unit = {},
     viewModel: com.example.launcher.ui.HomeViewModel? = null,
     onSettings: () -> Unit,
     musicState: com.example.launcher.ui.HomeViewModel.MusicState = com.example.launcher.ui.HomeViewModel.MusicState(),
@@ -234,6 +235,17 @@ fun HomeScreen(
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
                                 ) { Text("Hide App", color = Color.White) }
                             }
+                            // Open in Pop-Up
+                            Button(
+                                onClick = {
+                                    appPendingAction?.let { onLaunchPopup(it) }
+                                    appPendingAction = null
+                                    actionType = null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Open in Pop-Up", color = Color.White) }
+                            
                             // Lock / Unlock toggle
                             val isCurrentlyLocked = appPendingAction?.packageName?.let { lockedApps.contains(it) } ?: false
                             Button(
