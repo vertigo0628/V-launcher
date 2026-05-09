@@ -317,26 +317,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun updateFlowerGrid() {
         val gridPackages = flowerGridManager.getGridApps()
         
-        if (gridPackages.isEmpty()) {
-            // Default behavior: show first 37 apps if no custom grid set
-            // Wait, we should migrate or just show default?
-            // Let's just show top apps but NOT persist them as "pinned" yet to keep it clean,
-            // OR auto-populate logic. 
-            // For now, let's auto-populate if empty to ensure it's not blank on first run.
-            val defaults = allApps.take(37)
-            _flowerApps.value = defaults
-            
-            // Optionally auto-populate persistence so removal works immediately
-            if (allApps.isNotEmpty()) {
-                flowerGridManager.setGridApps(defaults.map { it.packageName })
-            }
-        } else {
-            // Map packages to actual AppModels
-            val mappedApps = gridPackages.mapNotNull { pkg ->
-                allApps.find { it.packageName == pkg }
-            }
-            _flowerApps.value = mappedApps
+        // Map user's explicitly pinned apps into the core slots
+        val mappedApps = gridPackages.mapNotNull { pkg ->
+            allApps.find { it.packageName == pkg }
+        }.toMutableList()
+        
+        // Dynamic Honeycomb Auto-Fill: Fill structural gaps with remaining apps
+        val unpinnedApps = allApps.filter { !gridPackages.contains(it.packageName) }
+        val needed = 61 - mappedApps.size
+        if (needed > 0) {
+            mappedApps.addAll(unpinnedApps.take(needed))
         }
+        
+        // First run behavior: pin the very first center app automatically so "Add to grid" order starts cleanly if empty
+        if (gridPackages.isEmpty() && mappedApps.isNotEmpty()) {
+            flowerGridManager.addToGrid(mappedApps[0].packageName)
+        }
+        
+        _flowerApps.value = mappedApps
     }
     
     fun addToGrid(app: AppModel) {
