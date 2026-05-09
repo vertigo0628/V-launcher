@@ -121,6 +121,7 @@ class MainActivity : AppCompatActivity() {
                     onAddToGrid = { app -> viewModel.addToGrid(app) },
                     onRemoveFromGrid = { app -> viewModel.removeFromGrid(app) },
                     onHideApp = { app -> viewModel.hideApp(app) },
+                    viewModel = viewModel,
                     onSettings = {  
                         startActivity(Intent(this, LauncherSettingsActivity::class.java))
                     },
