@@ -27,7 +27,8 @@ class OllamaClient {
     data class OllamaRequest(
         val model: String,
         val prompt: String,
-        val stream: Boolean = true
+        val stream: Boolean = true,
+        val system: String? = null
     )
 
     data class OllamaResponse(
@@ -45,10 +46,11 @@ class OllamaClient {
     fun generateResponseStream(
         prompt: String, 
         model: String = defaultModel, 
-        baseUrl: String = "http://127.0.0.1:11434"
+        baseUrl: String = "http://127.0.0.1:11434",
+        systemPrompt: String? = null
     ): Flow<String> = flow {
         val endpoint = "${baseUrl.trimEnd('/')}/api/generate"
-        val requestData = OllamaRequest(model = model, prompt = prompt, stream = true)
+        val requestData = OllamaRequest(model = model, prompt = prompt, stream = true, system = systemPrompt)
         val jsonBody = gson.toJson(requestData)
         val requestBody = jsonBody.toRequestBody(mediaType)
 

@@ -162,6 +162,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _chatHistory = MutableStateFlow<List<ChatMessage>>(emptyList())
     val chatHistory: StateFlow<List<ChatMessage>> = _chatHistory.asStateFlow()
     
+    // Photo thumbnails for chat messages (keyed by message timestamp)
+    private val _photoBitmaps = mutableMapOf<Long, android.graphics.Bitmap>()
+    fun getPhotoBitmap(timestamp: Long): android.graphics.Bitmap? = _photoBitmaps[timestamp]
+    
     private val _currentStreamingResponse = MutableStateFlow<String?>(null)
     val currentStreamingResponse: StateFlow<String?> = _currentStreamingResponse.asStateFlow()
     
@@ -945,8 +949,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val userMsg = ChatMessage(
             role = "user",
             content = "📷 Sent a photo for analysis",
-            imageUri = imageUriString
+            imageUri = "photo"
         )
+        // Store a scaled-down thumbnail for display
+        val thumbSize = 120
+        val aspect = bitmap.width.toFloat() / bitmap.height.toFloat()
+        val thumbW = if (aspect >= 1f) thumbSize else (thumbSize * aspect).toInt()
+        val thumbH = if (aspect >= 1f) (thumbSize / aspect).toInt() else thumbSize
+        val thumbnail = android.graphics.Bitmap.createScaledBitmap(bitmap, thumbW, thumbH, true)
+        _photoBitmaps[userMsg.timestamp] = thumbnail
+        
         _chatHistory.value = _chatHistory.value + userMsg
 
         // Cancel any pending query
@@ -962,8 +974,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val visionResult = visionAnalyzer.analyze(bitmap)
 
                 // Step 2: Build prompt from vision results
-                val prompt = visionAnalyzer.buildPromptFromResult(visionResult)
-                android.util.Log.d("HomeViewModel", "Vision prompt built: ${prompt.take(200)}...")
+                val (systemPrompt, userPrompt) = visionAnalyzer.buildPromptFromResult(visionResult)
+                android.util.Log.d("HomeViewModel", "Vision prompt built: ${userPrompt.take(200)}...")
 
                 // Step 3: Stream to Ollama (reuse existing pipeline)
                 val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(getApplication())
@@ -973,7 +985,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 var fullResponse = ""
                 var hasReceivedFirstChunk = false
 
-                ollamaClient.generateResponseStream(prompt, model = selectedModel, baseUrl = baseUrl).collect { chunk ->
+                ollamaClient.generateResponseStream(userPrompt, model = selectedModel, baseUrl = baseUrl, systemPrompt = systemPrompt).collect { chunk ->
                     if (!hasReceivedFirstChunk) {
                         hasReceivedFirstChunk = true
                         _isAiThinking.value = false

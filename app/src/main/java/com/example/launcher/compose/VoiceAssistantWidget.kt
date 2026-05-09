@@ -40,6 +40,8 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import com.example.launcher.model.ChatMessage
 
 @Composable
@@ -56,7 +58,8 @@ fun VoiceAssistantWidget(
     onClearResponse: () -> Unit = {},
     onSendText: (String) -> Unit = {},
     onStopAi: () -> Unit = {},
-    onCameraClick: () -> Unit = {}
+    onCameraClick: () -> Unit = {},
+    getPhotoBitmap: (Long) -> android.graphics.Bitmap? = { null }
 ) {
     // Pulse animation for Listening state
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -178,26 +181,38 @@ fun VoiceAssistantWidget(
                             items(chatHistory) { message ->
                                 Column(modifier = Modifier.padding(bottom = 8.dp)) {
                                     if (message.role == "user") {
-                                        Row {
-                                            Text(
-                                                text = "vertigo@v-launcher:~$ ",
-                                                color = Color(0xFF4ADE80), // Terminal Green
-                                                fontSize = 12.sp,
-                                                fontFamily = FontFamily.Monospace,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            if (message.imageUri != null) {
+                                        Column(modifier = Modifier.padding(bottom = 4.dp)) {
+                                            Row {
                                                 Text(
-                                                    text = "\uD83D\uDCF7 ",
-                                                    fontSize = 14.sp
+                                                    text = "vertigo@v-launcher:~$ ",
+                                                    color = Color(0xFF4ADE80), // Terminal Green
+                                                    fontSize = 12.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    text = message.content,
+                                                    color = Color.White,
+                                                    fontSize = 12.sp,
+                                                    fontFamily = FontFamily.Monospace
                                                 )
                                             }
-                                            Text(
-                                                text = message.content,
-                                                color = Color.White,
-                                                fontSize = 12.sp,
-                                                fontFamily = FontFamily.Monospace
-                                            )
+                                            // Show photo thumbnail if available
+                                            if (message.imageUri != null) {
+                                                val photoBmp = getPhotoBitmap(message.timestamp)
+                                                if (photoBmp != null) {
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    androidx.compose.foundation.Image(
+                                                        bitmap = photoBmp.asImageBitmap(),
+                                                        contentDescription = "Captured photo",
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier
+                                                            .size(72.dp)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .border(1.dp, Color(0x5500F0FF), RoundedCornerShape(8.dp))
+                                                    )
+                                                }
+                                            }
                                         }
                                     } else {
                                         Text(

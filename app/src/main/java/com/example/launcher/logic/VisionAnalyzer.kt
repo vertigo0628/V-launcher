@@ -118,46 +118,37 @@ class VisionAnalyzer(private val context: Context) {
     }
 
     /**
-     * Build a rich prompt for the AI model from the vision analysis results.
-     * This constructs the bridge between ML Kit output and Ollama input.
+     * Build a system prompt + user prompt pair for the AI model from the vision analysis results.
+     * Returns Pair(systemPrompt, userPrompt) for proper Ollama API usage.
      */
-    fun buildPromptFromResult(result: VisionResult): String {
+    fun buildPromptFromResult(result: VisionResult): Pair<String, String> {
+        val systemPrompt = "You are an image analysis assistant. The user has taken a photo with their phone camera. A local computer vision engine has already scanned the photo and extracted all detected objects and text from it. You are receiving this pre-extracted data below. You MUST analyze this data and provide your response. NEVER ask the user to send, share, or upload the photo — you already have all the information from it."
+        
         val sb = StringBuilder()
-        sb.appendLine("SYSTEM: You are an AI assistant. The user has just uploaded a photo. You CANNOT see the photo directly. Instead, a local vision engine has ALREADY extracted the data from the photo for you. DO NOT ask the user to send the photo — use the data provided below.")
-        sb.appendLine()
-        sb.appendLine("--- IMAGE EXTRACTION DATA ---")
-        sb.appendLine()
         
         // Object Labels
         if (result.labels.isNotEmpty()) {
-            sb.appendLine("Objects Detected in Image:")
+            sb.appendLine("Objects detected in the photo:")
             result.labels.forEach { label ->
                 val pct = (label.confidence * 100).toInt()
-                if (pct >= 60) {
-                    sb.appendLine("- ${label.label} (${pct}% match)")
+                if (pct >= 50) {
+                    sb.appendLine("- ${label.label} (${pct}% confidence)")
                 }
             }
-            sb.appendLine()
         } else {
-            sb.appendLine("Objects Detected in Image: None specific.")
-            sb.appendLine()
+            sb.appendLine("No specific objects were detected in the photo.")
         }
+        sb.appendLine()
         
         // Text Content
         if (!result.extractedText.isNullOrBlank()) {
-            sb.appendLine("Text Written/Printed in Image:")
+            sb.appendLine("Text found in the photo:")
             sb.appendLine(result.extractedText.trim())
             sb.appendLine()
         }
         
-        // Instructions for the LLM
-        sb.appendLine("--- END OF IMAGE DATA ---")
-        sb.appendLine()
-        sb.appendLine("USER TASK:")
-        sb.appendLine("1. Describe the image layout based on the objects and text above.")
-        sb.appendLine("2. If there is text, transcribe it accurately.")
-        sb.appendLine("3. If the text contains a question, math problem, or prompt, please answer it as an AI assistant.")
+        sb.appendLine("Based on the data above, describe what this photo shows. If there is text, transcribe it. If it contains a question or math problem, answer it.")
         
-        return sb.toString()
+        return Pair(systemPrompt, sb.toString())
     }
 }

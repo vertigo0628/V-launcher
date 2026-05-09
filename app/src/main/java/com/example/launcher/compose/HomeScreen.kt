@@ -435,7 +435,8 @@ fun HomeScreen(
                         onClearResponse = onClearAiResponse,
                         onSendText = onSendAiText,
                         onStopAi = onStopAiText,
-                        onCameraClick = onCameraClick
+                        onCameraClick = onCameraClick,
+                        getPhotoBitmap = { ts -> viewModel?.getPhotoBitmap(ts) }
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     
@@ -501,7 +502,8 @@ fun HomeScreen(
                         onClearResponse = onClearAiResponse,
                         onSendText = onSendAiText,
                         onStopAi = onStopAiText,
-                        onCameraClick = onCameraClick
+                        onCameraClick = onCameraClick,
+                        getPhotoBitmap = { ts -> viewModel?.getPhotoBitmap(ts) }
                     )
                 }
                 
