@@ -595,7 +595,8 @@ fun HomeScreen(
                 onMusicNext = onMusicNext,
                 onMusicPrev = onMusicPrev,
                 cpuHistory = cpuHistory,
-                neuralInsight = neuralInsight
+                neuralInsight = neuralInsight,
+                viewModel = viewModel
             )
         }
         

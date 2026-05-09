@@ -43,7 +43,7 @@ import com.example.launcher.utils.rememberBouncyOverscrollModifier
 
 // ─── Data models ───────────────────────────────────────────────────────────────
 data class TaskItem(val id: Long = System.currentTimeMillis(), val text: String, val done: Boolean = false)
-data class NoteItem(val id: Long = System.currentTimeMillis(), val text: String)
+data class NoteItem(val id: Long = System.currentTimeMillis(), val text: String, val timestamp: Long = System.currentTimeMillis())
 // ─── Mini-Apps Hub Composable ─────────────────────────────────────────────────
 
 @Composable
@@ -237,6 +237,7 @@ fun NotesCard() {
                     onValueChange = { newNoteText = it },
                     textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
                     cursorBrush = SolidColor(Color(0xFF00F0FF)),
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = {
                         if (newNoteText.isNotBlank()) {
@@ -293,25 +294,48 @@ fun NotesCard() {
                         .padding(12.dp)
                 ) {
                     Row(verticalAlignment = Alignment.Top) {
-                        Text(
-                            text = note.text,
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        // Delete Button
-                        Text(
-                            text = "✕",
-                            color = Color(0x66FF4444),
-                            fontSize = 12.sp,
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = note.text,
+                                color = Color.White,
+                                fontSize = 13.sp
+                            )
+                            val timeAgo = remember(note.timestamp) {
+                                val diff = System.currentTimeMillis() - note.timestamp
+                                val mins = diff / 60000
+                                val hours = mins / 60
+                                val days = hours / 24
+                                when {
+                                    days > 0 -> "${days}d ago"
+                                    hours > 0 -> "${hours}h ago"
+                                    mins > 0 -> "${mins}m ago"
+                                    else -> "Just now"
+                                }
+                            }
+                            Text(
+                                text = timeAgo,
+                                color = Color.Gray.copy(alpha = 0.5f),
+                                fontSize = 10.sp
+                            )
+                        }
+                        // Delete Button (larger tap target)
+                        Box(
                             modifier = Modifier
-                                .padding(start = 8.dp)
+                                .size(28.dp)
+                                .clip(CircleShape)
                                 .clickable {
                                     val updated = notes.filter { it.id != note.id }.toMutableList()
                                     notes = updated
                                     saveNotes(prefs, updated)
-                                }
-                        )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "✕",
+                                color = Color(0x99FF4444),
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 }
             }
@@ -406,7 +430,11 @@ fun TasksCard() {
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Task list
+        // Task list — sort: incomplete first, completed at bottom
+        val sortedTasks = remember(tasks) {
+            tasks.sortedBy { it.done }
+        }
+
         Column(
             verticalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier
@@ -415,13 +443,13 @@ fun TasksCard() {
                 .then(rememberBouncyOverscrollModifier())
                 .verticalScroll(rememberScrollState())
         ) {
-            tasks.forEach { task ->
+            sortedTasks.forEach { task ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0x0DFFFFFF))
+                        .background(if (task.done) Color(0x06FFFFFF) else Color(0x0DFFFFFF))
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Checkbox(
@@ -443,24 +471,29 @@ fun TasksCard() {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = task.text,
-                        color = if (task.done) Color.Gray else Color.White,
+                        color = if (task.done) Color.Gray.copy(alpha = 0.5f) else Color.White,
                         fontSize = 13.sp,
                         textDecoration = if (task.done) TextDecoration.LineThrough else null,
                         modifier = Modifier.weight(1f)
                     )
-                    // Delete button
-                    Text(
-                        text = "✕",
-                        color = Color(0x66FF4444),
-                        fontSize = 12.sp,
+                    // Delete button (larger tap target)
+                    Box(
                         modifier = Modifier
-                            .padding(start = 8.dp)
+                            .size(28.dp)
+                            .clip(CircleShape)
                             .clickable {
                                 val updated = tasks.filter { it.id != task.id }.toMutableList()
                                 tasks = updated
                                 saveTasks(prefs, updated)
-                            }
-                    )
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "✕",
+                            color = Color(0x99FF4444),
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
 

@@ -27,7 +27,8 @@ fun NeuralHub(
     onMusicNext: () -> Unit = {},
     onMusicPrev: () -> Unit = {},
     cpuHistory: List<Int> = emptyList(),
-    neuralInsight: String = "System running optimally"
+    neuralInsight: String = "System running optimally",
+    viewModel: HomeViewModel? = null
 ) {
     // Cyberpunk Gradient Background
     val bgBrush = Brush.verticalGradient(
@@ -167,7 +168,7 @@ fun NeuralHub(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Mini Apps Panel
-            MiniAppsPanel()
+            MiniAppsPanel(viewModel = viewModel)
 
             Spacer(modifier = Modifier.height(24.dp))
         } // end Column
