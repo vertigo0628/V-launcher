@@ -949,9 +949,7 @@ fun AppDrawer(
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 72.dp),
                 contentPadding = PaddingValues(16.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(rememberBouncyOverscrollModifier())
+                modifier = Modifier.fillMaxSize()
             ) {
                 // Phase 13: Render Folders
                 folders.entries.forEach { (name, packages) ->
