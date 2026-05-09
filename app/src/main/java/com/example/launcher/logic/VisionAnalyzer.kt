@@ -123,37 +123,40 @@ class VisionAnalyzer(private val context: Context) {
      */
     fun buildPromptFromResult(result: VisionResult): String {
         val sb = StringBuilder()
-        sb.appendLine("The user took a photo and wants you to analyze it. Here is what was detected:")
+        sb.appendLine("SYSTEM: You are an AI assistant. The user has just uploaded a photo. You CANNOT see the photo directly. Instead, a local vision engine has ALREADY extracted the data from the photo for you. DO NOT ask the user to send the photo — use the data provided below.")
+        sb.appendLine()
+        sb.appendLine("--- IMAGE EXTRACTION DATA ---")
         sb.appendLine()
         
         // Object Labels
         if (result.labels.isNotEmpty()) {
-            sb.appendLine("## Objects & Scenes Detected:")
+            sb.appendLine("Objects Detected in Image:")
             result.labels.forEach { label ->
                 val pct = (label.confidence * 100).toInt()
-                sb.appendLine("- ${label.label} (${pct}% confidence)")
+                if (pct >= 60) {
+                    sb.appendLine("- ${label.label} (${pct}% match)")
+                }
             }
             sb.appendLine()
         } else {
-            sb.appendLine("## Objects: No clear objects were detected.")
+            sb.appendLine("Objects Detected in Image: None specific.")
             sb.appendLine()
         }
         
         // Text Content
         if (!result.extractedText.isNullOrBlank()) {
-            sb.appendLine("## Text Found in Image (printed or handwritten):")
-            sb.appendLine("```")
-            sb.appendLine(result.extractedText)
-            sb.appendLine("```")
+            sb.appendLine("Text Written/Printed in Image:")
+            sb.appendLine(result.extractedText.trim())
             sb.appendLine()
         }
         
         // Instructions for the LLM
-        sb.appendLine("## Your Task:")
-        sb.appendLine("1. Provide a clear, natural language description of what appears to be in this image based on the detected objects and any text.")
-        sb.appendLine("2. If there is a question, math problem, or any text that asks something — answer it fully.")
-        sb.appendLine("3. If there is handwritten or printed text, transcribe it accurately and explain what it says.")
-        sb.appendLine("4. Be descriptive and helpful. Describe the scene as if the user cannot see the image.")
+        sb.appendLine("--- END OF IMAGE DATA ---")
+        sb.appendLine()
+        sb.appendLine("USER TASK:")
+        sb.appendLine("1. Describe the image layout based on the objects and text above.")
+        sb.appendLine("2. If there is text, transcribe it accurately.")
+        sb.appendLine("3. If the text contains a question, math problem, or prompt, please answer it as an AI assistant.")
         
         return sb.toString()
     }
