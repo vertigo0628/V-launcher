@@ -946,14 +946,11 @@ fun AppDrawer(
                  )
             }
             
-            val parallax by rememberParallaxOffset()
-            
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 72.dp),
                 contentPadding = PaddingValues(16.dp),
                 modifier = Modifier
                     .fillMaxSize()
-                    .offset { IntOffset(parallax.x.toInt(), parallax.y.toInt()) }
                     .then(rememberBouncyOverscrollModifier())
             ) {
                 // Phase 13: Render Folders
