@@ -165,8 +165,11 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         try {
+            if (::viewModel.isInitialized) {
+                viewModel.onForeground()
+                viewModel.reloadSettings()
+            }
             extractWallpaperColors()
-            viewModel.reloadSettings()
             applyTheme()
         } catch (e: Exception) {
             android.util.Log.e("MainActivity", "Error in onResume", e)
@@ -176,7 +179,10 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         try {
-            viewModel.onActivityPause()
+            if (::viewModel.isInitialized) {
+                viewModel.onActivityPause()
+                viewModel.onBackground()
+            }
         } catch (e: Exception) {
             android.util.Log.e("MainActivity", "Error in onPause", e)
         }

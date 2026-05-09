@@ -257,6 +257,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _folders.value = preferencesManager.getFolders()
     }
 
+    // --- Lifecycle Management ---
+    
+    fun onForeground() {
+        if (prefs.getBoolean("neural_hub_enabled", true)) {
+            startHubUpdates()
+        }
+        startMusicMonitor()
+        if (prefs.getBoolean("voice_assistant_enabled", true)) {
+            setVoiceListening(true)
+        }
+    }
+    
+    fun onBackground() {
+        // Halt heavy CPU/polling tasks when launcher is hidden
+        hubUpdateJob?.cancel()
+        hubUpdateJob = null
+        stopMusicMonitor()
+        setVoiceListening(false)
+    }
+
     fun loadApps() {
         viewModelScope.launch {
             val fullList = repository.getInstalledApps()
@@ -417,6 +437,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun stopMusicMonitor() {
         musicPollJob?.cancel()
+        musicPollJob = null
     }
 
     // ─── Dynamic Theme Engine ────────────────────────────────────────────────
