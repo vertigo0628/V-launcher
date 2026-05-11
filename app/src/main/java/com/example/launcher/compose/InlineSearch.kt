@@ -12,6 +12,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -110,6 +112,7 @@ fun SearchOverlay(
     onQueryChange: (String) -> Unit,
     searchResults: List<com.example.launcher.utils.SearchManager.SearchResult>,
     onResultClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit,
+    onResultLongClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit = {},
     onClose: () -> Unit,
     isSearching: Boolean = false
 ) {
@@ -222,7 +225,11 @@ fun SearchOverlay(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White
                         ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Search,
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+                            capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences
+                        ),
                         keyboardActions = KeyboardActions(
                             onSearch = {
                                 if (query.isNotEmpty() && searchResults.isNotEmpty()) {
@@ -292,6 +299,11 @@ fun SearchOverlay(
                                 keyboardController?.hide()
                                 onResultClick(result)
                                 onClose()
+                            },
+                            onLongClick = {
+                                keyboardController?.hide()
+                                onResultLongClick(result)
+                                onClose()
                             }
                         )
                     }
@@ -312,12 +324,18 @@ fun SearchOverlay(
 @Composable
 fun SearchResultItem(
     result: com.example.launcher.utils.SearchManager.SearchResult,
-    onClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit
+    onClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit,
+    onLongClick: (com.example.launcher.utils.SearchManager.SearchResult) -> Unit = {}
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick(result) }
+            .pointerInput(result) {
+                detectTapGestures(
+                    onTap = { onClick(result) },
+                    onLongPress = { onLongClick(result) }
+                )
+            }
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

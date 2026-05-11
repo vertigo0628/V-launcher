@@ -58,6 +58,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.animation.*
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.core.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntOffset
@@ -69,6 +70,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 fun HomeScreen(
     flowerApps: List<AppModel>,
     allApps: List<AppModel>,
+    hiddenApps: List<AppModel> = emptyList(),
     onAppClick: (AppModel) -> Unit,
     showDrawer: Boolean,
     onDrawerToggle: (Boolean) -> Unit,
@@ -87,6 +89,7 @@ fun HomeScreen(
     onAddToGrid: (AppModel) -> Unit,
     onRemoveFromGrid: (AppModel) -> Unit,
     onHideApp: (AppModel) -> Unit,
+    onUnhideApp: (AppModel) -> Unit = {},
     onLaunchPopup: (AppModel) -> Unit = {},
     viewModel: com.example.launcher.ui.HomeViewModel? = null,
     onSettings: () -> Unit,
@@ -115,10 +118,31 @@ fun HomeScreen(
     onStopAiText: () -> Unit = {},
     spokenText: String = "",
     isHotwordActive: Boolean = false,
-    onCameraClick: () -> Unit = {}
+    onCameraClick: () -> Unit = {},
+    shizukuState: com.example.launcher.utils.ShizukuSetup.ShizukuState = com.example.launcher.utils.ShizukuSetup.ShizukuState.UNAVAILABLE,
+    shizukuActionResult: String? = null,
+    frozenApps: Set<String> = emptySet(),
+    frozenAppsList: List<AppModel> = emptyList(),
+    onFreezeApp: (String) -> Unit = {},
+    onUnfreezeApp: (String) -> Unit = {},
+    onForceStopApp: (String) -> Unit = {},
+    onClearAppData: (String) -> Unit = {},
+    onSilentUninstallApp: (String) -> Unit = {},
+    onClearShizukuResult: () -> Unit = {},
+    showLabels: Boolean = true,
+    showBadges: Boolean = true
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
+    // Shizuku Result Toast
+    val context = LocalContext.current
+    LaunchedEffect(shizukuActionResult) {
+        shizukuActionResult?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show()
+            onClearShizukuResult()
+        }
+    }
     
     // Internal state for the inline search overlay
     var showInlineSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -127,11 +151,14 @@ fun HomeScreen(
     
     // Internal state for folder view
     var activeFolder by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var showHiddenDrawer by remember { androidx.compose.runtime.mutableStateOf(false) }
     
     // Intercept Back Press to close overlays instead of crashing/resetting everything
     BackHandler(enabled = true) {
         if (showInlineSearch) {
             showInlineSearch = false
+        } else if (showHiddenDrawer) {
+            showHiddenDrawer = false
         } else if (activeFolder != null) {
             activeFolder = null
         } else if (showNeuralHub) {
@@ -226,14 +253,27 @@ fun HomeScreen(
                                 
                                 Spacer(modifier = Modifier.width(8.dp))
                                 
-                                Button(
-                                    onClick = {
-                                        appPendingAction?.let { onHideApp(it) }
-                                        appPendingAction = null
-                                        actionType = null
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
-                                ) { Text("Hide App", color = Color.White) }
+                                val isCurrentlyHidden = hiddenApps.any { it.packageName == appPendingAction?.packageName }
+                                
+                                if (isCurrentlyHidden) {
+                                    Button(
+                                        onClick = {
+                                            appPendingAction?.let { onUnhideApp(it) }
+                                            appPendingAction = null
+                                            actionType = null
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                                    ) { Text("Unhide App", color = Color.White) }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            appPendingAction?.let { onHideApp(it) }
+                                            appPendingAction = null
+                                            actionType = null
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                                    ) { Text("Hide App", color = Color.White) }
+                                }
                             }
                             // Open in Pop-Up
                             Button(
@@ -265,6 +305,88 @@ fun HomeScreen(
                                     if (isCurrentlyLocked) "🔓 Unlock App" else "🔒 Lock App",
                                     color = Color.White
                                 )
+                            }
+
+                            // Shizuku Power Actions
+                            if (shizukuState == com.example.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    "POWER ACTIONS (SHIZUKU)",
+                                    color = Color.Red,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val isFrozen = frozenApps.contains(appPendingAction?.packageName)
+                                    Button(
+                                        onClick = {
+                                            appPendingAction?.let { 
+                                                if (isFrozen) onUnfreezeApp(it.packageName) else onFreezeApp(it.packageName)
+                                            }
+                                            appPendingAction = null
+                                            actionType = null
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isFrozen) Color(0xFF10B981) else Color(0xFF475569)
+                                        ),
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(if (isFrozen) "🔥 Unfreeze" else "❄️ Freeze", fontSize = 11.sp, color = Color.White)
+                                    }
+                                    
+                                    Button(
+                                        onClick = {
+                                            appPendingAction?.let { onForceStopApp(it.packageName) }
+                                            appPendingAction = null
+                                            actionType = null
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF991B1B)),
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                    ) {
+                                        Text("💀 Kill", fontSize = 11.sp, color = Color.White)
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            appPendingAction?.let { onClearAppData(it.packageName) }
+                                            appPendingAction = null
+                                            actionType = null
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                    ) {
+                                        Text("🗑️ Clear Data", fontSize = 11.sp, color = Color.White)
+                                    }
+                                    
+                                    Button(
+                                        onClick = {
+                                            appPendingAction?.let { onSilentUninstallApp(it.packageName) }
+                                            appPendingAction = null
+                                            actionType = null
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB91C1C)),
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                    ) {
+                                        Text("❌ Uninstall", fontSize = 11.sp, color = Color.White)
+                                    }
+                                }
                             }
                             
                             // Phase 14: App Shortcuts
@@ -412,12 +534,18 @@ fun HomeScreen(
             )
         }
         // Blur Animation for Home Screen Desktop
-        val isOverlayOpen = showDrawer || showNeuralHub || showInlineSearch || (lockedAppPending != null) || (actionType != null)
+        val isOverlayOpen = showDrawer || showNeuralHub || showInlineSearch || showHiddenDrawer || (lockedAppPending != null) || (actionType != null)
         val blurRadius by animateDpAsState(
             targetValue = if (isOverlayOpen) 16.dp else 0.dp,
             animationSpec = tween(durationMillis = 300)
         )
-        val desktopModifier = Modifier.blur(blurRadius)
+        val desktopModifier = Modifier
+            .blur(blurRadius)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onDoubleTap = { showHiddenDrawer = true }
+                )
+            }
 
         if (isLandscape) {
             Row(
@@ -483,7 +611,9 @@ fun HomeScreen(
                             appPendingAction = app
                             actionType = "REMOVE"
                         },
-                        notificationCounts = notificationCounts
+                        notificationCounts = notificationCounts,
+                        showLabels = showLabels,
+                        showBadges = showBadges
                     )
                 }
             }
@@ -538,7 +668,9 @@ fun HomeScreen(
                             appPendingAction = app
                             actionType = "REMOVE"
                         },
-                        notificationCounts = notificationCounts
+                        notificationCounts = notificationCounts,
+                        showLabels = showLabels,
+                        showBadges = showBadges
                     )
                 }
                 
@@ -555,6 +687,42 @@ fun HomeScreen(
                     onNeuralHub = { onNeuralHubToggle(true) }
                 )
             }
+        }
+        
+        // Hidden App Drawer Overlay
+        AnimatedVisibility(
+            visible = showHiddenDrawer,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+            ) + fadeIn(animationSpec = tween(300)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+            ) + fadeOut(animationSpec = tween(300))
+        ) {
+                AppDrawer(
+                    apps = hiddenApps,
+                    onAppClick = { app ->
+                        if (lockedApps.contains(app.packageName)) {
+                            lockedAppPending = app
+                        } else {
+                            onAppClick(app)
+                        }
+                    },
+                    notificationCounts = notificationCounts,
+                    onClose = { showHiddenDrawer = false },
+                    onAppLongClick = { app ->
+                        appPendingAction = app
+                        actionType = "DRAWER_OPTIONS"
+                    },
+                    folders = emptyMap(),
+                    onFolderClick = { },
+                    onDeleteFolder = { },
+                    viewModel = viewModel,
+                    showLabels = showLabels,
+                    showBadges = showBadges
+                )
         }
         
         // App Drawer Overlay
@@ -588,7 +756,9 @@ fun HomeScreen(
                 folders = folders,
                 onFolderClick = { activeFolder = it },
                 onDeleteFolder = onDeleteFolder,
-                viewModel = viewModel // Pass ViewModel to AppDrawer
+                viewModel = viewModel,
+                showLabels = showLabels,
+                showBadges = showBadges
             )
         }
         
@@ -613,7 +783,8 @@ fun HomeScreen(
                 onMusicPrev = onMusicPrev,
                 cpuHistory = cpuHistory,
                 neuralInsight = neuralInsight,
-                viewModel = viewModel
+                viewModel = viewModel,
+                shizukuState = shizukuState
             )
         }
         
@@ -634,6 +805,15 @@ fun HomeScreen(
                 onQueryChange = onSearchQueryChange,
                 searchResults = searchResults,
                 onResultClick = onSearchResultClick,
+                onResultLongClick = { result ->
+                    if (result.type == com.example.launcher.utils.SearchManager.ResultType.APP) {
+                        val matchingApp = allApps.find { it.packageName == result.id } ?: hiddenApps.find { it.packageName == result.id }
+                        if (matchingApp != null) {
+                            appPendingAction = matchingApp
+                            actionType = "DRAWER_OPTIONS"
+                        }
+                    }
+                },
                 onClose = { showInlineSearch = false },
                 isSearching = isSearching
             )
@@ -672,7 +852,9 @@ fun FlowerGrid(
     apps: List<AppModel>,
     onAppClick: (AppModel) -> Unit,
     onAppLongClick: (AppModel) -> Unit,
-    notificationCounts: Map<String, Int> = emptyMap()
+    notificationCounts: Map<String, Int> = emptyMap(),
+    showLabels: Boolean = true,
+    showBadges: Boolean = true
 ) {
     BoxWithConstraints(
         contentAlignment = Alignment.Center,
@@ -703,8 +885,8 @@ fun FlowerGrid(
             content = {
                 apps.take(maxApps).forEach { app ->
                      key(app.packageName) {
-                        val count = notificationCounts[app.packageName] ?: 0
-                        AppIcon(app, onAppClick, onAppLongClick, iconSizeDp, count)
+                        val count = if (showBadges) (notificationCounts[app.packageName] ?: 0) else 0
+                        AppIcon(app, onAppClick, onAppLongClick, iconSizeDp, count, showLabels)
                     }
                 }
             },
@@ -764,39 +946,56 @@ fun AppIcon(
     onClick: (AppModel) -> Unit,
     onLongClick: (AppModel) -> Unit,
     size: androidx.compose.ui.unit.Dp = 64.dp,
-    notificationCount: Int = 0
+    notificationCount: Int = 0,
+    showLabel: Boolean = true
 ) {
-    Box(
-        modifier = Modifier.size(size),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier.width(size),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = Modifier
-                .size(size * 0.9f)
-                .clip(CircleShape)
-                .background(Color(0x3300F0FF))
-                .combinedClickable(
-                    onClick = { onClick(app) },
-                    onLongClick = { onLongClick(app) }
-                ),
+            modifier = Modifier.size(size),
             contentAlignment = Alignment.Center
         ) {
-            val iconBitmap = remember(app.packageName) {
-                app.icon.toBitmap().asImageBitmap()
+            Box(
+                modifier = Modifier
+                    .size(size * 0.9f)
+                    .clip(CircleShape)
+                    .background(Color(0x3300F0FF))
+                    .combinedClickable(
+                        onClick = { onClick(app) },
+                        onLongClick = { onLongClick(app) }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                val iconBitmap = remember(app.packageName) {
+                    app.icon.toBitmap().asImageBitmap()
+                }
+                Image(
+                    bitmap = iconBitmap,
+                    contentDescription = app.label,
+                    modifier = Modifier.size(size * 0.65f)
+                )
             }
-            Image(
-                bitmap = iconBitmap,
-                contentDescription = app.label,
-                modifier = Modifier.size(size * 0.65f)
-            )
+            
+            if (notificationCount > 0) {
+                NotificationDot(
+                    count = notificationCount,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(end = 2.dp, top = 2.dp)
+                )
+            }
         }
         
-        if (notificationCount > 0) {
-            NotificationDot(
-                count = notificationCount,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = 2.dp, top = 2.dp)
+        if (showLabel) {
+            Text(
+                text = app.label,
+                color = Color.White,
+                fontSize = (size.value * 0.2f).sp,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
     }
@@ -917,7 +1116,9 @@ fun AppDrawer(
     folders: Map<String, Set<String>> = emptyMap(),
     onFolderClick: (String) -> Unit = {},
     onDeleteFolder: (String) -> Unit = {},
-    viewModel: com.example.launcher.ui.HomeViewModel? = null
+    viewModel: com.example.launcher.ui.HomeViewModel? = null,
+    showLabels: Boolean = true,
+    showBadges: Boolean = true
 ) {
     Box(
         modifier = Modifier
@@ -955,7 +1156,7 @@ fun AppDrawer(
                 folders.entries.forEach { (name, packages) ->
                     item {
                         val folderApps = apps.filter { packages.contains(it.packageName) }
-                        val folderNotifCount = folderApps.sumOf { notificationCounts[it.packageName] ?: 0 }
+                        val folderNotifCount = if (showBadges) (folderApps.sumOf { notificationCounts[it.packageName] ?: 0 }) else 0
                         FolderIcon(
                             name = name,
                             apps = folderApps,
@@ -968,7 +1169,9 @@ fun AppDrawer(
 
                 // Render Apps (filter out those already in folders for cleaner look)
                 val appsInFolders = folders.values.flatten().toSet()
-                items(apps.filter { !appsInFolders.contains(it.packageName) }) { app ->
+                val filteredApps = apps.filter { !appsInFolders.contains(it.packageName) }
+                items(filteredApps.size, key = { filteredApps[it].packageName }) { index ->
+                    val app = filteredApps[index]
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
@@ -989,18 +1192,33 @@ fun AppDrawer(
                                 modifier = Modifier.size(56.dp)
                             )
                             // Notification Dot
-                            val count = notificationCounts[app.packageName] ?: 0
+                            val count = if (showBadges) (notificationCounts[app.packageName] ?: 0) else 0
                             if (count > 0) {
                                 NotificationDot(count = count)
                             }
+                            
+                            // Frozen Indicator (Phase 15)
+                            val isFrozen = viewModel?.frozenApps?.collectAsState()?.value?.contains(app.packageName) == true
+                            if (isFrozen) {
+                                Text(
+                                    "❄️",
+                                    fontSize = 12.sp,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .background(Color(0x80000000), CircleShape)
+                                        .padding(2.dp)
+                                )
+                            }
                         }
-                        Text(
-                            text = app.label,
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
+                        if (showLabels) {
+                            Text(
+                                text = app.label,
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
                     }
                 }
             }

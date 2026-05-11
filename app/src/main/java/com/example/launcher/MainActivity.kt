@@ -65,6 +65,12 @@ class MainActivity : AppCompatActivity() {
         // Request necessary permissions
         requestPermissionsIfNeeded()
         
+        // AutoStart Check for MIUI
+        checkMiuiAutoStart()
+        
+        // Initialize Shizuku connection manager
+        com.example.launcher.utils.ShizukuSetup.init()
+        
         setContent {
             val flowerApps by viewModel.flowerApps.collectAsState(initial = emptyList())
             val allApps by viewModel.apps.collectAsState(initial = emptyList())
@@ -95,11 +101,19 @@ class MainActivity : AppCompatActivity() {
             val isAiThinking by viewModel.isAiThinking.collectAsState()
             val spokenText by viewModel.spokenText.collectAsState()
             val isHotwordActive by viewModel.isHotwordActive.collectAsState()
+            val hiddenApps by viewModel.hiddenAppsList.collectAsState()
+            val frozenApps by viewModel.frozenApps.collectAsState()
+            val frozenAppsList by viewModel.frozenAppsList.collectAsState()
+            val shizukuState by viewModel.shizukuState.collectAsState()
+            val shizukuActionResult by viewModel.shizukuActionResult.collectAsState()
+            val showLabels by viewModel.showLabels.collectAsState()
+            val showBadges by viewModel.showBadges.collectAsState()
             
             MaterialTheme {
                 HomeScreen(
                     flowerApps = flowerApps,
                     allApps = allApps,
+                    hiddenApps = hiddenApps,
                     onAppClick = { launchApp(it) },
                     showDrawer = showDrawer,
                     onDrawerToggle = { viewModel.setDrawerOpen(it) },
@@ -121,6 +135,7 @@ class MainActivity : AppCompatActivity() {
                     onAddToGrid = { app -> viewModel.addToGrid(app) },
                     onRemoveFromGrid = { app -> viewModel.removeFromGrid(app) },
                     onHideApp = { app -> viewModel.hideApp(app) },
+                    onUnhideApp = { app -> viewModel.unhideApp(app) },
                     onLaunchPopup = { app -> launchAppInFreeform(app) },
                     viewModel = viewModel,
                     onSettings = {  
@@ -154,7 +169,19 @@ class MainActivity : AppCompatActivity() {
                     onClearAiResponse = { viewModel.clearChatHistory() },
                     onSendAiText = { text -> viewModel.sendTextToAiBrain(text) },
                     onStopAiText = { viewModel.stopAiResponse() },
-                    onCameraClick = { cameraLauncher.launch(null) }
+                    onCameraClick = { cameraLauncher.launch(null) },
+                    shizukuState = shizukuState,
+                    shizukuActionResult = shizukuActionResult,
+                    frozenApps = frozenApps,
+                    frozenAppsList = frozenAppsList,
+                    onFreezeApp = { pkg -> viewModel.freezeApp(pkg) },
+                    onUnfreezeApp = { pkg -> viewModel.unfreezeApp(pkg) },
+                    onForceStopApp = { pkg -> viewModel.forceStopApp(pkg) },
+                    onClearAppData = { pkg -> viewModel.clearAppData(pkg) },
+                    onSilentUninstallApp = { pkg -> viewModel.silentUninstallApp(pkg) },
+                    onClearShizukuResult = { viewModel.clearShizukuResult() },
+                    showLabels = showLabels,
+                    showBadges = showBadges
                 )
             }
         }
@@ -311,6 +338,25 @@ class MainActivity : AppCompatActivity() {
         
         if (permissionsToRequest.isNotEmpty()) {
             permissionLauncher.launch(permissionsToRequest.toTypedArray())
+        }
+    }
+    
+    private fun checkMiuiAutoStart() {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        if (!prefs.getBoolean("miui_autostart_prompted", false)) {
+            val intent = Intent()
+            intent.component = android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+            try {
+                if (packageManager.resolveActivity(intent, 0) != null) {
+                    android.app.AlertDialog.Builder(this)
+                        .setTitle("MIUI AutoStart Required")
+                        .setMessage("To allow notification badges to work properly on this device, please manually enable 'AutoStart' for V-Launcher.")
+                        .setPositiveButton("Open Settings") { _, _ -> startActivity(intent) }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            } catch (e: Exception) {}
+            prefs.edit().putBoolean("miui_autostart_prompted", true).apply()
         }
     }
 }

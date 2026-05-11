@@ -81,9 +81,9 @@ class AppAdapter(
                     true
                 }
                 "Hide App" -> {
-                    val prefsManager = com.example.launcher.utils.PreferencesManager(view.context)
-                    prefsManager.hideApp(app.packageName)
-                    android.widget.Toast.makeText(view.context, "${app.label} hidden. Restart launcher to apply.", android.widget.Toast.LENGTH_SHORT).show()
+                    // Note: Use the main drawer's long-press menu for hide/unhide.
+                    // The legacy adapter cannot trigger ViewModel refresh directly.
+                    android.widget.Toast.makeText(view.context, "Use the home drawer long-press menu to hide apps.", android.widget.Toast.LENGTH_SHORT).show()
                     true
                 }
                 else -> false

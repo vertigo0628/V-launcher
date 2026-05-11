@@ -93,4 +93,8 @@ dependencies {
     // ML Kit Vision (offline image analysis - super recogniser)
     implementation("com.google.mlkit:image-labeling:17.0.9")
     implementation("com.google.mlkit:text-recognition:16.0.1")
+
+    // Shizuku — shell-level (ADB) powers without root
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 }

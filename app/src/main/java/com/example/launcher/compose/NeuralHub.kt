@@ -17,6 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.launcher.ui.HomeViewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @Composable
 fun NeuralHub(
@@ -28,7 +31,8 @@ fun NeuralHub(
     onMusicPrev: () -> Unit = {},
     cpuHistory: List<Int> = emptyList(),
     neuralInsight: String = "System running optimally",
-    viewModel: HomeViewModel? = null
+    viewModel: HomeViewModel? = null,
+    shizukuState: com.example.launcher.utils.ShizukuSetup.ShizukuState = com.example.launcher.utils.ShizukuSetup.ShizukuState.UNAVAILABLE
 ) {
     // Cyberpunk Gradient Background
     val bgBrush = Brush.verticalGradient(
@@ -37,6 +41,9 @@ fun NeuralHub(
             Color(0xB3000000)  // 70% Black
         )
     )
+    
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     
     Box(
         modifier = Modifier
@@ -94,6 +101,47 @@ fun NeuralHub(
                 isCharging = state.isCharging,
                 modifier = Modifier.size(240.dp)
             )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Shizuku Status Indicator
+            val shizukuColor = when (shizukuState) {
+                com.example.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED -> Color(0xFF10B981) // Green
+                com.example.launcher.utils.ShizukuSetup.ShizukuState.AVAILABLE -> Color(0xFFF59E0B)  // Yellow
+                else -> Color(0xFFEF4444) // Red
+            }
+            val shizukuText = when (shizukuState) {
+                com.example.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED -> "SHIZUKU CONNECTED"
+                com.example.launcher.utils.ShizukuSetup.ShizukuState.AVAILABLE -> "SHIZUKU PENDING"
+                else -> "SHIZUKU UNAVAILABLE"
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0x1AFFFFFF))
+                    .clickable { 
+                        if (shizukuState == com.example.launcher.utils.ShizukuSetup.ShizukuState.AVAILABLE) {
+                            com.example.launcher.utils.ShizukuSetup.requestPermissionIfNeeded()
+                        }
+                    }
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(shizukuColor)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = shizukuText,
+                    color = shizukuColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
             
             Spacer(modifier = Modifier.height(48.dp))
             
@@ -166,6 +214,25 @@ fun NeuralHub(
             }  // end AI Predictions Box
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            // Shizuku Power Actions (Boost)
+            if (shizukuState == com.example.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            com.example.launcher.logic.AppCommander.trimMemory()
+                            android.widget.Toast.makeText(context, "🚀 Neural Boost Activated: System memory trimmed", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF).copy(alpha = 0.2f)),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F0FF))
+                ) {
+                    Text("🚀 NEURAL BOOST", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
 
             // Mini Apps Panel
             MiniAppsPanel(viewModel = viewModel)

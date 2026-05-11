@@ -127,8 +127,20 @@ fun CalendarCard(events: List<HomeViewModel.CalendarEvent>) {
 
     Column {
         // Month header
+        val holiday = remember { com.example.launcher.logic.HolidayManager.getHoliday(cal) }
         Text(text = month, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Text(text = dayOfWeek, color = Color.Gray, fontSize = 12.sp)
+        
+        holiday?.let {
+            Text(
+                text = it,
+                color = Color(0xFFBD00FF),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+        
         Spacer(modifier = Modifier.height(12.dp))
 
         // 7-day strip

@@ -17,5 +17,6 @@ enum class AppCategory {
     MEDIA,
     UTILITIES,
     SETTINGS,
+    SYSTEM,
     OTHER
 }

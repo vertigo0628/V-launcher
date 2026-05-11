@@ -28,6 +28,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.provider.CalendarContract
 import java.util.Calendar
+import java.util.Locale
 import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
@@ -101,12 +102,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val themeEngine = com.example.launcher.utils.ThemeEngine(application)
     private val weatherRepository = WeatherRepository()
     private val locationHelper = com.example.launcher.logic.LocationHelper(application)
-    private val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(application)
+    private val prefs = application.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+
+    // Shizuku state
+    val shizukuState = com.example.launcher.utils.ShizukuSetup.state
+    
+    private val _frozenApps = MutableStateFlow<Set<String>>(emptySet())
+    val frozenApps: StateFlow<Set<String>> = _frozenApps.asStateFlow()
+    
+    private val _frozenAppsList = MutableStateFlow<List<AppModel>>(emptyList())
+    val frozenAppsList: StateFlow<List<AppModel>> = _frozenAppsList.asStateFlow()
+    
+    private val _shizukuActionResult = MutableStateFlow<String?>(null)
+    val shizukuActionResult: StateFlow<String?> = _shizukuActionResult.asStateFlow()
 
     // --- State Flows ---
     private val _shortcuts = MutableStateFlow<List<AppShortcut>>(emptyList())
     val shortcuts: StateFlow<List<AppShortcut>> = _shortcuts.asStateFlow()
     
+    private var cachedFullApps: List<AppModel>? = null
     private var allApps: List<AppModel> = emptyList()
     
     private val _apps = MutableStateFlow<List<AppModel>>(emptyList())
@@ -198,6 +212,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _isHotwordActive = MutableStateFlow(false)
     val isHotwordActive: StateFlow<Boolean> = _isHotwordActive.asStateFlow()
 
+    private val _showLabels = MutableStateFlow(true)
+    val showLabels: StateFlow<Boolean> = _showLabels.asStateFlow()
+
+    private val _showBadges = MutableStateFlow(true)
+    val showBadges: StateFlow<Boolean> = _showBadges.asStateFlow()
+
     // Other Properties
     private var _flashlightState = false
     private var hubUpdateJob: kotlinx.coroutines.Job? = null
@@ -215,11 +235,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private var hotwordResetJob: kotlinx.coroutines.Job? = null
 
     private val launcherCallback = object : LauncherApps.Callback() {
-        override fun onPackageRemoved(packageName: String?, user: android.os.UserHandle) { loadApps() }
-        override fun onPackageAdded(packageName: String?, user: android.os.UserHandle) { loadApps() }
-        override fun onPackageChanged(packageName: String?, user: android.os.UserHandle) { loadApps() }
-        override fun onPackagesAvailable(packageNames: Array<out String>?, user: android.os.UserHandle, replacing: Boolean) { loadApps() }
-        override fun onPackagesUnavailable(packageNames: Array<out String>?, user: android.os.UserHandle, replacing: Boolean) { loadApps() }
+        override fun onPackageRemoved(packageName: String?, user: android.os.UserHandle) { loadApps(true) }
+        override fun onPackageAdded(packageName: String?, user: android.os.UserHandle) { loadApps(true) }
+        override fun onPackageChanged(packageName: String?, user: android.os.UserHandle) { loadApps(true) }
+        override fun onPackagesAvailable(packageNames: Array<out String>?, user: android.os.UserHandle, replacing: Boolean) { loadApps(true) }
+        override fun onPackagesUnavailable(packageNames: Array<out String>?, user: android.os.UserHandle, replacing: Boolean) { loadApps(true) }
     }
 
     private val notificationReceiver = object : android.content.BroadcastReceiver() {
@@ -230,7 +250,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         // Core data load
-        loadApps()
+        loadApps(true)
         
         // Register for system app changes
         launcherApps.registerCallback(launcherCallback)
@@ -244,16 +264,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         fetchWeather()
         fetchTodayEvents()
         
-        // Monitors & Services
-        startMusicMonitor()
-        
-        if (prefs.getBoolean("neural_hub_enabled", true)) {
-            startHubUpdates()
-        }
-        
-        if (prefs.getBoolean("voice_assistant_enabled", true)) {
-            setVoiceListening(true)
-        }
+        // Monitors & Services are started lazily via onForeground()
+        // to avoid running background loops before lifecycle connects
 
         // Notification Bridge
         androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
@@ -265,11 +277,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         
         // Folders initialization
         _folders.value = preferencesManager.getFolders()
+        
+        reloadSettings()
     }
 
     // --- Lifecycle Management ---
     
     fun onForeground() {
+        reloadSettings()
         if (prefs.getBoolean("neural_hub_enabled", true)) {
             startHubUpdates()
         }
@@ -287,9 +302,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         setVoiceListening(false)
     }
 
-    fun loadApps() {
+    fun loadApps(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            val fullList = repository.getInstalledApps()
+            val fullList = if (forceRefresh || cachedFullApps == null) {
+                val list = repository.getInstalledApps()
+                cachedFullApps = list
+                list
+            } else {
+                cachedFullApps!!
+            }
             val hiddenSet = preferencesManager.getHiddenApps()
             
             // Filter out hidden apps from main list
@@ -374,7 +395,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         hubUpdateJob = viewModelScope.launch {
             while (coroutineContext.isActive) {
                 updateHubStats()
-                kotlinx.coroutines.delay(1000)
+                kotlinx.coroutines.delay(5000) // 5s — battery-optimized; system stats don't change fast
             }
         }
     }
@@ -438,7 +459,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         musicPollJob = viewModelScope.launch {
             while (coroutineContext.isActive) {
                 refreshMusicState()
-                kotlinx.coroutines.delay(2000)
+                kotlinx.coroutines.delay(3000) // 3s — battery-optimized media session poll
             }
         }
     }
@@ -833,6 +854,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         // Cancel any in-flight search immediately
         searchJob?.cancel()
         
+        // Secret UI Bypass for Hidden Apps
+        if (query == "!hidden") {
+            _isSearching.value = true
+            val hiddenList = _hiddenAppsList.value.map { app ->
+                com.example.launcher.utils.SearchManager.SearchResult(
+                    type = com.example.launcher.utils.SearchManager.ResultType.APP,
+                    id = app.packageName,
+                    title = app.label,
+                    subtitle = "Hidden Application",
+                    action = com.example.launcher.utils.SearchManager.SearchAction.LaunchApp(app.packageName)
+                )
+            }
+            _searchResults.value = hiddenList
+            _isSearching.value = false
+            return
+        }
+
         if (query.isBlank()) {
             _searchResults.value = emptyList()
             _isSearching.value = false
@@ -1014,6 +1052,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     
     // Public method to reload settings (call from Activity onResume)
     fun reloadSettings() {
+        _showLabels.value = prefs.getBoolean("show_labels", true)
+        _showBadges.value = prefs.getBoolean("show_badges", true)
+        
         // Voice
         val voiceEnabled = prefs.getBoolean("voice_assistant_enabled", true)
         // Only start if enabled. If disabled, stop.
@@ -1330,7 +1371,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     CalendarContract.Events.DISPLAY_COLOR
                 )
                 
-                val selection = "(${CalendarContract.Events.DTSTART} < ?) AND (${CalendarContract.Events.DTEND} >= ?)"
+                val selection = "(${CalendarContract.Events.DTSTART} < ?) AND (${CalendarContract.Events.DTEND} > ?)"
                 val selectionArgs = arrayOf(endOfDay.toString(), startOfDay.toString())
                 
                 val uri = CalendarContract.Events.CONTENT_URI
@@ -1350,11 +1391,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     val locIdx = it.getColumnIndex(CalendarContract.Events.EVENT_LOCATION)
                     val colorIdx = it.getColumnIndex(CalendarContract.Events.DISPLAY_COLOR)
                     
+                    val currentHoliday = com.example.launcher.logic.HolidayManager.getHoliday(cal)
+                    
                     while (it.moveToNext()) {
+                        val title = it.getString(titleIdx) ?: "No Title"
+                        val startTime = it.getLong(startIdx)
+                        
+                        // Skip if it's already identified as a holiday to avoid double display
+                        if (currentHoliday != null && title.uppercase(Locale.getDefault()).contains(currentHoliday)) {
+                            continue
+                        }
+                        
                         events.add(
                             CalendarEvent(
-                                title = it.getString(titleIdx) ?: "No Title",
-                                startTimeMs = it.getLong(startIdx),
+                                title = title,
+                                startTimeMs = startTime,
                                 endTimeMs = it.getLong(endIdx),
                                 location = if (locIdx >= 0) it.getString(locIdx) else null,
                                 color = if (colorIdx >= 0 && !it.isNull(colorIdx)) it.getInt(colorIdx) else null
@@ -1362,7 +1413,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                 }
-                _todayEvents.value = events
+                
+                // Final deduplication by title and start time
+                val uniqueEvents = events.distinctBy { "${it.title}_${it.startTimeMs}" }
+                _todayEvents.value = uniqueEvents
             } catch (e: Exception) {
                 e.printStackTrace()
                 _todayEvents.value = emptyList()
@@ -1388,22 +1442,77 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     
     private fun startOllamaBackend() {
-        try {
-            val intent = android.content.Intent()
-            intent.setClassName("com.termux", "com.termux.app.RunCommandService")
-            intent.action = "com.termux.RUN_COMMAND"
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val intent = android.content.Intent()
+                intent.setClassName("com.termux", "com.termux.app.RunCommandService")
+                intent.action = "com.termux.RUN_COMMAND"
+                
+                // Start the Ollama server in Termux
+                intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/ollama")
+                intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("serve"))
+                intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+                
+                getApplication<Application>().startService(intent)
+                android.util.Log.d("HomeViewModel", "Sent RUN_COMMAND intent to Termux for Ollama")
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Failed to start Termux, is it installed?", e)
+            }
+        }
+    }
+
+    // ─── Shizuku Power Actions ───────────────────────────────────────────
+
+    fun clearShizukuResult() { _shizukuActionResult.value = null }
+
+    fun refreshFrozenApps() {
+        viewModelScope.launch {
+            val frozenPkgs = com.example.launcher.logic.AppCommander.getFrozenApps()
+            _frozenApps.value = frozenPkgs.toSet()
             
-            // Start the Ollama server in Termux
-            intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/ollama")
-            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("serve"))
-            intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
-            
-            // Using ContextCompat.startForegroundService is safer for background launches, 
-            // but the Launcher is usually in the foreground during init.
-            getApplication<Application>().startService(intent)
-            android.util.Log.d("HomeViewModel", "Sent RUN_COMMAND intent to Termux for Ollama")
-        } catch (e: Exception) {
-            android.util.Log.e("HomeViewModel", "Failed to start Termux, is it installed?", e)
+            // Also fetch full AppModel objects from repository
+            _frozenAppsList.value = repository.getFrozenApps()
+        }
+    }
+
+    fun freezeApp(packageName: String) {
+        viewModelScope.launch {
+            val result = com.example.launcher.logic.AppCommander.freezeApp(packageName)
+            _shizukuActionResult.value = if (result.isSuccess) "❄️ Frozen: $packageName" else "❌ Failed: ${result.stderr}"
+            refreshFrozenApps()
+            loadApps(true) // Refresh app lists
+        }
+    }
+
+    fun unfreezeApp(packageName: String) {
+        viewModelScope.launch {
+            val result = com.example.launcher.logic.AppCommander.unfreezeApp(packageName)
+            _shizukuActionResult.value = if (result.isSuccess) "🔥 Unfrozen: $packageName" else "❌ Failed: ${result.stderr}"
+            refreshFrozenApps()
+            loadApps(true)
+        }
+    }
+
+    fun forceStopApp(packageName: String) {
+        viewModelScope.launch {
+            val result = com.example.launcher.logic.AppCommander.forceStop(packageName)
+            _shizukuActionResult.value = if (result.isSuccess) "💀 Force stopped" else "❌ Failed: ${result.stderr}"
+        }
+    }
+
+    fun clearAppData(packageName: String) {
+        viewModelScope.launch {
+            val result = com.example.launcher.logic.AppCommander.clearData(packageName)
+            _shizukuActionResult.value = if (result.isSuccess) "🗑️ Data cleared" else "❌ Failed: ${result.stderr}"
+        }
+    }
+
+    fun silentUninstallApp(packageName: String) {
+        viewModelScope.launch {
+            val result = com.example.launcher.logic.AppCommander.silentUninstall(packageName)
+            _shizukuActionResult.value = if (result.isSuccess) "🗑️ Uninstalled" else "❌ Failed: ${result.stderr}"
+            loadApps(true)
         }
     }
 }
+

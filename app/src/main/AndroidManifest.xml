@@ -32,6 +32,12 @@
     <!-- Required to start Termux Ollama backend seamlessly -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     
+    <!-- Shizuku-powered package management -->
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.DELETE_PACKAGES"
+        tools:ignore="ProtectedPermissions" />
+    
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -43,6 +49,15 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.MyCustomLauncher"
         tools:targetApi="31">
+        
+        <!-- Shizuku Content Provider -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         
         <!-- Notification Listener Service for Badge Counts -->
         <service
@@ -91,6 +106,16 @@
             android:name=".VisualSettingsActivity"
             android:exported="false"
             android:label="Visual Settings" />
+        <activity
+            android:name=".FrozenManagerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.VLauncher" />
+            
+        <activity
+            android:name=".PermissionManagerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.VLauncher" />
+            
     </application>
 
 </manifest>

@@ -39,6 +39,12 @@
             app:defaultValue="true"
             app:key="show_labels"
             app:title="Show App Labels" />
+
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="show_badges"
+            app:title="Show Notification Badges"
+            app:summary="Display unread counts on app icons" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="System">
@@ -51,6 +57,11 @@
             app:key="notification_access"
             app:title="Notification Access"
             app:summary="Enable for badges and smart features" />
+
+        <Preference
+            app:key="miui_autostart"
+            app:title="MIUI AutoStart System"
+            app:summary="Enable background processes and notifications" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="AI &amp; Voice">
@@ -77,6 +88,23 @@
             app:key="ollama_model_select"
             app:title="AI Brain Model"
             app:summary="Select the local or cloud model to use" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Shizuku Power">
+        <Preference
+            app:key="shizuku_manager"
+            app:title="Shizuku Status"
+            app:summary="Manage ADB-level shell permissions" />
+            
+        <Preference
+            app:key="shizuku_permission_manager"
+            app:title="System Permission Manager"
+            app:summary="Grant/Revoke permissions for any app" />
+            
+        <Preference
+            app:key="shizuku_frozen_manager"
+            app:title="Frozen Apps Manager"
+            app:summary="List and manage disabled system apps" />
     </PreferenceCategory>
 
 </PreferenceScreen>

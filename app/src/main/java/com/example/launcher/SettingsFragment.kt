@@ -16,7 +16,8 @@ import com.example.launcher.utils.PreferencesManager
 class SettingsFragment : PreferenceFragmentCompat() {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        // Use default SharedPreferences (matches HomeViewModel's PreferenceManager.getDefaultSharedPreferences)
+        // Use custom SharedPreferences to match PreferencesManager
+        preferenceManager.sharedPreferencesName = "launcher_prefs"
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
         
         setupThemePreference()
@@ -26,6 +27,25 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setupHiddenAppsPreference()
         setupSystemPreferences()
         setupAiBrainPreference()
+        setupShizukuPreferences()
+    }
+    
+    private fun setupShizukuPreferences() {
+        findPreference<Preference>("shizuku_manager")?.setOnPreferenceClickListener {
+            com.example.launcher.utils.ShizukuSetup.requestPermissionIfNeeded()
+            Toast.makeText(context, "Shizuku permission requested", Toast.LENGTH_SHORT).show()
+            true
+        }
+        
+        findPreference<Preference>("shizuku_permission_manager")?.setOnPreferenceClickListener {
+            startActivity(Intent(requireContext(), PermissionManagerActivity::class.java))
+            true
+        }
+        
+        findPreference<Preference>("shizuku_frozen_manager")?.setOnPreferenceClickListener {
+            startActivity(Intent(requireContext(), FrozenManagerActivity::class.java))
+            true
+        }
     }
     
     private fun setupThemePreference() {
@@ -227,6 +247,20 @@ class SettingsFragment : PreferenceFragmentCompat() {
         
         findPreference<Preference>("notification_access")?.setOnPreferenceClickListener {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            true
+        }
+        
+        findPreference<Preference>("miui_autostart")?.setOnPreferenceClickListener {
+            try {
+                val intent = Intent()
+                intent.component = android.content.ComponentName(
+                    "com.miui.securitycenter",
+                    "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                )
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "This option is intended for MIUI devices.", Toast.LENGTH_SHORT).show()
+            }
             true
         }
     }

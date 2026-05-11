@@ -24,6 +24,8 @@ class CyberClockView @JvmOverloads constructor(
     private var seconds = 0
     private var is24Hour = false
     
+    private var holidayText: String? = null
+    
     // Base colors (will be updated dynamically)
     private var primaryColor = 0xFF00F0FF.toInt()   // Neon Cyan
     private var secondaryColor = 0xFFFF006E.toInt() // Neon Pink
@@ -41,6 +43,13 @@ class CyberClockView @JvmOverloads constructor(
         color = secondaryColor
         textAlign = Paint.Align.CENTER
         letterSpacing = 0.15f
+        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+    }
+
+    private val holidayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = tertiaryColor
+        textAlign = Paint.Align.CENTER
+        letterSpacing = 0.1f
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
     }
     
@@ -69,6 +78,7 @@ class CyberClockView @JvmOverloads constructor(
     private var viewRadius = 0f
     private var timeTextSize = 0f
     private var dateTextSize = 0f
+    private var holidayTextSize = 0f
 
     init {
         setLayerType(LAYER_TYPE_SOFTWARE, null)
@@ -81,9 +91,9 @@ class CyberClockView @JvmOverloads constructor(
         val minDimension = w.coerceAtMost(h).toFloat()
         
         // Text sizes proportional to view size
-        // Time: ~26% of view width gives good fit inside circle
         timeTextSize = minDimension * 0.22f
         dateTextSize = minDimension * 0.06f
+        holidayTextSize = minDimension * 0.04f
         
         // Circle radius leaves room for text
         viewRadius = minDimension / 2.5f
@@ -94,6 +104,9 @@ class CyberClockView @JvmOverloads constructor(
         
         datePaint.textSize = dateTextSize
         datePaint.setShadowLayer(dateTextSize * 0.2f, 0f, 0f, secondaryColor)
+
+        holidayPaint.textSize = holidayTextSize
+        holidayPaint.setShadowLayer(holidayTextSize * 0.3f, 0f, 0f, tertiaryColor)
         
         // Stroke widths proportional to size
         circlePaint.strokeWidth = minDimension * 0.008f
@@ -112,6 +125,9 @@ class CyberClockView @JvmOverloads constructor(
         
         // Format Date
         dateText = SimpleDateFormat("EEE, MMM d", Locale.getDefault()).format(date).uppercase()
+
+        // Holiday Check
+        holidayText = com.example.launcher.logic.HolidayManager.getHoliday(calendar)
         
         // Seconds (0-59)
         seconds = calendar.get(Calendar.SECOND)
@@ -130,6 +146,9 @@ class CyberClockView @JvmOverloads constructor(
         
         datePaint.color = secondary
         datePaint.setShadowLayer(dateTextSize * 0.2f, 0f, 0f, secondary)
+
+        holidayPaint.color = tertiary
+        holidayPaint.setShadowLayer(holidayTextSize * 0.3f, 0f, 0f, tertiary)
         
         secondsPaint.color = tertiary
         secondsPaint.setShadowLayer(viewRadius * 0.08f, 0f, 0f, tertiary)
@@ -172,6 +191,12 @@ class CyberClockView @JvmOverloads constructor(
         // 4. Date Text (below time, inside circle)
         val dateY = timeY + timeTextSize * 0.6f
         canvas.drawText(dateText, cx, dateY, datePaint)
+
+        // Holiday Text (above time if exists)
+        holidayText?.let {
+            val holidayY = timeY - timeTextSize * 0.7f
+            canvas.drawText(it, cx, holidayY, holidayPaint)
+        }
         
         // 5. Decorative line under date
         val lineY = dateY + dateTextSize * 0.5f
