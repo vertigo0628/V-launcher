@@ -31,7 +31,7 @@
             app:layout_constraintTop_toTopOf="parent">
 
             <!-- Futuristic Clock View -->
-            <com.example.launcher.ui.CyberClockView
+            <com.vertigo.launcher.ui.CyberClockView
                 android:id="@+id/clockWidget"
                 android:layout_width="300dp"
                 android:layout_height="300dp"
@@ -73,7 +73,7 @@
 
 
         <!-- Fluid Widget Layout (Smart Launcher style) -->
-        <com.example.launcher.ui.FluidWidgetLayout
+        <com.vertigo.launcher.ui.FluidWidgetLayout
             android:id="@+id/widgetContainer"
             android:layout_width="0dp"
             android:layout_height="0dp"

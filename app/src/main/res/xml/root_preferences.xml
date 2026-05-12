@@ -62,6 +62,12 @@
             app:key="miui_autostart"
             app:title="MIUI AutoStart System"
             app:summary="Enable background processes and notifications" />
+
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="neural_nav_enabled"
+            app:title="Neural Navigation"
+            app:summary="Bypass Xiaomi gesture lock with invisible bridge" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="AI &amp; Voice">
@@ -105,6 +111,11 @@
             app:key="shizuku_frozen_manager"
             app:title="Frozen Apps Manager"
             app:summary="List and manage disabled system apps" />
+
+        <Preference
+            app:key="reignite_services"
+            app:title="🚀 RE-IGNITE SERVICES"
+            app:summary="Fix Music &amp; Boost after package change" />
     </PreferenceCategory>
 
 </PreferenceScreen>

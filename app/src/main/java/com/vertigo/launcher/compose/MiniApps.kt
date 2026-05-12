@@ -1,0 +1,649 @@
+package com.vertigo.launcher.compose
+
+import android.content.Context
+import android.content.SharedPreferences
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import java.util.Calendar
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import com.vertigo.launcher.ui.HomeViewModel
+import com.vertigo.launcher.utils.rememberBouncyOverscrollModifier
+
+// ─── Data models ───────────────────────────────────────────────────────────────
+data class TaskItem(val id: Long = System.currentTimeMillis(), val text: String, val done: Boolean = false)
+data class NoteItem(val id: Long = System.currentTimeMillis(), val text: String, val timestamp: Long = System.currentTimeMillis())
+// ─── Mini-Apps Hub Composable ─────────────────────────────────────────────────
+
+@Composable
+fun MiniAppsPanel(modifier: Modifier = Modifier, viewModel: HomeViewModel? = null) {
+    val tabs = listOf("📅 Calendar", "📝 Notes", "✅ Tasks")
+    var selectedTab by remember { mutableStateOf(0) }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0x0DFFFFFF))
+            .border(1.dp, Color(0x2200F0FF), RoundedCornerShape(20.dp))
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "MINI APPS",
+            color = Color(0xFF00F0FF),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 2.sp
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Tab row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            tabs.forEachIndexed { index, label ->
+                val selected = index == selectedTab
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (selected) Color(0xFF00F0FF) else Color(0x1AFFFFFF))
+                        .clickable { selectedTab = index }
+                        .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (selected) Color.Black else Color.Gray,
+                        fontSize = 10.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        when (selectedTab) {
+            0 -> CalendarCard(
+                events = viewModel?.todayEvents?.collectAsState()?.value ?: emptyList(),
+                viewModel = viewModel
+            )
+            1 -> NotesCard()
+            2 -> TasksCard()
+        }
+    }
+}
+
+// ─── Calendar Card ─────────────────────────────────────────────────────────────
+
+@Composable
+fun DidYouKnowSection(
+    holiday: String?,
+    insights: List<String>,
+    cosmic: String?,
+    viewModel: HomeViewModel? = null
+) {
+    var showSettings by remember { mutableStateOf(false) }
+    val prefs by viewModel?.insightPrefs?.collectAsState() ?: mutableStateOf(emptyMap())
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1E293B).copy(alpha = 0.5f))
+            .padding(16.dp)
+    ) {
+        // Header
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (showSettings) "INSIGHT SETTINGS" else "DID YOU KNOW?",
+                color = Color(0xFF00F0FF),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            
+            // Toggle Settings Icon
+            Text(
+                text = if (showSettings) "DONE" else "FILTER",
+                color = Color(0xFF00F0FF),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0x3300F0FF))
+                    .clickable { showSettings = !showSettings }
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (showSettings) {
+            // Settings View
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                prefs.forEach { (category, enabled) ->
+                    CategoryToggle(
+                        label = category,
+                        enabled = enabled,
+                        onToggle = { viewModel?.toggleInsightPref(category) }
+                    )
+                }
+            }
+        } else {
+            // Content View
+            if (holiday != null) {
+                Text(
+                    text = "Today is $holiday",
+                    color = Color(0xFFBD00FF),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (insights.isNotEmpty()) {
+                insights.forEach { insight ->
+                    BulletPoint(text = insight)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            } else {
+                Text("Scanning historical archives...", color = Color.Gray, fontSize = 10.sp)
+            }
+            
+            if (cosmic != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    cosmic,
+                    color = Color(0xFF00F0FF).copy(alpha = 0.6f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CategoryToggle(label: String, enabled: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (enabled) Color(0x2200F0FF) else Color(0x11FFFFFF))
+            .clickable { onToggle() }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label.uppercase(),
+            color = if (enabled) Color.White else Color.Gray,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .clip(CircleShape)
+                .background(if (enabled) Color(0xFF00F0FF) else Color.DarkGray)
+        )
+    }
+}
+
+@Composable
+fun BulletPoint(text: String) {
+    Row {
+        Text("• ", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
+        Text(
+            text = text,
+            color = Color.White.copy(alpha = 0.9f),
+            fontSize = 11.sp,
+            lineHeight = 16.sp
+        )
+    }
+}
+@Composable
+fun CalendarCard(events: List<com.vertigo.launcher.ui.HomeViewModel.CalendarEvent>, viewModel: com.vertigo.launcher.ui.HomeViewModel? = null) {
+    val cal = Calendar.getInstance()
+    val today = cal.get(Calendar.DAY_OF_MONTH)
+    val month = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
+    val dayOfWeek = SimpleDateFormat("EEEE", Locale.getDefault()).format(cal.time)
+
+    // Build 7-day strip starting from 3 days before today
+    val days = remember {
+        val list = mutableListOf<Pair<Int, String>>() // day number, day abbrev
+        val c = Calendar.getInstance()
+        c.add(Calendar.DAY_OF_MONTH, -3)
+        repeat(7) {
+            list.add(c.get(Calendar.DAY_OF_MONTH) to SimpleDateFormat("EEE", Locale.getDefault()).format(c.time))
+            c.add(Calendar.DAY_OF_MONTH, 1)
+        }
+        list
+    }
+
+    Column {
+        // Month header
+        Text(text = month, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(text = dayOfWeek, color = Color.Gray, fontSize = 12.sp)
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Did You Know? Section (Clean & Elegant)
+        val holiday by viewModel?.currentHoliday?.collectAsState() ?: mutableStateOf(null)
+        val dailyInsights by viewModel?.dailyInsight?.collectAsState() ?: mutableStateOf(emptyList())
+        val cosmicInsight by viewModel?.cosmicInsight?.collectAsState() ?: mutableStateOf(null)
+
+        DidYouKnowSection(
+            holiday = holiday,
+            insights = dailyInsights,
+            cosmic = cosmicInsight,
+            viewModel = viewModel
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 7-day strip
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            days.forEach { (dayNum, dayAbbrev) ->
+                val isToday = dayNum == today
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isToday) Color(0xFF00F0FF) else Color.Transparent)
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                ) {
+                    Text(dayAbbrev, color = if (isToday) Color.Black else Color.Gray, fontSize = 9.sp)
+                    Text("$dayNum", color = if (isToday) Color.Black else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Divider(color = Color(0x2200F0FF))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (events.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 150.dp)
+                    .then(rememberBouncyOverscrollModifier())
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                events.forEach { event ->
+                    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+                    val startTime = timeFormat.format(Date(event.startTimeMs))
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0x1AFFFFFF))
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp, 24.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(event.color?.let { Color(it) } ?: Color(0xFF00F0FF))
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = event.title, color = Color.White, fontSize = 13.sp, maxLines = 1)
+                            Text(text = startTime, color = Color.Gray, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ─── Notes Card ────────────────────────────────────────────────────────────────
+
+private const val NOTES_KEY = "notes_json"
+
+private fun loadNotes(prefs: SharedPreferences): MutableList<NoteItem> {
+    val json = prefs.getString(NOTES_KEY, null) ?: return mutableListOf()
+    return try {
+        val type = object : TypeToken<MutableList<NoteItem>>() {}.type
+        Gson().fromJson(json, type)
+    } catch (e: Exception) { mutableListOf() }
+}
+
+private fun saveNotes(prefs: SharedPreferences, notes: List<NoteItem>) {
+    prefs.edit().putString(NOTES_KEY, Gson().toJson(notes)).apply()
+}
+
+@Composable
+fun NotesCard() {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("mini_apps_prefs", Context.MODE_PRIVATE) }
+    var notes by remember { mutableStateOf(loadNotes(prefs)) }
+    var newNoteText by remember { mutableStateOf("") }
+
+    Column {
+        // Add new note input
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x1AFFFFFF))
+                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                BasicTextField(
+                    value = newNoteText,
+                    onValueChange = { newNoteText = it },
+                    textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
+                    cursorBrush = SolidColor(Color(0xFF00F0FF)),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (newNoteText.isNotBlank()) {
+                            val updated = notes.toMutableList().also { it.add(0, NoteItem(text = newNoteText.trim())) }
+                            notes = updated
+                            saveNotes(prefs, updated)
+                            newNoteText = ""
+                        }
+                    }),
+                    decorationBox = { inner ->
+                        if (newNoteText.isEmpty()) Text("Write a new note...", color = Color.Gray, fontSize = 13.sp)
+                        inner()
+                    }
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF00F0FF))
+                    .clickable {
+                        if (newNoteText.isNotBlank()) {
+                            val updated = notes.toMutableList().also { it.add(0, NoteItem(text = newNoteText.trim())) }
+                            notes = updated
+                            saveNotes(prefs, updated)
+                            newNoteText = ""
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("+", color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Note list
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 240.dp)
+                .then(rememberBouncyOverscrollModifier())
+                .verticalScroll(rememberScrollState())
+        ) {
+            notes.forEach { note ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0x1AFFFFFF))
+                        .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = note.text,
+                                color = Color.White,
+                                fontSize = 13.sp
+                            )
+                            val timeAgo = remember(note.timestamp) {
+                                val diff = System.currentTimeMillis() - note.timestamp
+                                val mins = diff / 60000
+                                val hours = mins / 60
+                                val days = hours / 24
+                                when {
+                                    days > 0 -> "${days}d ago"
+                                    hours > 0 -> "${hours}h ago"
+                                    mins > 0 -> "${mins}m ago"
+                                    else -> "Just now"
+                                }
+                            }
+                            Text(
+                                text = timeAgo,
+                                color = Color.Gray.copy(alpha = 0.5f),
+                                fontSize = 10.sp
+                            )
+                        }
+                        // Delete Button (larger tap target)
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    val updated = notes.filter { it.id != note.id }.toMutableList()
+                                    notes = updated
+                                    saveNotes(prefs, updated)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "✕",
+                                color = Color(0x99FF4444),
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (notes.isEmpty()) {
+                Text(
+                    text = "No notes yet. Add one above!",
+                    color = Color.Gray,
+                    fontSize = 11.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)
+                )
+            }
+        }
+    }
+}
+
+// ─── Tasks Card ────────────────────────────────────────────────────────────────
+
+private const val TASKS_PREFS = "mini_apps_prefs"
+private const val TASKS_KEY = "tasks_json"
+
+private fun loadTasks(prefs: SharedPreferences): MutableList<TaskItem> {
+    val json = prefs.getString(TASKS_KEY, null) ?: return mutableListOf()
+    return try {
+        val type = object : TypeToken<MutableList<TaskItem>>() {}.type
+        Gson().fromJson(json, type)
+    } catch (e: Exception) { mutableListOf() }
+}
+
+private fun saveTasks(prefs: SharedPreferences, tasks: List<TaskItem>) {
+    prefs.edit().putString(TASKS_KEY, Gson().toJson(tasks)).apply()
+}
+
+@Composable
+fun TasksCard() {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences(TASKS_PREFS, Context.MODE_PRIVATE) }
+    var tasks by remember { mutableStateOf(loadTasks(prefs)) }
+    var newTaskText by remember { mutableStateOf("") }
+
+    Column {
+        // Add new task input
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x1AFFFFFF))
+                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                BasicTextField(
+                    value = newTaskText,
+                    onValueChange = { newTaskText = it },
+                    textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
+                    cursorBrush = SolidColor(Color(0xFF00F0FF)),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (newTaskText.isNotBlank()) {
+                            val updated = tasks.toMutableList().also { it.add(TaskItem(text = newTaskText.trim())) }
+                            tasks = updated
+                            saveTasks(prefs, updated)
+                            newTaskText = ""
+                        }
+                    }),
+                    decorationBox = { inner ->
+                        if (newTaskText.isEmpty()) Text("Add a task...", color = Color.Gray, fontSize = 13.sp)
+                        inner()
+                    }
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF00F0FF))
+                    .clickable {
+                        if (newTaskText.isNotBlank()) {
+                            val updated = tasks.toMutableList().also { it.add(TaskItem(text = newTaskText.trim())) }
+                            tasks = updated
+                            saveTasks(prefs, updated)
+                            newTaskText = ""
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("+", color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Task list — sort: incomplete first, completed at bottom
+        val sortedTasks = remember(tasks) {
+            tasks.sortedBy { it.done }
+        }
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 240.dp)
+                .then(rememberBouncyOverscrollModifier())
+                .verticalScroll(rememberScrollState())
+        ) {
+            sortedTasks.forEach { task ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (task.done) Color(0x06FFFFFF) else Color(0x0DFFFFFF))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Checkbox(
+                        checked = task.done,
+                        onCheckedChange = { checked ->
+                            val updated = tasks.map {
+                                if (it.id == task.id) it.copy(done = checked) else it
+                            }.toMutableList()
+                            tasks = updated
+                            saveTasks(prefs, updated)
+                        },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Color(0xFF00F0FF),
+                            uncheckedColor = Color.Gray,
+                            checkmarkColor = Color.Black
+                        ),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = task.text,
+                        color = if (task.done) Color.Gray.copy(alpha = 0.5f) else Color.White,
+                        fontSize = 13.sp,
+                        textDecoration = if (task.done) TextDecoration.LineThrough else null,
+                        modifier = Modifier.weight(1f)
+                    )
+                    // Delete button (larger tap target)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .clickable {
+                                val updated = tasks.filter { it.id != task.id }.toMutableList()
+                                tasks = updated
+                                saveTasks(prefs, updated)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "✕",
+                            color = Color(0x99FF4444),
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+
+            if (tasks.isEmpty()) {
+                Text(
+                    text = "No tasks yet. Add one above!",
+                    color = Color.Gray,
+                    fontSize = 11.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)
+                )
+            }
+        }
+    }
+}

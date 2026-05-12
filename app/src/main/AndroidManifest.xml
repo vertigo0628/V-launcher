@@ -85,11 +85,13 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTask"
-            android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleInstance"
+            android:clearTaskOnLaunch="true"
             android:stateNotNeeded="true"
+            android:directBootAware="true"
+            android:resizeableActivity="true"
             android:theme="@style/Theme.MyCustomLauncher">
-            <intent-filter>
+            <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -116,6 +118,17 @@
             android:exported="false"
             android:theme="@style/Theme.VLauncher" />
             
+        <service
+            android:name=".service.VLauncherAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
     </application>
 
 </manifest>

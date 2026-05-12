@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.launcher"
+    namespace = "com.vertigo.launcher"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.launcher"
+        applicationId = "com.vertigo.launcher"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
