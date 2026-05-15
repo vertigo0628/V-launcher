@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.scale
 import com.vertigo.launcher.utils.rememberBouncyOverscrollModifier
 import com.vertigo.launcher.R
@@ -631,44 +632,92 @@ fun HomeScreen(
                 }
             }
         } else {
-                // Portrait Layout (Intelligent Responsive HUD)
+                // Portrait Layout — Flow-based with zIndex for terminal foreground
                 BoxWithConstraints(
                     modifier = desktopModifier
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
                 ) {
+                    // Dynamic max height: terminal can grow from its natural position
+                    // down to 80% of screen, leaving 20% for search bar + dock
                     val totalHeight = maxHeight
-                    // Calculate max terminal height to stop before Section 3 (Search/Dock)
-                    // Section 3 starts at ~80% of screen height. 
-                    // We use 0.68f for a safe buffer to never cross search bar or dock.
-                    val calculatedMaxHeight = (totalHeight * 0.68f) - 130.dp
+                    // Large/tall screen detection for responsive scaling
+                    val isLargeScreen = totalHeight > 700.dp
+                    // On large screens, give less to Section 1, more to the grid
+                    val section1Weight = if (isLargeScreen) 0.35f else 0.42f
+                    val section2Weight = if (isLargeScreen) 0.45f else 0.38f
+                    // Subtract ~150dp for widget chrome (header, input, padding, voice btn)
+                    // so the TOTAL widget height stays within bounds, not just the LazyColumn
+                    val calculatedMaxHeight = (totalHeight * section2Weight) - 150.dp
 
-                    // Background Layer: Clock, Weather, Untouched Grid, and Dock
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Section 1 Placeholder (Space for Terminal)
+                        // Section 1: Clock + Weather + Terminal
+                        // zIndex(1f) makes this ENTIRE section draw ON TOP of Section 2
+                        // so the terminal overlay is never hidden behind the grid
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(0.42f),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .weight(section1Weight)
+                                .zIndex(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            // MUST be Top so terminal grows downward from fixed position
+                            // Center would push expanded terminal further past the search bar
+                            verticalArrangement = Arrangement.Top
                         ) {
                             val configuration = LocalConfiguration.current
                             val screenWidthDp = configuration.screenWidthDp.dp
-                            val clockSize = (screenWidthDp * 0.30f).coerceIn(80.dp, 140.dp)
+                            // On large screens, make the clock HUGE to fill the top space
+                            val clockSize = if (isLargeScreen)
+                                (screenWidthDp * 0.50f).coerceIn(160.dp, 220.dp)
+                            else
+                                (screenWidthDp * 0.30f).coerceIn(80.dp, 140.dp)
+                            // Scale factor for weather widget
+                            val weatherScale = if (isLargeScreen) 1.5f else 1f
                             val holiday by viewModel?.currentHoliday?.collectAsState() ?: mutableStateOf(null)
                             ClockWidget(modifier = Modifier.size(clockSize), holiday = holiday)
-                            WeatherWidget(state = weatherState)
+                            WeatherWidget(state = weatherState, scaleFactor = weatherScale)
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // Terminal: always fully visible (unbounded=true)
+                            // When idle it's compact (just input bar), slight grid overlap is fine
+                            // When active, maxHeightOverride prevents crossing the search bar
+                            Box(
+                                modifier = Modifier
+                                    .wrapContentHeight(
+                                        align = Alignment.Top,
+                                        unbounded = true
+                                    )
+                                    .graphicsLayer { shadowElevation = 10f }
+                            ) {
+                                VoiceAssistantWidget(
+                                    isEnabled = isVoiceEnabled,
+                                    isListening = isVoiceListening,
+                                    onClick = onVoiceClick,
+                                    chatHistory = chatHistory,
+                                    currentStreamingResponse = currentStreamingResponse,
+                                    isAiThinking = isAiThinking,
+                                    spokenText = spokenText,
+                                    isHotwordActive = isHotwordActive,
+                                    onClearResponse = onClearAiResponse,
+                                    onSendText = onSendAiText,
+                                    onStopAi = onStopAiText,
+                                    onCameraClick = onCameraClick,
+                                    getPhotoBitmap = { ts -> viewModel?.getPhotoBitmap(ts) },
+                                    maxHeightOverride = calculatedMaxHeight.coerceAtLeast(0.dp)
+                                )
+                            }
                         }
-                        
-                        // Section 2: UNTOUCHED Flower Grid (38%)
+
+                        // Section 2: Flower Grid (dynamic weight)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(0.38f)
+                                .weight(section2Weight)
                                 .clipToBounds(),
                             contentAlignment = Alignment.Center
                         ) {
@@ -684,7 +733,7 @@ fun HomeScreen(
                                 showBadges = showBadges
                             )
                         }
-                        
+
                         // Section 3: Search + Dock (20%)
                         Column(
                             modifier = Modifier
@@ -702,34 +751,6 @@ fun HomeScreen(
                                 onSettings = onSettings,
                                 onDrawer = { onDrawerToggle(true) },
                                 onNeuralHub = { onNeuralHubToggle(true) }
-                            )
-                        }
-                    }
-
-                    // Foreground Layer: Terminal Overlay
-                    // Positioned at the top, it will grow over Section 2 (Apps)
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 130.dp), // Position below clock
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(modifier = Modifier.wrapContentHeight(align = Alignment.Top, unbounded = true)) {
-                            VoiceAssistantWidget(
-                                isEnabled = isVoiceEnabled, 
-                                isListening = isVoiceListening, 
-                                onClick = onVoiceClick,
-                                chatHistory = chatHistory,
-                                currentStreamingResponse = currentStreamingResponse,
-                                isAiThinking = isAiThinking,
-                                spokenText = spokenText,
-                                isHotwordActive = isHotwordActive,
-                                onClearResponse = onClearAiResponse,
-                                onSendText = onSendAiText,
-                                onStopAi = onStopAiText,
-                                onCameraClick = onCameraClick,
-                                getPhotoBitmap = { ts -> viewModel?.getPhotoBitmap(ts) },
-                                maxHeightOverride = calculatedMaxHeight
                             )
                         }
                     }

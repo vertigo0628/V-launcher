@@ -23,39 +23,37 @@ import com.vertigo.launcher.ui.HomeViewModel
 fun WeatherWidget(
     state: HomeViewModel.WeatherState,
     modifier: Modifier = Modifier,
+    scaleFactor: Float = 1f,
     onClick: () -> Unit = {}
 ) {
     Row(
         modifier = modifier
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = (16 * scaleFactor).dp, vertical = (8 * scaleFactor).dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Use Image with painterResource for now, assuming vector drawable or existing resource
-        // If state.iconRes is a system ID that doesn't exist as painter, this mimics simple logic
-        // Ideally we map condition to local resources
         Image(
-            painter = painterResource(id = android.R.drawable.ic_menu_day), // Weather icon
+            painter = painterResource(id = android.R.drawable.ic_menu_day),
             contentDescription = "Weather",
             colorFilter = ColorFilter.tint(Color.White),
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size((24 * scaleFactor).dp)
         )
         
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width((8 * scaleFactor).dp))
         
         Text(
             text = state.temp,
             color = Color.White,
-            fontSize = 20.sp,
+            fontSize = (20 * scaleFactor).sp,
             fontWeight = FontWeight.Bold
         )
         
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width((8 * scaleFactor).dp))
         
         Text(
             text = state.condition,
             color = Color.White.copy(alpha = 0.7f),
-            fontSize = 14.sp
+            fontSize = (14 * scaleFactor).sp
         )
     }
 }
