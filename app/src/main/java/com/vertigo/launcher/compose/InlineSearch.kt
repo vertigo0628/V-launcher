@@ -70,9 +70,9 @@ fun InlineSearchBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 8.dp)
-            .height(48.dp)
+            .heightIn(min = 48.dp)
             .clip(CircleShape)
-            .background(Color(0x55FFFFFF))
+            .background(Color(0x22FFFFFF)) // Higher transparency for "bleeding through" effect
             .clickable {
                 Log.d(TAG, "Search bar CLICKED - triggering callback")
                 onSearchClick()
@@ -178,7 +178,7 @@ fun SearchOverlay(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
+                        .heightIn(min = 56.dp)
                         .clip(RoundedCornerShape(28.dp))
                         .background(Color(0xFF1E293B))
                         .padding(horizontal = 20.dp),

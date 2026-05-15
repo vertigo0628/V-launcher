@@ -15,8 +15,8 @@
 
         <!-- Icon Container with Background -->
         <FrameLayout
-            android:layout_width="72dp"
-            android:layout_height="72dp">
+            android:layout_width="@dimen/app_icon_container_size"
+            android:layout_height="@dimen/app_icon_container_size">
 
             <!-- Background aligned with Icon Container -->
             <View
@@ -28,8 +28,8 @@
 
             <ImageView
                 android:id="@+id/appIcon"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/app_icon_size"
+                android:layout_height="@dimen/app_icon_size"
                 android:layout_gravity="center"
                 android:scaleType="fitCenter" />
 
@@ -50,14 +50,14 @@
 
         <TextView
             android:id="@+id/appName"
-            android:layout_width="64dp"
+            android:layout_width="@dimen/app_name_max_width"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:ellipsize="end"
             android:gravity="center"
             android:maxLines="1"
             android:textColor="@color/text_primary"
-            android:textSize="11sp"
+            android:textSize="@dimen/app_name_size"
             android:shadowColor="#80000000"
             android:shadowDx="0"
             android:shadowDy="1"

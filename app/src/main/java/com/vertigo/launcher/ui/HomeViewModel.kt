@@ -100,7 +100,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val visionAnalyzer = com.vertigo.launcher.logic.VisionAnalyzer(application)
     private val systemMonitor = com.vertigo.launcher.utils.SystemMonitor(application)
     private val themeEngine = com.vertigo.launcher.utils.ThemeEngine(application)
-    private val weatherRepository = WeatherRepository()
+    private val weatherRepository = WeatherRepository(application)
     private val locationHelper = com.vertigo.launcher.logic.LocationHelper(application)
     private val neuralInsightRepository = com.vertigo.launcher.data.NeuralInsightRepository(application)
     private val prefs = application.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)

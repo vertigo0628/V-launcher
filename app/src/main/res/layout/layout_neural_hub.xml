@@ -14,7 +14,7 @@
         android:id="@+id/hubHeader"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="60dp"
+        android:layout_marginTop="@dimen/hub_header_margin_top"
         android:fontFamily="sans-serif-black"
         android:letterSpacing="0.2"
         android:text="NEURAL HUB"
@@ -25,6 +25,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <View
+        android:id="@+id/hubHeaderUnderline"
         android:layout_width="100dp"
         android:layout_height="2dp"
         android:layout_marginTop="8dp"
@@ -33,181 +34,203 @@
         app:layout_constraintStart_toStartOf="@id/hubHeader"
         app:layout_constraintTop_toBottomOf="@id/hubHeader" />
 
-    <!-- Power Core Section -->
-    <com.vertigo.launcher.ui.PowerCoreView
-        android:id="@+id/powerCore"
-        android:layout_width="200dp"
-        android:layout_height="200dp"
-        android:layout_marginTop="48dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/hubHeader" />
-
-    <!-- System Vitals (RAM / Storage) -->
-    <LinearLayout
-        android:id="@+id/vitalsContainer"
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/hubScrollView"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="32dp"
-        android:layout_marginTop="48dp"
-        android:orientation="vertical"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        android:clipToPadding="false"
+        android:paddingBottom="40dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/powerCore">
+        app:layout_constraintTop_toBottomOf="@id/hubHeaderUnderline">
 
-        <!-- RAM -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="RAM MODULE"
-            android:textColor="#BD00FF"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-
-        <ProgressBar
-            android:id="@+id/ramProgress"
-            style="?android:attr/progressBarStyleHorizontal"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="8dp"
-            android:layout_marginTop="4dp"
-            android:max="100"
-            android:progress="65"
-            android:progressTint="#BD00FF"
-            android:progressBackgroundTint="#33BD00FF" />
+            android:layout_height="wrap_content">
 
-        <TextView
-            android:id="@+id/ramText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:gravity="end"
-            android:text="8.2 GB / 12 GB"
-            android:textColor="#80FFFFFF"
-            android:textSize="12sp" />
+            <!-- Power Core Section -->
+            <com.vertigo.launcher.ui.PowerCoreView
+                android:id="@+id/powerCore"
+                android:layout_width="@dimen/power_core_size"
+                android:layout_height="@dimen/power_core_size"
+                android:layout_marginTop="24dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Storage -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="STORAGE ARRAY"
-            android:textColor="#FF006E"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            <!-- System Vitals (RAM / Storage) -->
+            <LinearLayout
+                android:id="@+id/vitalsContainer"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="32dp"
+                android:layout_marginTop="@dimen/hub_section_margin_top"
+                android:orientation="vertical"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/powerCore">
 
-        <ProgressBar
-            android:id="@+id/storageProgress"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="8dp"
-            android:layout_marginTop="4dp"
-            android:max="100"
-            android:progress="42"
-            android:progressTint="#FF006E"
-            android:progressBackgroundTint="#33FF006E" />
+                <!-- RAM -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="RAM MODULE"
+                    android:textColor="#BD00FF"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/storageText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:gravity="end"
-            android:text="128 GB / 256 GB"
-            android:textColor="#80FFFFFF"
-            android:textSize="12sp" />
+                <ProgressBar
+                    android:id="@+id/ramProgress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="8dp"
+                    android:layout_marginTop="4dp"
+                    android:max="100"
+                    android:progress="65"
+                    android:progressTint="#BD00FF"
+                    android:progressBackgroundTint="#33BD00FF" />
 
-    </LinearLayout>
-    
-    <!-- Suggestions Section -->
-    <TextView
-        android:id="@+id/suggestionsHeader"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:layout_marginStart="32dp"
-        android:text="SMART SUGGESTIONS"
-        android:textColor="#00F0FF"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/vitalsContainer" />
+                <TextView
+                    android:id="@+id/ramText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:gravity="end"
+                    android:text="8.2 GB / 12 GB"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="12sp" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/suggestionsList"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginHorizontal="24dp"
-        android:orientation="horizontal"
-        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/suggestionsHeader"
-        tools:listitem="@layout/item_dock_app"
-        tools:itemCount="5" />
+                <!-- Storage -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="STORAGE ARRAY"
+                    android:textColor="#FF006E"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
 
-    <!-- Quick Shortcuts Grid -->
-    <GridLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:columnCount="2"
-        android:rowCount="2"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/suggestionsList">
+                <ProgressBar
+                    android:id="@+id/storageProgress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="8dp"
+                    android:layout_marginTop="4dp"
+                    android:max="100"
+                    android:progress="42"
+                    android:progressTint="#FF006E"
+                    android:progressBackgroundTint="#33FF006E" />
 
-        <!-- Wifi Toggle -->
-        <LinearLayout
-            android:id="@+id/btnWifi"
-            android:layout_width="140dp"
-            android:layout_height="80dp"
-            android:layout_margin="8dp"
-            android:background="@drawable/bg_glass_rounded"
-            android:gravity="center"
-            android:orientation="vertical">
+                <TextView
+                    android:id="@+id/storageText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:gravity="end"
+                    android:text="128 GB / 256 GB"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="12sp" />
 
-            <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@drawable/ic_category_internet"
-                app:tint="#00F0FF" />
+            </LinearLayout>
 
+            <!-- Suggestions Section -->
             <TextView
+                android:id="@+id/suggestionsHeader"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="NETWORK"
-                android:textColor="#CCFFFFFF"
-                android:textSize="12sp" />
-        </LinearLayout>
+                android:layout_marginTop="24dp"
+                android:layout_marginStart="32dp"
+                android:text="SMART SUGGESTIONS"
+                android:textColor="#00F0FF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/vitalsContainer" />
 
-        <!-- Settings Toggle -->
-        <LinearLayout
-            android:id="@+id/btnDoNotDisturb"
-            android:layout_width="140dp"
-            android:layout_height="80dp"
-            android:layout_margin="8dp"
-            android:background="@drawable/bg_glass_rounded"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@drawable/ic_category_settings"
-                app:tint="#BD00FF" />
-
-            <TextView
-                android:layout_width="wrap_content"
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/suggestionsList"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="SYSTEM"
-                android:textColor="#CCFFFFFF"
-                android:textSize="12sp" />
-        </LinearLayout>
+                android:layout_marginHorizontal="24dp"
+                android:orientation="horizontal"
+                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/suggestionsHeader"
+                tools:listitem="@layout/item_dock_app"
+                tools:itemCount="5" />
 
-    </GridLayout>
+            <!-- Quick Shortcuts Grid -->
+            <GridLayout
+                android:id="@+id/shortcutsGrid"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="24dp"
+                android:columnCount="2"
+                android:rowCount="2"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/suggestionsList">
+
+                <!-- Wifi Toggle -->
+                <LinearLayout
+                    android:id="@+id/btnWifi"
+                    android:layout_width="140dp"
+                    android:layout_height="80dp"
+                    android:layout_margin="8dp"
+                    android:background="@drawable/bg_glass_rounded"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_category_internet"
+                        app:tint="#00F0FF" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="NETWORK"
+                        android:textColor="#CCFFFFFF"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- Settings Toggle -->
+                <LinearLayout
+                    android:id="@+id/btnDoNotDisturb"
+                    android:layout_width="140dp"
+                    android:layout_height="80dp"
+                    android:layout_margin="8dp"
+                    android:background="@drawable/bg_glass_rounded"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_category_settings"
+                        app:tint="#BD00FF" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="SYSTEM"
+                        android:textColor="#CCFFFFFF"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+            </GridLayout>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <!-- Close Handle -->
     <View

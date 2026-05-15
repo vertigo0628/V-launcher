@@ -100,11 +100,12 @@ fun NeuralHub(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // Power Core (Battery)
+            // Power Core (Battery) - Responsive size
+            val coreSize = (containerWidth * 0.6f).coerceIn(160.dp, 300.dp)
             PowerCore(
                 batteryLevel = state.batteryLevel,
                 isCharging = state.isCharging,
-                modifier = Modifier.size(240.dp)
+                modifier = Modifier.size(coreSize)
             )
             
             Spacer(modifier = Modifier.height(24.dp))

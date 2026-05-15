@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -59,7 +60,8 @@ fun VoiceAssistantWidget(
     onSendText: (String) -> Unit = {},
     onStopAi: () -> Unit = {},
     onCameraClick: () -> Unit = {},
-    getPhotoBitmap: (Long) -> android.graphics.Bitmap? = { null }
+    getPhotoBitmap: (Long) -> android.graphics.Bitmap? = { null },
+    maxHeightOverride: androidx.compose.ui.unit.Dp? = null
 ) {
     // Pulse animation for Listening state
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -128,27 +130,33 @@ fun VoiceAssistantWidget(
         AnimatedVisibility(visible = true) {
             Box(
                 modifier = Modifier
-                    .padding(top = 16.dp, start = 16.dp, end = 16.dp)
-                    .fillMaxWidth(0.9f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xBB1E293B))
-                    .border(1.dp, Color(0x3300F0FF), RoundedCornerShape(16.dp))
-                    .padding(16.dp)
+                    .padding(top = 8.dp, start = 12.dp, end = 12.dp)
+                    .fillMaxWidth(0.95f)
+                    .animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    )
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xFF0F172A)) // Fully opaque dark terminal blue
+                    .border(1.dp, Color(0x6600F0FF), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "AI BRAIN (TERMUX)",
-                            color = Color(0xFF00F0FF),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                        if (chatHistory.isNotEmpty() || currentStreamingResponse != null) {
+                    if (chatHistory.isNotEmpty() || currentStreamingResponse != null || isAiThinking) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "vertiGO launcher",
+                                color = Color(0xFF4ADE80), // Terminal Green
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
                             Icon(
                                 painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
                                 contentDescription = "Clear",
@@ -158,25 +166,25 @@ fun VoiceAssistantWidget(
                                     .clickable { onClearResponse() }
                             )
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
                     }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
                     val listState = rememberLazyListState()
                     
                     // Auto-scroll to bottom when history or streaming changes
                     LaunchedEffect(chatHistory.size, currentStreamingResponse) {
-                        if (chatHistory.isNotEmpty() || currentStreamingResponse != null) {
-                            listState.animateScrollToItem((chatHistory.size + if (currentStreamingResponse != null) 1 else 0).coerceAtLeast(0))
+                        val totalItems = chatHistory.size + if (currentStreamingResponse != null) 1 else 0
+                        if (totalItems > 0) {
+                            listState.animateScrollToItem(totalItems - 1)
                         }
                     }
+
 
                     SelectionContainer {
                         LazyColumn(
                             state = listState,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 300.dp)
+                                .heightIn(max = maxHeightOverride ?: 450.dp) // Dynamic cap to avoid search bar
                         ) {
                             items(chatHistory) { message ->
                                 Column(modifier = Modifier.padding(bottom = 8.dp)) {
@@ -250,17 +258,6 @@ fun VoiceAssistantWidget(
                                     )
                                 }
                             }
-                            
-                            if (chatHistory.isEmpty() && currentStreamingResponse == null && !isAiThinking) {
-                                item {
-                                    Text(
-                                        text = "Waiting for input...",
-                                        color = Color.Gray,
-                                        fontSize = 12.sp,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                }
-                            }
                         }
                     }
                     
@@ -297,39 +294,22 @@ fun VoiceAssistantWidget(
                         }
                     }
                     
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     
                     // Terminal Input Row
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        verticalAlignment = Alignment.Bottom
+                        modifier = Modifier.fillMaxWidth().padding(top = if (chatHistory.isNotEmpty() || currentStreamingResponse != null) 8.dp else 0.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = ">",
-                            color = Color(0xFF00F0FF),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(end = 8.dp, bottom = 14.dp)
-                        )
-                        
-                        TextField(
+                        androidx.compose.foundation.text.BasicTextField(
                             value = textInput,
                             onValueChange = { textInput = it },
-                            placeholder = { Text("Query Local AI...", color = Color.Gray, fontSize = 14.sp) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .background(Color.Transparent),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                cursorColor = Color(0xFF00F0FF)
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace
                             ),
-                            minLines = 1,
-                            maxLines = 4,
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color(0xFF00F0FF)),
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                                 capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
                                 imeAction = androidx.compose.ui.text.input.ImeAction.Send
@@ -341,53 +321,70 @@ fun VoiceAssistantWidget(
                                         textInput = ""
                                     }
                                 }
-                            )
+                            ),
+                            modifier = Modifier.weight(1f),
+                            decorationBox = { innerTextField ->
+                                Box(contentAlignment = Alignment.CenterStart) {
+                                    if (textInput.isEmpty()) {
+                                        Text(
+                                            "vertiGO launcher",
+                                            color = Color.Gray.copy(alpha = 0.5f),
+                                            fontSize = 12.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
                         )
                         
-                        if (textInput.isNotBlank() && !isAiThinking && currentStreamingResponse == null) {
-                            IconButton(
-                                onClick = { 
-                                    onSendText(textInput)
-                                    textInput = "" // Clear input after sending
-                                },
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = android.R.drawable.ic_menu_send),
-                                    contentDescription = "Send",
-                                    tint = Color(0xFF00F0FF)
-                                )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (textInput.isNotBlank() && !isAiThinking && currentStreamingResponse == null) {
+                                IconButton(
+                                    onClick = { 
+                                        onSendText(textInput)
+                                        textInput = "" 
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = android.R.drawable.ic_menu_send),
+                                        contentDescription = "Send",
+                                        tint = Color(0xFF00F0FF),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
-                        }
 
-                        // Camera Button: Capture photo for AI vision analysis
-                        if (!isAiThinking && currentStreamingResponse == null) {
-                            IconButton(
-                                onClick = { onCameraClick() },
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = android.R.drawable.ic_menu_camera),
-                                    contentDescription = "Take Photo",
-                                    tint = Color(0xFF00F0FF).copy(alpha = 0.8f)
-                                )
+                            if (!isAiThinking && currentStreamingResponse == null) {
+                                IconButton(
+                                    onClick = { onCameraClick() },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = android.R.drawable.ic_menu_camera),
+                                        contentDescription = "Take Photo",
+                                        tint = Color(0xFF00F0FF).copy(alpha = 0.8f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
-                        }
 
-                        // Stop Button: Visible only when AI is active
-                        if (isAiThinking || currentStreamingResponse != null) {
-                            IconButton(
-                                onClick = {
-                                    android.util.Log.d("VoiceWidget", "Stop button clicked")
-                                    onStopAi()
-                                },
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                                    contentDescription = "Stop AI",
-                                    tint = Color.Red.copy(alpha = 0.8f)
-                                )
+                            if (isAiThinking || currentStreamingResponse != null) {
+                                IconButton(
+                                    onClick = {
+                                        android.util.Log.d("VoiceWidget", "Stop button clicked")
+                                        onStopAi()
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
+                                        contentDescription = "Stop AI",
+                                        tint = Color.Red.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
                     }

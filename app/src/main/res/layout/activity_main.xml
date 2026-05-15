@@ -22,10 +22,10 @@
             android:id="@+id/clockContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="48dp"
+            android:layout_marginTop="@dimen/clock_margin_top"
             android:layout_marginHorizontal="24dp"
-            android:orientation="horizontal"
-            android:weightSum="2"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
@@ -33,8 +33,8 @@
             <!-- Futuristic Clock View -->
             <com.vertigo.launcher.ui.CyberClockView
                 android:id="@+id/clockWidget"
-                android:layout_width="300dp"
-                android:layout_height="300dp"
+                android:layout_width="@dimen/clock_size"
+                android:layout_height="@dimen/clock_size"
                 android:layout_gravity="center_horizontal" />
 
             <!-- Alarm Info - Centered below clock -->
@@ -91,14 +91,12 @@
 
         <FrameLayout
             android:id="@+id/flowerGridContainer"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
             app:layout_constraintBottom_toTopOf="@id/searchContainer"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.0" />
+            app:layout_constraintTop_toTopOf="parent" />
 
         <HorizontalScrollView
             android:id="@+id/categoryScrollView"
@@ -126,10 +124,10 @@
         <LinearLayout
             android:id="@+id/searchContainer"
             android:layout_width="0dp"
-            android:layout_height="56dp"
+            android:layout_height="@dimen/search_bar_height"
             android:layout_marginStart="24dp"
             android:layout_marginEnd="24dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="@dimen/search_bar_margin_bottom"
             android:background="@drawable/bg_glass_search"
             android:gravity="center_vertical"
             android:orientation="horizontal"
@@ -148,7 +146,7 @@
 
             <EditText
                 android:id="@+id/searchBar"
-                android:layout_width="303dp"
+                android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_marginStart="12dp"
                 android:layout_weight="1"

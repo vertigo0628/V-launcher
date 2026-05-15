@@ -22,8 +22,19 @@ import com.vertigo.launcher.compose.HomeScreen
 import com.vertigo.launcher.model.AppModel
 import com.vertigo.launcher.ui.HomeViewModel
 import com.vertigo.launcher.utils.ThemeEngine
+import android.content.Context
+import android.content.res.Configuration
 
 class MainActivity : AppCompatActivity() {
+
+    // Force fontScale to 1.0 so the launcher layout is immune to system font size changes.
+    // This is a launcher — it must look consistent on every device regardless of accessibility settings.
+    override fun attachBaseContext(newBase: Context) {
+        val override = Configuration(newBase.resources.configuration)
+        override.fontScale = 1.0f
+        val ctx = newBase.createConfigurationContext(override)
+        super.attachBaseContext(ctx)
+    }
 
     private lateinit var viewModel: HomeViewModel
     private lateinit var themeEngine: ThemeEngine

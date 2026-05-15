@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Clock and Widgets -->
+    <dimen name="clock_size">260dp</dimen>
+    <dimen name="clock_margin_top">32dp</dimen>
+    
+    <!-- Search Bar -->
+    <dimen name="search_bar_height">52dp</dimen>
+    <dimen name="search_bar_margin_bottom">12dp</dimen>
+    <dimen name="search_bar_padding_horizontal">16dp</dimen>
+    
+    <!-- Dock -->
+    <dimen name="dock_item_size">48dp</dimen>
+    <dimen name="dock_padding_vertical">8dp</dimen>
+    
+    <!-- App Grid -->
+    <dimen name="app_icon_size">48dp</dimen>
+    <dimen name="app_icon_container_size">64dp</dimen>
+    <dimen name="app_name_size">11sp</dimen>
+    <dimen name="app_name_max_width">72dp</dimen>
+    
+    <!-- Hub -->
+    <dimen name="hub_header_margin_top">48dp</dimen>
+    <dimen name="power_core_size">180dp</dimen>
+    <dimen name="hub_section_margin_top">32dp</dimen>
+</resources>

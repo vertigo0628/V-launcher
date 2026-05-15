@@ -69,64 +69,85 @@ class NeuralInsightRepository(private val context: Context) {
 
     suspend fun getDailyInsights(interests: Map<String, Boolean>): List<String> = withContext(Dispatchers.IO) {
         val todayKey = SimpleDateFormat("MM_dd", Locale.getDefault()).format(Date())
+        val cacheKey = "wiki_cache_$todayKey"
         
-        // 1. Check cache (We cache the raw fetch, but filter dynamically)
-        val cal = Calendar.getInstance()
-        val monthStr = String.format("%02d", cal.get(Calendar.MONTH) + 1)
-        val dayStr = String.format("%02d", cal.get(Calendar.DAY_OF_MONTH))
+        // 1. Try to load from cache first
+        val cachedJson = prefs.getString(cacheKey, null)
+        val response: WikipediaResponse? = if (cachedJson != null) {
+            try {
+                gson.fromJson(cachedJson, WikipediaResponse::class.java)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
 
-        try {
-            val response = wikiApi.getOnThisDay(monthStr, dayStr)
-            val allEvents = (response.selected ?: emptyList()) + 
-                           (response.events ?: emptyList()) + 
-                           (response.births ?: emptyList())
-
-            val filteredInsights = mutableListOf<String>()
-            
-            // Keyword Maps for the Neural Filter
-            val keywords = mapOf(
-                "Tech" to listOf("computer", "software", "internet", "silicon", "chip", "digital", "network", "web", "programming"),
-                "Space" to listOf("nasa", "orbit", "satellite", "planet", "moon", "rocket", "galaxy", "telescope", "apollo", "mission"),
-                "Science" to listOf("discovered", "theory", "formula", "particle", "virus", "gene", "element", "physics", "biology", "chemistry"),
-                "Innovators" to listOf("inventor", "scientist", "engineer", "founder", "pioneer", "physicist", "chemist"),
-                "History" to listOf("war", "treaty", "king", "queen", "president", "empire", "battle", "independence", "signed")
+        val finalResponse = response ?: try {
+            // 2. Fetch from API if not cached or cache invalid
+            val fetched = wikiApi.getOnThisDay(
+                String.format("%02d", Calendar.getInstance().get(Calendar.MONTH) + 1),
+                String.format("%02d", Calendar.getInstance().get(Calendar.DAY_OF_MONTH))
             )
-
-            // Dynamic Filtering
-            for (item in allEvents) {
-                if (filteredInsights.size >= 5) break
-                
-                val text = item.text.lowercase()
-                var matchesAnyActivePref = false
-                
-                for ((category, enabled) in interests) {
-                    if (enabled) {
-                        val categoryKeywords = keywords[category] ?: emptyList()
-                        if (categoryKeywords.any { text.contains(it) }) {
-                            matchesAnyActivePref = true
-                            break
-                        }
-                    }
-                }
-
-                if (matchesAnyActivePref) {
-                    filteredInsights.add("In ${item.year ?: ""}: ${item.text}")
-                }
-            }
-
-            // Fallback: If filter is too strict, just show 2-3 significant items
-            if (filteredInsights.size < 2) {
-                response.selected?.take(3)?.forEach { 
-                    val entry = "In ${it.year ?: ""}: ${it.text}"
-                    if (!filteredInsights.contains(entry)) filteredInsights.add(entry)
-                }
-            }
-
-            filteredInsights
+            // 3. Save to cache
+            prefs.edit().putString(cacheKey, gson.toJson(fetched)).apply()
+            fetched
         } catch (e: Exception) {
             e.printStackTrace()
-            listOf("Neural Link Error: Check your network connection.")
+            null
         }
+
+        if (finalResponse == null) {
+            return@withContext listOf("Neural Link Error: Check your network connection.")
+        }
+
+        // 4. Process and Filter the response (Cached or Fresh)
+        val allEvents = (finalResponse.selected ?: emptyList()) + 
+                       (finalResponse.events ?: emptyList()) + 
+                       (finalResponse.births ?: emptyList())
+
+        val filteredInsights = mutableListOf<String>()
+        
+        // Keyword Maps for the Neural Filter
+        val keywords = mapOf(
+            "Tech" to listOf("computer", "software", "internet", "silicon", "chip", "digital", "network", "web", "programming"),
+            "Space" to listOf("nasa", "orbit", "satellite", "planet", "moon", "rocket", "galaxy", "telescope", "apollo", "mission"),
+            "Science" to listOf("discovered", "theory", "formula", "particle", "virus", "gene", "element", "physics", "biology", "chemistry"),
+            "Innovators" to listOf("inventor", "scientist", "engineer", "founder", "pioneer", "physicist", "chemist"),
+            "History" to listOf("war", "treaty", "king", "queen", "president", "empire", "battle", "independence", "signed")
+        )
+
+        // Dynamic Filtering
+        for (item in allEvents) {
+            if (filteredInsights.size >= 5) break
+            
+            val text = item.text.lowercase()
+            var matchesAnyActivePref = false
+            
+            for ((category, enabled) in interests) {
+                if (enabled) {
+                    val categoryKeywords = keywords[category] ?: emptyList()
+                    if (categoryKeywords.any { text.contains(it) }) {
+                        matchesAnyActivePref = true
+                        break
+                    }
+                }
+            }
+
+            if (matchesAnyActivePref) {
+                filteredInsights.add("In ${item.year ?: ""}: ${item.text}")
+            }
+        }
+
+        // Fallback: If filter is too strict, just show 2-3 significant items
+        if (filteredInsights.size < 2) {
+            finalResponse.selected?.take(3)?.forEach { 
+                val entry = "In ${it.year ?: ""}: ${it.text}"
+                if (!filteredInsights.contains(entry)) filteredInsights.add(entry)
+            }
+        }
+
+        filteredInsights
     }
 
     /**

@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.scale
 import com.vertigo.launcher.utils.rememberBouncyOverscrollModifier
 import com.vertigo.launcher.R
 import com.vertigo.launcher.model.AppModel
@@ -629,76 +631,109 @@ fun HomeScreen(
                 }
             }
         } else {
-            // Portrait Layout - Use WindowInsets for proper system bar handling
-            Column(
-                modifier = desktopModifier
-                    .fillMaxSize()
-                    .statusBarsPadding() // Proper status bar padding
-                    .navigationBarsPadding(), // Proper navigation bar padding
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Spacer(modifier = Modifier.height(8.dp)) // Extra top breathing room
-                
-                // Top: Clock & Widgets
-                val holiday by viewModel?.currentHoliday?.collectAsState() ?: mutableStateOf(null)
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    ClockWidget(modifier = Modifier.size(260.dp), holiday = holiday)
-                    WeatherWidget(state = weatherState)
-                }
-
-                Box(modifier = Modifier.padding(vertical = 12.dp)) {
-                    VoiceAssistantWidget(
-                        isEnabled = isVoiceEnabled, 
-                        isListening = isVoiceListening, 
-                        onClick = onVoiceClick,
-                        chatHistory = chatHistory,
-                        currentStreamingResponse = currentStreamingResponse,
-                        isAiThinking = isAiThinking,
-                        spokenText = spokenText,
-                        isHotwordActive = isHotwordActive,
-                        onClearResponse = onClearAiResponse,
-                        onSendText = onSendAiText,
-                        onStopAi = onStopAiText,
-                        onCameraClick = onCameraClick,
-                        getPhotoBitmap = { ts -> viewModel?.getPhotoBitmap(ts) }
-                    )
-                }
-                
-                Spacer(modifier = Modifier.weight(1f))
-                
-                // Middle: Flower Grid
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(380.dp), // Fixed height area for grid
-                    contentAlignment = Alignment.Center
+                // Portrait Layout (Intelligent Responsive HUD)
+                BoxWithConstraints(
+                    modifier = desktopModifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
                 ) {
-                    FlowerGrid(
-                        apps = flowerApps,
-                        onAppClick = onAppClick,
-                        onAppLongClick = { app ->
-                            appPendingAction = app
-                            actionType = "REMOVE"
-                        },
-                        notificationCounts = notificationCounts,
-                        showLabels = showLabels,
-                        showBadges = showBadges
-                    )
+                    val totalHeight = maxHeight
+                    // Calculate max terminal height to stop before Section 3 (Search/Dock)
+                    // Section 3 starts at ~80% of screen height. 
+                    // We use 0.68f for a safe buffer to never cross search bar or dock.
+                    val calculatedMaxHeight = (totalHeight * 0.68f) - 130.dp
+
+                    // Background Layer: Clock, Weather, Untouched Grid, and Dock
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Section 1 Placeholder (Space for Terminal)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(0.42f),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val configuration = LocalConfiguration.current
+                            val screenWidthDp = configuration.screenWidthDp.dp
+                            val clockSize = (screenWidthDp * 0.30f).coerceIn(80.dp, 140.dp)
+                            val holiday by viewModel?.currentHoliday?.collectAsState() ?: mutableStateOf(null)
+                            ClockWidget(modifier = Modifier.size(clockSize), holiday = holiday)
+                            WeatherWidget(state = weatherState)
+                        }
+                        
+                        // Section 2: UNTOUCHED Flower Grid (38%)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(0.38f)
+                                .clipToBounds(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            FlowerGrid(
+                                apps = flowerApps,
+                                onAppClick = onAppClick,
+                                onAppLongClick = { app ->
+                                    appPendingAction = app
+                                    actionType = "REMOVE"
+                                },
+                                notificationCounts = notificationCounts,
+                                showLabels = showLabels,
+                                showBadges = showBadges
+                            )
+                        }
+                        
+                        // Section 3: Search + Dock (20%)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(0.20f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            InlineSearchBar(
+                                isVoiceListening = isVoiceListening,
+                                onSearchClick = { showInlineSearch = true }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Dock(
+                                onSettings = onSettings,
+                                onDrawer = { onDrawerToggle(true) },
+                                onNeuralHub = { onNeuralHubToggle(true) }
+                            )
+                        }
+                    }
+
+                    // Foreground Layer: Terminal Overlay
+                    // Positioned at the top, it will grow over Section 2 (Apps)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 130.dp), // Position below clock
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(modifier = Modifier.wrapContentHeight(align = Alignment.Top, unbounded = true)) {
+                            VoiceAssistantWidget(
+                                isEnabled = isVoiceEnabled, 
+                                isListening = isVoiceListening, 
+                                onClick = onVoiceClick,
+                                chatHistory = chatHistory,
+                                currentStreamingResponse = currentStreamingResponse,
+                                isAiThinking = isAiThinking,
+                                spokenText = spokenText,
+                                isHotwordActive = isHotwordActive,
+                                onClearResponse = onClearAiResponse,
+                                onSendText = onSendAiText,
+                                onStopAi = onStopAiText,
+                                onCameraClick = onCameraClick,
+                                getPhotoBitmap = { ts -> viewModel?.getPhotoBitmap(ts) },
+                                maxHeightOverride = calculatedMaxHeight
+                            )
+                        }
+                    }
                 }
-                
-                Spacer(modifier = Modifier.weight(1f))
-                
-                // Bottom: Inline Search & Dock
-                InlineSearchBar(
-                    isVoiceListening = isVoiceListening,
-                    onSearchClick = { showInlineSearch = true }
-                )
-                Dock(
-                    onSettings = onSettings,
-                    onDrawer = { onDrawerToggle(true) },
-                    onNeuralHub = { onNeuralHubToggle(true) }
-                )
-            }
         }
         
         // Hidden App Drawer Overlay
@@ -905,7 +940,7 @@ fun FlowerGrid(
         val targetRings = if (isLargeScreen) 4 else 3
         val maxApps = if (targetRings == 4) 61 else 37
         
-        val spacingFactor = 1.25f
+        val spacingFactor = 1.4f
         val maxIconSizePx = (minDimPx / 2f) / (spacingFactor * targetRings.toFloat() + 0.5f)
         
         val iconSizeDp = with(density) {
@@ -1026,7 +1061,7 @@ fun AppIcon(
             Text(
                 text = app.label,
                 color = Color.White,
-                fontSize = (size.value * 0.2f).sp,
+                fontSize = (size.value * 0.18f).coerceAtMost(14f).sp,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp)
