@@ -305,6 +305,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     // Voice State
     private var hotwordResetJob: kotlinx.coroutines.Job? = null
 
+    // Broadcast receiver for commands FROM MusicPlaybackService (notification buttons)
+    private val musicServiceReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            when (intent?.action) {
+                com.vertigo.launcher.service.MusicPlaybackService.BROADCAST_PLAY_PAUSE -> musicPlayPause()
+                com.vertigo.launcher.service.MusicPlaybackService.BROADCAST_NEXT -> musicSkipNext()
+                com.vertigo.launcher.service.MusicPlaybackService.BROADCAST_PREV -> musicSkipPrev()
+                com.vertigo.launcher.service.MusicPlaybackService.BROADCAST_SEEK -> {
+                    val pos = intent.getLongExtra(com.vertigo.launcher.service.MusicPlaybackService.EXTRA_SEEK_POSITION, 0L)
+                    musicSeekTo(pos)
+                }
+            }
+        }
+    }
+
     private val launcherCallback = object : LauncherApps.Callback() {
         override fun onPackageRemoved(packageName: String?, user: android.os.UserHandle) { loadApps(true) }
         override fun onPackageAdded(packageName: String?, user: android.os.UserHandle) { loadApps(true) }
@@ -341,6 +356,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         // Notification Bridge
         androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
             .registerReceiver(notificationReceiver, android.content.IntentFilter(com.vertigo.launcher.service.LauncherNotificationService.ACTION_NOTIFICATION_CHANGED))
+        
+        // Music service command bridge (notification buttons → ViewModel)
+        val musicFilter = android.content.IntentFilter().apply {
+            addAction(com.vertigo.launcher.service.MusicPlaybackService.BROADCAST_PLAY_PAUSE)
+            addAction(com.vertigo.launcher.service.MusicPlaybackService.BROADCAST_NEXT)
+            addAction(com.vertigo.launcher.service.MusicPlaybackService.BROADCAST_PREV)
+            addAction(com.vertigo.launcher.service.MusicPlaybackService.BROADCAST_SEEK)
+        }
+        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
+            .registerReceiver(musicServiceReceiver, musicFilter)
         updateNotificationCounts()
         
         // Start Local LLM Backend silently
@@ -1018,6 +1043,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             
             // Re-trigger visual updates
             refreshMusicState()
+            
+            // Publish to system notification / dynamic island
+            updateMusicService(isPlaying = true)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -1038,11 +1066,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         val am = getApplication<Application>().getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
                         am.abandonAudioFocusRequest(req)
                     }
+                    updateMusicService(isPlaying = false)
                 } else {
                     if (localMusicQueue.isEmpty()) fetchLocalMusic()
                     if (localMediaPlayer != null) {
                         localMediaPlayer?.start()
                         _musicState.value = _musicState.value.copy(isPlaying = true)
+                        updateMusicService(isPlaying = true)
                     } else {
                         playLocalMusic()
                     }
@@ -1135,6 +1165,51 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    /**
+     * Send current local playback state to MusicPlaybackService so it can
+     * publish a media-style notification visible in the system notification
+     * shade, Dynamic Island, and lock-screen controls.
+     */
+    private fun updateMusicService(isPlaying: Boolean) {
+        try {
+            val ctx = getApplication<Application>()
+            val title = if (localMusicTitles.isNotEmpty() && currentMusicIndex < localMusicTitles.size)
+                localMusicTitles[currentMusicIndex] else _musicState.value.title ?: "Unknown"
+            val artist = if (localMusicArtists.isNotEmpty() && currentMusicIndex < localMusicArtists.size)
+                localMusicArtists[currentMusicIndex] else _musicState.value.artist ?: ""
+            val pos = try { localMediaPlayer?.currentPosition?.toLong() ?: 0L } catch (e: Exception) { 0L }
+            val dur = try { localMediaPlayer?.duration?.toLong() ?: 0L } catch (e: Exception) { 0L }
+
+            val intent = android.content.Intent(ctx, com.vertigo.launcher.service.MusicPlaybackService::class.java).apply {
+                action = if (isPlaying) com.vertigo.launcher.service.MusicPlaybackService.ACTION_PLAY
+                         else com.vertigo.launcher.service.MusicPlaybackService.ACTION_UPDATE
+                putExtra(com.vertigo.launcher.service.MusicPlaybackService.EXTRA_TITLE, title)
+                putExtra(com.vertigo.launcher.service.MusicPlaybackService.EXTRA_ARTIST, artist)
+                putExtra(com.vertigo.launcher.service.MusicPlaybackService.EXTRA_IS_PLAYING, isPlaying)
+                putExtra(com.vertigo.launcher.service.MusicPlaybackService.EXTRA_POSITION, pos)
+                putExtra(com.vertigo.launcher.service.MusicPlaybackService.EXTRA_DURATION, dur)
+            }
+            if (isPlaying) {
+                androidx.core.content.ContextCompat.startForegroundService(ctx, intent)
+            } else {
+                ctx.startService(intent)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("HomeViewModel", "Failed to update music service", e)
+        }
+    }
+
+    /** Stop the music notification service entirely. */
+    private fun stopMusicService() {
+        try {
+            val ctx = getApplication<Application>()
+            val intent = android.content.Intent(ctx, com.vertigo.launcher.service.MusicPlaybackService::class.java).apply {
+                action = com.vertigo.launcher.service.MusicPlaybackService.ACTION_STOP
+            }
+            ctx.startService(intent)
+        } catch (e: Exception) { /* ignore */ }
     }
     
     // Flow Launcher Features State
@@ -1727,8 +1802,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         try {
             voiceManager.destroy()
             launcherApps.unregisterCallback(launcherCallback)
-            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
-                .unregisterReceiver(notificationReceiver)
+            val lbm = androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(getApplication())
+            lbm.unregisterReceiver(notificationReceiver)
+            lbm.unregisterReceiver(musicServiceReceiver)
+            stopMusicService()
         } catch (e: Exception) {
             android.util.Log.e("HomeViewModel", "Error during onCleared cleanup", e)
         }
