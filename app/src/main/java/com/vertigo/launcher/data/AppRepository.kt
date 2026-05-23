@@ -49,15 +49,21 @@ class AppRepository(private val context: Context) {
                 packageName
             }
 
-            // Deferred icon load — this happens locally, NOT inside the Binder parcel
-            val icon = try {
-                resolveInfo.loadIcon(packageManager)
-            } catch (e: Exception) {
-                packageManager.defaultActivityIcon
-            }
-
             val category = categorizeApp(activityInfo.applicationInfo)
-            AppModel(label, packageName, icon, category)
+            AppModel(
+                label = label,
+                packageName = packageName,
+                iconLoader = {
+                    com.vertigo.launcher.utils.PerformanceOptimizer.getCachedIcon(packageName) {
+                        try {
+                            resolveInfo.loadIcon(packageManager)
+                        } catch (e: Exception) {
+                            packageManager.defaultActivityIcon
+                        }
+                    } ?: packageManager.defaultActivityIcon
+                },
+                category = category
+            )
         }.sortedBy { it.label }
     }
 
@@ -88,14 +94,21 @@ class AppRepository(private val context: Context) {
                 packageName
             }
 
-            val icon = try {
-                appInfo.loadIcon(packageManager)
-            } catch (e: Exception) {
-                packageManager.defaultActivityIcon
-            }
-
             val category = categorizeApp(appInfo)
-            AppModel(label, packageName, icon, category)
+            AppModel(
+                label = label,
+                packageName = packageName,
+                iconLoader = {
+                    com.vertigo.launcher.utils.PerformanceOptimizer.getCachedIcon(packageName) {
+                        try {
+                            appInfo.loadIcon(packageManager)
+                        } catch (e: Exception) {
+                            packageManager.defaultActivityIcon
+                        }
+                    } ?: packageManager.defaultActivityIcon
+                },
+                category = category
+            )
         }.sortedBy { it.label }
     }
 
@@ -146,14 +159,21 @@ class AppRepository(private val context: Context) {
                 packageName
             }
 
-            val icon = try {
-                appInfo.loadIcon(packageManager)
-            } catch (e: Exception) {
-                packageManager.defaultActivityIcon
-            }
-
             val category = categorizeApp(appInfo)
-            AppModel(label, packageName, icon, category)
+            AppModel(
+                label = label,
+                packageName = packageName,
+                iconLoader = {
+                    com.vertigo.launcher.utils.PerformanceOptimizer.getCachedIcon(packageName) {
+                        try {
+                            appInfo.loadIcon(packageManager)
+                        } catch (e: Exception) {
+                            packageManager.defaultActivityIcon
+                        }
+                    } ?: packageManager.defaultActivityIcon
+                },
+                category = category
+            )
         }.sortedBy { it.label }
     }
 }

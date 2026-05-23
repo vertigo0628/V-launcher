@@ -387,5 +387,29 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {}
             prefs.edit().putBoolean("miui_autostart_prompted", true).apply()
         }
+     }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        try {
+            com.vertigo.launcher.utils.PerformanceOptimizer.trimMemory(level)
+            if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+                // Launcher is hidden, prompt GC to clean up unused memory immediately
+                System.gc()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error in onTrimMemory", e)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        try {
+            // Suggest GC when launcher transitions to stopped state
+            System.gc()
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 }
+
