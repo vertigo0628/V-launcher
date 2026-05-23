@@ -320,6 +320,27 @@ fun HomeScreen(
                                 )
                             }
 
+                            // Standard Uninstall (no Shizuku needed — uses system prompt)
+                            val uninstallContext = LocalContext.current
+                            Button(
+                                onClick = {
+                                    appPendingAction?.let { app ->
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_UNINSTALL_PACKAGE).apply {
+                                            data = android.net.Uri.parse("package:${app.packageName}")
+                                            putExtra(android.content.Intent.EXTRA_RETURN_RESULT, true)
+                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        uninstallContext.startActivity(intent)
+                                    }
+                                    appPendingAction = null
+                                    actionType = null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB91C1C)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("🗑️ Uninstall App", color = Color.White)
+                            }
+
                             // Shizuku Power Actions
                             if (shizukuState == com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED) {
                                 Spacer(modifier = Modifier.height(12.dp))
@@ -798,6 +819,8 @@ fun HomeScreen(
                     onBatchFreeze = onBatchFreeze,
                     onBatchUnhide = onBatchUnhide,
                     onBatchUnfreeze = onBatchUnfreeze,
+                    onBatchUninstall = { viewModel?.batchUninstallApps() },
+                    onBatchAddToGrid = { viewModel?.batchAddToGrid() },
                     onClearSelection = onClearSelection,
                     shizukuState = shizukuState
                 )
@@ -845,6 +868,8 @@ fun HomeScreen(
                 onBatchFreeze = onBatchFreeze,
                 onBatchUnhide = onBatchUnhide,
                 onBatchUnfreeze = onBatchUnfreeze,
+                onBatchUninstall = { viewModel?.batchUninstallApps() },
+                onBatchAddToGrid = { viewModel?.batchAddToGrid() },
                 onClearSelection = onClearSelection,
                 shizukuState = shizukuState
             )
@@ -947,7 +972,7 @@ fun FlowerGrid(
     showBadges: Boolean = true
 ) {
     BoxWithConstraints(
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.BottomCenter,
         modifier = Modifier.fillMaxSize()
     ) {
         val density = LocalDensity.current
@@ -983,7 +1008,9 @@ fun FlowerGrid(
             measurePolicy = { measurables, lConstraints ->
             val placeables = measurables.map { it.measure(lConstraints) }
             val cx = lConstraints.maxWidth / 2f
-            val cy = lConstraints.maxHeight / 2f
+            // Anchor the pattern toward the bottom of the available space.
+            // The offset pushes the center point down so apps cluster from below.
+            val cy = lConstraints.maxHeight - (lConstraints.maxHeight * 0.35f)
             
             layout(lConstraints.maxWidth, lConstraints.maxHeight) {
                 if (placeables.isNotEmpty()) {
@@ -1202,6 +1229,8 @@ fun BatchSelectionBar(
     onFreeze: () -> Unit,
     onUnhide: () -> Unit,
     onUnfreeze: () -> Unit,
+    onUninstall: () -> Unit,
+    onAddToGrid: () -> Unit,
     onClear: () -> Unit,
     shizukuEnabled: Boolean
 ) {
@@ -1236,23 +1265,36 @@ fun BatchSelectionBar(
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = onHide) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onHide() }) {
                     Text("👻", fontSize = 20.sp)
+                    Text("Hide", color = Color.White, fontSize = 10.sp)
                 }
-                IconButton(onClick = onUnhide) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onUnhide() }) {
                     Text("👁️", fontSize = 20.sp)
+                    Text("Unhide", color = Color.White, fontSize = 10.sp)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onAddToGrid() }) {
+                    Text("📌", fontSize = 20.sp)
+                    Text("Pin Grid", color = Color.White, fontSize = 10.sp)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onUninstall() }) {
+                    Text("🗑️", fontSize = 20.sp)
+                    Text("Uninstall", color = Color.White, fontSize = 10.sp)
                 }
                 if (shizukuEnabled) {
-                    IconButton(onClick = onFreeze) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onFreeze() }) {
                         Text("❄️", fontSize = 20.sp)
+                        Text("Freeze", color = Color.White, fontSize = 10.sp)
                     }
-                    IconButton(onClick = onUnfreeze) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onUnfreeze() }) {
                         Text("🔥", fontSize = 20.sp)
+                        Text("Unfreeze", color = Color.White, fontSize = 10.sp)
                     }
                 }
-                IconButton(onClick = onClear) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClear() }) {
                     Text("❌", fontSize = 20.sp)
+                    Text("Clear", color = Color.White, fontSize = 10.sp)
                 }
             }
         }
@@ -1281,6 +1323,8 @@ fun AppDrawer(
     onBatchFreeze: () -> Unit = {},
     onBatchUnhide: () -> Unit = {},
     onBatchUnfreeze: () -> Unit = {},
+    onBatchUninstall: () -> Unit = {},
+    onBatchAddToGrid: () -> Unit = {},
     onClearSelection: () -> Unit = {},
     shizukuState: com.vertigo.launcher.utils.ShizukuSetup.ShizukuState = com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.UNAVAILABLE
 ) {
@@ -1318,6 +1362,8 @@ fun AppDrawer(
                     onFreeze = onBatchFreeze,
                     onUnhide = onBatchUnhide,
                     onUnfreeze = onBatchUnfreeze,
+                    onUninstall = onBatchUninstall,
+                    onAddToGrid = onBatchAddToGrid,
                     onClear = onClearSelection,
                     shizukuEnabled = shizukuState == com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED
                 )
@@ -1392,6 +1438,17 @@ fun AppDrawer(
                                         .align(Alignment.BottomStart)
                                         .background(Color(0x80000000), CircleShape)
                                         .padding(2.dp)
+                                )
+                            }
+
+                            // Selection Indicator (Fire emoji)
+                            if (selectedPackages.contains(app.packageName)) {
+                                Text(
+                                    "🔥",
+                                    fontSize = 16.sp,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 8.dp, y = (-8).dp)
                                 )
                             }
                         }

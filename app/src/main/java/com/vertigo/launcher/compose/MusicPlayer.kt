@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +36,7 @@ fun MusicPlayerCard(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrev: () -> Unit,
+    onSeek: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Animated pulse ring for isPlaying
@@ -151,7 +154,52 @@ fun MusicPlayerCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            var isDragging by remember { mutableStateOf(false) }
+            var dragPosition by remember { mutableStateOf(0f) }
+            val currentPos = if (isDragging) dragPosition else state.currentPosition.toFloat()
+            val totalDuration = if (state.duration > 0) state.duration.toFloat() else 100f
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Seek Bar / Progress Slider
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Slider(
+                    value = currentPos.coerceIn(0f, totalDuration),
+                    onValueChange = {
+                        isDragging = true
+                        dragPosition = it
+                    },
+                    onValueChangeFinished = {
+                        isDragging = false
+                        onSeek(dragPosition.toLong())
+                    },
+                    valueRange = 0f..totalDuration,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFF00F0FF),
+                        activeTrackColor = Color(0xFF00F0FF),
+                        inactiveTrackColor = Color(0x33FFFFFF)
+                    ),
+                    modifier = Modifier.fillMaxWidth().height(18.dp)
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = formatTime(currentPos.toLong()),
+                        color = Color.Gray,
+                        fontSize = 10.sp
+                    )
+                    Text(
+                        text = formatTime(state.duration),
+                        color = Color.Gray,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Playback Controls - wider tap targets, brighter colors
             Row(
@@ -205,6 +253,13 @@ fun MusicPlayerCard(
             }
         }
     }
+}
+
+private fun formatTime(ms: Long): String {
+    val totalSecs = ms / 1000
+    val minutes = totalSecs / 60
+    val seconds = totalSecs % 60
+    return String.format(java.util.Locale.getDefault(), "%02d:%02d", minutes, seconds)
 }
 
 @Composable

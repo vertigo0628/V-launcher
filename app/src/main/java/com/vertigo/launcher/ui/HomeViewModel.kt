@@ -80,7 +80,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val title: String = "",
         val artist: String = "",
         val isPlaying: Boolean = false,
-        val albumArt: android.graphics.Bitmap? = null
+        val albumArt: android.graphics.Bitmap? = null,
+        val currentPosition: Long = 0L,
+        val duration: Long = 0L
     )
 
     data class WeatherState(
@@ -103,6 +105,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val weatherRepository = WeatherRepository(application)
     private val locationHelper = com.vertigo.launcher.logic.LocationHelper(application)
     private val neuralInsightRepository = com.vertigo.launcher.data.NeuralInsightRepository(application)
+    private val smartUsageManager = com.vertigo.launcher.utils.SmartUsageManager(application)
     private val prefs = application.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
 
     // Shizuku state
@@ -276,6 +279,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private var localMusicArtists: List<String> = emptyList()
     private var currentMusicIndex = 0
     
+    // Audio Focus — ensures we pause when another app plays or phone rings
+    private var audioFocusRequest: android.media.AudioFocusRequest? = null
+    private val audioFocusChangeListener = android.media.AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            android.media.AudioManager.AUDIOFOCUS_LOSS,
+            android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                // Another app took focus or phone is ringing — pause
+                if (localMediaPlayer?.isPlaying == true) {
+                    localMediaPlayer?.pause()
+                    _musicState.value = _musicState.value.copy(isPlaying = false)
+                }
+            }
+            android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                // Lower volume temporarily (e.g. notification sound)
+                localMediaPlayer?.setVolume(0.2f, 0.2f)
+            }
+            android.media.AudioManager.AUDIOFOCUS_GAIN -> {
+                // Regained focus — restore volume
+                localMediaPlayer?.setVolume(1f, 1f)
+            }
+        }
+    }
+    
     // Voice State
     private var hotwordResetJob: kotlinx.coroutines.Job? = null
 
@@ -403,20 +429,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     
     fun updateFlowerGrid() {
         val gridPackages = flowerGridManager.getGridApps()
+        val maxApps = flowerGridManager.getMaxGridApps()
+        val excludedApps = flowerGridManager.getExcludedApps()
         
         // Map user's explicitly pinned apps into the core slots
         val mappedApps = gridPackages.mapNotNull { pkg ->
             allApps.find { it.packageName == pkg }
         }.toMutableList()
         
-        // Dynamic Honeycomb Auto-Fill: Fill structural gaps with remaining apps
-        val unpinnedApps = allApps.filter { !gridPackages.contains(it.packageName) }
-        val needed = 61 - mappedApps.size
+        // Smart Auto-Fill: Only fill if user has fewer pinned than max,
+        // and use category-diverse, usage-ranked suggestions instead of dumping everything.
+        // CRITICAL: Skip apps the user explicitly removed (exclusion list)
+        val needed = maxApps - mappedApps.size
         if (needed > 0) {
-            mappedApps.addAll(unpinnedApps.take(needed))
+            val unpinnedApps = allApps.filter { app ->
+                !gridPackages.contains(app.packageName) &&
+                !excludedApps.contains(app.packageName)
+            }
+            val smartFill = smartUsageManager.getDiverseSuggestions(unpinnedApps, needed)
+            mappedApps.addAll(smartFill)
         }
         
-        // First run behavior: pin the very first center app automatically so "Add to grid" order starts cleanly if empty
+        // First run behavior: auto-seed with top smart suggestions if grid is empty
         if (gridPackages.isEmpty() && mappedApps.isNotEmpty()) {
             flowerGridManager.addToGrid(mappedApps[0].packageName)
         }
@@ -425,6 +459,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun addToGrid(app: AppModel) {
+        val maxApps = flowerGridManager.getMaxGridApps()
+        val currentCount = flowerGridManager.getPinnedCount()
+        if (currentCount >= maxApps) {
+            // Grid is full — notify user
+            android.widget.Toast.makeText(
+                getApplication(),
+                "Grid full ($maxApps max). Remove an app first.",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
         if (flowerGridManager.addToGrid(app.packageName)) {
             updateFlowerGrid()
         }
@@ -433,6 +478,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun removeFromGrid(app: AppModel) {
         flowerGridManager.removeFromGrid(app.packageName)
         updateFlowerGrid()
+    }
+    
+    /**
+     * Record an app launch for smart usage tracking.
+     * Called from MainActivity when any app is launched.
+     */
+    fun recordAppLaunch(packageName: String) {
+        smartUsageManager.logAppLaunch(packageName)
     }
     
     fun selectCategory(category: AppCategory?) {
@@ -650,6 +703,58 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         clearSelection()
         loadApps()
     }
+    
+    fun batchAddToGrid() {
+        val packages = _selectedPackages.value
+        var addedCount = 0
+        packages.forEach { pkg ->
+            if (flowerGridManager.addToGrid(pkg)) {
+                addedCount++
+            }
+        }
+        if (addedCount > 0) {
+            updateFlowerGrid()
+            _shizukuActionResult.value = "📌 Added $addedCount apps to grid"
+        }
+        clearSelection()
+    }
+
+    fun batchUninstallApps() {
+        val packages = _selectedPackages.value
+        val isShizukuAuthorized = shizukuState.value == com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED
+        
+        if (isShizukuAuthorized) {
+            // Silent uninstall via Shizuku (no prompts)
+            viewModelScope.launch {
+                var successCount = 0
+                var failCount = 0
+                packages.forEach { pkg ->
+                    val result = com.vertigo.launcher.logic.AppCommander.silentUninstall(pkg)
+                    if (result.isSuccess) successCount++ else failCount++
+                }
+                _shizukuActionResult.value = "🗑️ Uninstalled $successCount apps" + if (failCount > 0) " ($failCount failed)" else ""
+                clearSelection()
+                loadApps(true)
+            }
+        } else {
+            // Standard uninstall via system intent (prompts user for each)
+            val context = getApplication<Application>()
+            packages.forEach { pkg ->
+                val intent = android.content.Intent(android.content.Intent.ACTION_UNINSTALL_PACKAGE).apply {
+                    data = android.net.Uri.parse("package:$pkg")
+                    putExtra(android.content.Intent.EXTRA_RETURN_RESULT, true)
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            }
+            clearSelection()
+            // Reload after a delay to let system process
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(2000)
+                loadApps(true)
+            }
+        }
+    }
 
     private fun updateNotificationCounts() {
         val now = System.currentTimeMillis()
@@ -754,11 +859,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             if (sessions.isEmpty()) {
                 // Fallback to internal player state
                 if (localMediaPlayer != null) {
+                    val pos = try { localMediaPlayer?.currentPosition?.toLong() ?: 0L } catch (e: Exception) { 0L }
+                    val dur = try { localMediaPlayer?.duration?.toLong() ?: 0L } catch (e: Exception) { 0L }
                     _musicState.value = MusicState(
                         title = localMusicTitles.getOrNull(currentMusicIndex) ?: "Local Music",
                         artist = localMusicArtists.getOrNull(currentMusicIndex) ?: "V-launcher",
                         isPlaying = localMediaPlayer?.isPlaying == true,
-                        albumArt = _musicState.value.albumArt
+                        albumArt = _musicState.value.albumArt,
+                        currentPosition = pos,
+                        duration = dur
                     )
                 } else {
                     _musicState.value = _musicState.value.copy(isPlaying = false)
@@ -772,11 +881,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             if (active == null) {
                 // Fallback to internal player state
                 if (localMediaPlayer != null) {
+                    val pos = try { localMediaPlayer?.currentPosition?.toLong() ?: 0L } catch (e: Exception) { 0L }
+                    val dur = try { localMediaPlayer?.duration?.toLong() ?: 0L } catch (e: Exception) { 0L }
                     _musicState.value = MusicState(
                         title = localMusicTitles.getOrNull(currentMusicIndex) ?: "Local Music",
                         artist = localMusicArtists.getOrNull(currentMusicIndex) ?: "V-launcher",
                         isPlaying = localMediaPlayer?.isPlaying == true,
-                        albumArt = _musicState.value.albumArt
+                        albumArt = _musicState.value.albumArt,
+                        currentPosition = pos,
+                        duration = dur
                     )
                 } else {
                     _musicState.value = _musicState.value.copy(isPlaying = false)
@@ -788,13 +901,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val meta = active.metadata
                 val playbackState = active.playbackState
                 
+                // Extract position and duration from external media session
+                val position = playbackState?.position ?: 0L
+                val duration = meta?.getLong(android.media.MediaMetadata.METADATA_KEY_DURATION) ?: 0L
+                
                 _musicState.value = MusicState(
                     title = meta?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: _musicState.value.title,
                     artist = meta?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)
                         ?: meta?.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST) 
                         ?: _musicState.value.artist,
                     isPlaying = playbackState?.state == PlaybackState.STATE_PLAYING,
-                    albumArt = try { meta?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART) } catch (e: Exception) { null } ?: _musicState.value.albumArt
+                    albumArt = try { meta?.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART) } catch (e: Exception) { null } ?: _musicState.value.albumArt,
+                    currentPosition = position,
+                    duration = duration
                 )
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "Error extracting metadata from session", e)
@@ -867,6 +986,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val uri = localMusicQueue[currentMusicIndex]
         
         try {
+            // Request Audio Focus before playing
+            val audioManager = getApplication<Application>().getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            val focusRequest = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                .build()
+            audioFocusRequest = focusRequest
+            
+            val focusResult = audioManager.requestAudioFocus(focusRequest)
+            if (focusResult != android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                // Could not get focus — don't play
+                return
+            }
+            
             if (localMediaPlayer == null) {
                 localMediaPlayer = MediaPlayer()
                 localMediaPlayer?.setOnCompletionListener {
@@ -895,6 +1033,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 if (localMediaPlayer?.isPlaying == true) {
                     localMediaPlayer?.pause()
                     _musicState.value = _musicState.value.copy(isPlaying = false)
+                    // Abandon audio focus when pausing
+                    audioFocusRequest?.let { req ->
+                        val am = getApplication<Application>().getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                        am.abandonAudioFocusRequest(req)
+                    }
                 } else {
                     if (localMusicQueue.isEmpty()) fetchLocalMusic()
                     if (localMediaPlayer != null) {
@@ -966,6 +1109,31 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
         } catch (e: Exception) { 
             e.printStackTrace() 
+        }
+    }
+    
+    fun musicSeekTo(positionMs: Long) {
+        try {
+            val component = getNotificationServiceComponent()
+            val sessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            
+            if (sessions.isNullOrEmpty()) {
+                // Seek local player
+                localMediaPlayer?.seekTo(positionMs.toInt())
+                refreshMusicState()
+                return
+            }
+            
+            // Seek external media session
+            val active = sessions.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+                ?: sessions.firstOrNull()
+            active?.transportControls?.seekTo(positionMs)
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(300)
+                refreshMusicState()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
     

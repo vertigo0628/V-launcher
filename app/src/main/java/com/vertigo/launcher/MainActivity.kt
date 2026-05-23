@@ -260,6 +260,7 @@ class MainActivity : AppCompatActivity() {
     
     private fun launchAppInFreeform(app: AppModel) {
         viewModel.clearNotificationBadge(app.packageName)
+        viewModel.recordAppLaunch(app.packageName)
         val intent = packageManager.getLaunchIntentForPackage(app.packageName)
         if (intent != null) {
             intent.addFlags(
@@ -309,6 +310,8 @@ class MainActivity : AppCompatActivity() {
     private fun launchApp(app: AppModel) {
         // Clear notification badge immediately for instant feedback
         viewModel.clearNotificationBadge(app.packageName)
+        // Track launch for smart usage-based grid suggestions
+        viewModel.recordAppLaunch(app.packageName)
         
         val intent = packageManager.getLaunchIntentForPackage(app.packageName)
         if (intent != null) {

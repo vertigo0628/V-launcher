@@ -182,7 +182,8 @@ fun NeuralHub(
                 state = musicState,
                 onPlayPause = onMusicPlayPause,
                 onNext = onMusicNext,
-                onPrev = onMusicPrev
+                onPrev = onMusicPrev,
+                onSeek = { pos -> viewModel?.musicSeekTo(pos) }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
