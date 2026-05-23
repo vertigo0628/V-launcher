@@ -879,7 +879,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val mgr = mediaSessionManager ?: return
             val component = getNotificationServiceComponent()
-            val sessions: List<MediaController> = mgr.getActiveSessions(component)
+            val rawSessions: List<MediaController> = mgr.getActiveSessions(component)
+            val sessions = rawSessions.filter { it.packageName != getApplication<Application>().packageName }
             
             if (sessions.isEmpty()) {
                 // Fallback to internal player state
@@ -1054,7 +1055,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun musicPlayPause() {
         try {
             val component = getNotificationServiceComponent()
-            val sessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            val rawSessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            val sessions = rawSessions?.filter { it.packageName != getApplication<Application>().packageName }
             
             if (sessions.isNullOrEmpty()) {
                 // Local Fallback
@@ -1095,7 +1097,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun musicSkipNext() {
         try {
             val component = getNotificationServiceComponent()
-            val sessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            val rawSessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            val sessions = rawSessions?.filter { it.packageName != getApplication<Application>().packageName }
             
             if (sessions.isNullOrEmpty()) {
                 if (localMusicQueue.isNotEmpty()) {
@@ -1120,7 +1123,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun musicSkipPrev() {
         try {
             val component = getNotificationServiceComponent()
-            val sessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            val rawSessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            val sessions = rawSessions?.filter { it.packageName != getApplication<Application>().packageName }
             
             if (sessions.isNullOrEmpty()) {
                 if (localMusicQueue.isNotEmpty()) {
@@ -1145,7 +1149,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun musicSeekTo(positionMs: Long) {
         try {
             val component = getNotificationServiceComponent()
-            val sessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            val rawSessions = try { mediaSessionManager?.getActiveSessions(component) } catch (e: Exception) { null }
+            val sessions = rawSessions?.filter { it.packageName != getApplication<Application>().packageName }
             
             if (sessions.isNullOrEmpty()) {
                 // Seek local player

@@ -207,12 +207,13 @@ class MusicPlaybackService : Service() {
             packageManager.getLaunchIntentForPackage(packageName),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        return Notification.Builder(this, CHANNEL_ID)
+        val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(currentTitle)
             .setContentText(currentArtist)
             .setContentIntent(contentPI)
             .setOngoing(isPlaying)
+            .setCategory(Notification.CATEGORY_TRANSPORT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .addAction(Notification.Action.Builder(
                 android.R.drawable.ic_media_previous, "Prev", svcPI(ACTION_BTN_PREV, 0)).build())
@@ -223,6 +224,17 @@ class MusicPlaybackService : Service() {
             .setStyle(Notification.MediaStyle()
                 .setMediaSession(mediaSession?.sessionToken)
                 .setShowActionsInCompactView(0, 1, 2))
-            .build()
+
+        // Set rich album art placeholder so status bar media controls treat it with high priority
+        try {
+            val largeIcon = android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_media_play)
+            builder.setLargeIcon(largeIcon)
+            builder.setColorized(true)
+            builder.setColor(0xFF00F0FF.toInt())
+        } catch (e: Exception) {
+            // Fallback
+        }
+
+        return builder.build()
     }
 }
