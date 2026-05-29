@@ -71,7 +71,7 @@ class NeuralInsightRepository(private val context: Context) {
 
     suspend fun getDailyInsights(interests: Map<String, Boolean>): List<WikiInsightItem> = withContext(Dispatchers.IO) {
         val todayKey = SimpleDateFormat("MM_dd", Locale.getDefault()).format(Date())
-        val cacheKey = "wiki_cache_$todayKey"
+        val cacheKey = "wiki_cache_v2_$todayKey"
         
         // 1. Try to load from cache first
         val cachedJson = prefs.getString(cacheKey, null)

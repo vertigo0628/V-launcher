@@ -179,7 +179,7 @@ fun HomeScreen(
     // --- Onion Drawer Depth Navigation ---
     // Depth 0 = base hidden apps, Depth 1+ = custom layers (peel inward)
     var currentDepth by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    var showPinDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showBiometricAuth by remember { androidx.compose.runtime.mutableStateOf(false) }
     var pinUnlocked by remember { androidx.compose.runtime.mutableStateOf(false) }
 
     // BackHandler: peel outward through onion layers
@@ -699,14 +699,13 @@ fun HomeScreen(
             .pointerInput(pinUnlocked) {
                 detectTapGestures(
                     onDoubleTap = {
-                        val isPinSet = viewModel?.getPreferencesManager()?.isPinSet() ?: false
                         val isBaseProtected = viewModel?.isOnionLayerProtected(0) ?: true
-                        if (pinUnlocked || !isPinSet || !isBaseProtected) {
+                        if (pinUnlocked || !isBaseProtected) {
                             pinUnlocked = true
                             currentDepth = 0
                             showHiddenDrawer = true
                         } else {
-                            showPinDialog = true
+                            showBiometricAuth = true
                         }
                     }
                 )
@@ -919,56 +918,43 @@ fun HomeScreen(
         val protectedLayersState by viewModel?.protectedLayers?.collectAsState() ?: remember { mutableStateOf(emptySet<String>()) }
 
         // PIN Dialog side-effect integration
-        if (showPinDialog) {
+        // Biometric dialog for opening hidden drawer
+        if (showBiometricAuth) {
             val ctx = LocalContext.current
-            androidx.compose.runtime.DisposableEffect(Unit) {
-                val prefMgr = viewModel?.getPreferencesManager()
-                if (prefMgr != null) {
-                    val dlg = com.vertigo.launcher.ui.PinDialog(
-                        context = ctx,
-                        preferencesManager = prefMgr,
-                        onSuccess = {
-                            pinUnlocked = true
-                            showHiddenDrawer = true
-                            currentDepth = 0
-                            showPinDialog = false
-                        },
-                        onCancel = {
-                            showPinDialog = false
-                        }
-                    )
-                    dlg.show()
-                    onDispose { if (dlg.isShowing) dlg.dismiss() }
-                } else {
-                    showPinDialog = false
-                    onDispose {}
-                }
+            androidx.compose.runtime.LaunchedEffect(showBiometricAuth) {
+                launchBiometricPrompt(
+                    context = ctx,
+                    title = "Unlock Onion Drawer",
+                    subtitle = "Verify identity to view compartments",
+                    onSuccess = {
+                        pinUnlocked = true
+                        showHiddenDrawer = true
+                        currentDepth = 0
+                        showBiometricAuth = false
+                    },
+                    onFail = {
+                        showBiometricAuth = false
+                    }
+                )
             }
         }
 
-        // PIN dialog for peeling into a protected deeper layer
+        // Biometric dialog for peeling into a protected deeper layer
         if (pendingProtectedDepth >= 0) {
             val ctx = LocalContext.current
-            androidx.compose.runtime.DisposableEffect(pendingProtectedDepth) {
-                val prefMgr = viewModel?.getPreferencesManager()
-                if (prefMgr != null) {
-                    val dlg = com.vertigo.launcher.ui.PinDialog(
-                        context = ctx,
-                        preferencesManager = prefMgr,
-                        onSuccess = {
-                            currentDepth = pendingProtectedDepth
-                            pendingProtectedDepth = -1
-                        },
-                        onCancel = {
-                            pendingProtectedDepth = -1
-                        }
-                    )
-                    dlg.show()
-                    onDispose { if (dlg.isShowing) dlg.dismiss() }
-                } else {
-                    pendingProtectedDepth = -1
-                    onDispose {}
-                }
+            androidx.compose.runtime.LaunchedEffect(pendingProtectedDepth) {
+                launchBiometricPrompt(
+                    context = ctx,
+                    title = "Access Compartment",
+                    subtitle = "Verify identity to peel deeper",
+                    onSuccess = {
+                        currentDepth = pendingProtectedDepth
+                        pendingProtectedDepth = -1
+                    },
+                    onFail = {
+                        pendingProtectedDepth = -1
+                    }
+                )
             }
         }
 
