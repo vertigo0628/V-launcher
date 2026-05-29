@@ -350,10 +350,10 @@ fun DidYouKnowSection(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(160.dp)
+                                .height(220.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0x1AFFFFFF)),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                .background(Color(0x0DFFFFFF)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
                         )
                     }
 
