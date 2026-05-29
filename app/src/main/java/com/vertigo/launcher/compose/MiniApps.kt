@@ -40,7 +40,14 @@ import java.util.Date
 import java.util.Locale
 import com.vertigo.launcher.ui.HomeViewModel
 import com.vertigo.launcher.utils.rememberBouncyOverscrollModifier
-
+import android.content.Intent
+import android.provider.CalendarContract
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 // ─── Data models ───────────────────────────────────────────────────────────────
 data class TaskItem(val id: Long = System.currentTimeMillis(), val text: String, val done: Boolean = false, val priority: Int = 1) // 0=low, 1=medium, 2=high
 data class NoteItem(val id: Long = System.currentTimeMillis(), val text: String, val timestamp: Long = System.currentTimeMillis(), val colorIdx: Int = 0, val pinned: Boolean = false)
@@ -239,96 +246,303 @@ fun BulletPoint(text: String) {
 }
 @Composable
 fun CalendarCard(events: List<com.vertigo.launcher.ui.HomeViewModel.CalendarEvent>, viewModel: com.vertigo.launcher.ui.HomeViewModel? = null) {
-    val cal = Calendar.getInstance()
-    val today = cal.get(Calendar.DAY_OF_MONTH)
-    val month = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
-    val dayOfWeek = SimpleDateFormat("EEEE", Locale.getDefault()).format(cal.time)
+    val context = LocalContext.current
+    var selectedDate by remember { mutableStateOf(Calendar.getInstance()) }
+    var selectedEventDetail by remember { mutableStateOf<com.vertigo.launcher.ui.HomeViewModel.CalendarEvent?>(null) }
+
+    val month = remember(selectedDate) {
+        SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(selectedDate.time)
+    }
+    val dayOfWeek = remember(selectedDate) {
+        SimpleDateFormat("EEEE", Locale.getDefault()).format(selectedDate.time)
+    }
 
     // Build 7-day strip starting from 3 days before today
     val days = remember {
-        val list = mutableListOf<Pair<Int, String>>() // day number, day abbrev
+        val list = mutableListOf<Calendar>()
         val c = Calendar.getInstance()
         c.add(Calendar.DAY_OF_MONTH, -3)
         repeat(7) {
-            list.add(c.get(Calendar.DAY_OF_MONTH) to SimpleDateFormat("EEE", Locale.getDefault()).format(c.time))
+            list.add(c.clone() as Calendar)
             c.add(Calendar.DAY_OF_MONTH, 1)
         }
         list
     }
 
+    // Filter events for the selected date
+    val filteredEvents = remember(events, selectedDate) {
+        events.filter { event ->
+            val eventCal = Calendar.getInstance().apply { timeInMillis = event.startTimeMs }
+            eventCal.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR) &&
+            eventCal.get(Calendar.DAY_OF_YEAR) == selectedDate.get(Calendar.DAY_OF_YEAR)
+        }
+    }
+
     Column {
-        // Month header
-        Text(text = month, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Text(text = dayOfWeek, color = Color.Gray, fontSize = 12.sp)
+        // Month and Actions header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = month, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(text = dayOfWeek, color = Color.Gray, fontSize = 12.sp)
+            }
+            // Add Event button
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0x3300F0FF))
+                    .clickable {
+                        val insertIntent = Intent(Intent.ACTION_INSERT).apply {
+                            data = CalendarContract.Events.CONTENT_URI
+                            putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, selectedDate.timeInMillis)
+                            putExtra(CalendarContract.EXTRA_EVENT_END_TIME, selectedDate.timeInMillis + 60 * 60 * 1000)
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        try {
+                            context.startActivity(insertIntent)
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "No calendar app found", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("+ EVENT", color = Color(0xFF00F0FF), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+        }
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        // Did You Know? Section (Clean & Elegant)
-        val holiday by viewModel?.currentHoliday?.collectAsState() ?: mutableStateOf(null)
-        val dailyInsights by viewModel?.dailyInsight?.collectAsState() ?: mutableStateOf(emptyList())
-        val cosmicInsight by viewModel?.cosmicInsight?.collectAsState() ?: mutableStateOf(null)
+        // Did You Know? Section (Only visible on "Today" for relevance)
+        val isSelectedToday = remember(selectedDate) {
+            val todayCal = Calendar.getInstance()
+            todayCal.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR) &&
+            todayCal.get(Calendar.DAY_OF_YEAR) == selectedDate.get(Calendar.DAY_OF_YEAR)
+        }
 
-        DidYouKnowSection(
-            holiday = holiday,
-            insights = dailyInsights,
-            cosmic = cosmicInsight,
-            viewModel = viewModel
-        )
+        if (isSelectedToday) {
+            val holiday by viewModel?.currentHoliday?.collectAsState() ?: mutableStateOf(null)
+            val dailyInsights by viewModel?.dailyInsight?.collectAsState() ?: mutableStateOf(emptyList())
+            val cosmicInsight by viewModel?.cosmicInsight?.collectAsState() ?: mutableStateOf(null)
+
+            DidYouKnowSection(
+                holiday = holiday,
+                insights = dailyInsights,
+                cosmic = cosmicInsight,
+                viewModel = viewModel
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
         
-        Spacer(modifier = Modifier.height(12.dp))
-
         // 7-day strip
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            days.forEach { (dayNum, dayAbbrev) ->
-                val isToday = dayNum == today
+            days.forEach { dayCal ->
+                val dayNum = dayCal.get(Calendar.DAY_OF_MONTH)
+                val dayAbbrev = SimpleDateFormat("EEE", Locale.getDefault()).format(dayCal.time)
+                
+                val todayCal = Calendar.getInstance()
+                val isToday = todayCal.get(Calendar.YEAR) == dayCal.get(Calendar.YEAR) &&
+                        todayCal.get(Calendar.DAY_OF_YEAR) == dayCal.get(Calendar.DAY_OF_YEAR)
+                
+                val isSelected = selectedDate.get(Calendar.YEAR) == dayCal.get(Calendar.YEAR) &&
+                        selectedDate.get(Calendar.DAY_OF_YEAR) == dayCal.get(Calendar.DAY_OF_YEAR)
+
+                val hasEventsOnDay = remember(events) {
+                    events.any { event ->
+                        val eventCal = Calendar.getInstance().apply { timeInMillis = event.startTimeMs }
+                        eventCal.get(Calendar.YEAR) == dayCal.get(Calendar.YEAR) &&
+                        eventCal.get(Calendar.DAY_OF_YEAR) == dayCal.get(Calendar.DAY_OF_YEAR)
+                    }
+                }
+
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isToday) Color(0xFF00F0FF) else Color.Transparent)
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (isSelected) Color(0xFF00F0FF)
+                            else if (isToday) Color(0x3300F0FF)
+                            else Color.Transparent
+                        )
+                        .clickable { selectedDate = dayCal.clone() as Calendar }
+                        .padding(horizontal = 7.dp, vertical = 6.dp)
                 ) {
-                    Text(dayAbbrev, color = if (isToday) Color.Black else Color.Gray, fontSize = 9.sp)
-                    Text("$dayNum", color = if (isToday) Color.Black else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = dayAbbrev,
+                        color = if (isSelected) Color.Black else Color.Gray,
+                        fontSize = 9.sp,
+                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
+                    )
+                    Text(
+                        text = "$dayNum",
+                        color = if (isSelected) Color.Black else Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    // Indicator dot for events on this day
+                    if (hasEventsOnDay) {
+                        Box(
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .size(4.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) Color.Black else Color(0xFF00F0FF))
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        Divider(color = Color(0x2200F0FF))
+        HorizontalDivider(color = Color(0x2200F0FF), thickness = 1.dp)
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (events.isNotEmpty()) {
+        if (filteredEvents.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 150.dp)
+                    .heightIn(max = 160.dp)
                     .then(rememberBouncyOverscrollModifier())
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                events.forEach { event ->
+                val now = System.currentTimeMillis()
+                filteredEvents.forEach { event ->
                     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
                     val startTime = timeFormat.format(Date(event.startTimeMs))
+                    val isOngoing = now in event.startTimeMs..event.endTimeMs
                     
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0x1AFFFFFF))
-                            .padding(8.dp),
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isOngoing) Color(0x2B00F0FF) else Color(0x1AFFFFFF))
+                            .clickable { selectedEventDetail = event }
+                            .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(4.dp, 24.dp)
+                                .size(4.dp, 28.dp)
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(event.color?.let { Color(it) } ?: Color(0xFF00F0FF))
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = event.title, color = Color.White, fontSize = 13.sp, maxLines = 1)
-                            Text(text = startTime, color = Color.Gray, fontSize = 11.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = event.title,
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (isOngoing) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFFFF006E))
+                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("ONGOING", color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            Text(
+                                text = startTime + if (event.location != null) " • ${event.location}" else "",
+                                color = Color.Gray,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("🍃", fontSize = 24.sp)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "No events scheduled for this day.",
+                    color = Color.Gray,
+                    fontSize = 11.sp
+                )
+            }
+        }
+    }
+
+    // ── Detailed Event Info Dialog ──
+    selectedEventDetail?.let { event ->
+        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+        val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
+        val startStr = timeFormat.format(Date(event.startTimeMs))
+        val endStr = timeFormat.format(Date(event.endTimeMs))
+        val dateStr = dateFormat.format(Date(event.startTimeMs))
+
+        Dialog(onDismissRequest = { selectedEventDetail = null }) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFF0F172A),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.2f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "EVENT DETAILS",
+                        color = Color(0xFF00F0FF),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp
+                    )
+                    Text(
+                        text = event.title,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    
+                    HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+
+                    // Date & Time Row
+                    Column {
+                        Text("WHEN", color = Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "$dateStr", color = Color.White, fontSize = 13.sp)
+                        Text(text = "$startStr - $endStr", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                    }
+
+                    // Location Row (if present)
+                    if (event.location != null) {
+                        Column {
+                            Text("WHERE", color = Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text(text = event.location, color = Color.White, fontSize = 13.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = { selectedEventDetail = null }
+                        ) {
+                            Text("CLOSE", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
                         }
                     }
                 }

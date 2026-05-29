@@ -1837,14 +1837,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val cal = Calendar.getInstance()
+                // Set start date to 3 days ago at 00:00:00
+                cal.add(Calendar.DAY_OF_MONTH, -3)
                 cal.set(Calendar.HOUR_OF_DAY, 0)
                 cal.set(Calendar.MINUTE, 0)
                 cal.set(Calendar.SECOND, 0)
                 cal.set(Calendar.MILLISECOND, 0)
-                val startOfDay = cal.timeInMillis
+                val startOfWindow = cal.timeInMillis
                 
-                cal.add(Calendar.DAY_OF_MONTH, 1)
-                val endOfDay = cal.timeInMillis
+                // Set end date to 4 days from now at 23:59:59 (7 days range total)
+                cal.add(Calendar.DAY_OF_MONTH, 7)
+                cal.set(Calendar.HOUR_OF_DAY, 23)
+                cal.set(Calendar.MINUTE, 59)
+                cal.set(Calendar.SECOND, 59)
+                cal.set(Calendar.MILLISECOND, 999)
+                val endOfWindow = cal.timeInMillis
                 
                 val projection = arrayOf(
                     CalendarContract.Events._ID,
@@ -1856,7 +1863,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 
                 val selection = "(${CalendarContract.Events.DTSTART} < ?) AND (${CalendarContract.Events.DTEND} > ?)"
-                val selectionArgs = arrayOf(endOfDay.toString(), startOfDay.toString())
+                val selectionArgs = arrayOf(endOfWindow.toString(), startOfWindow.toString())
                 
                 val uri = CalendarContract.Events.CONTENT_URI
                 val cursor = getApplication<Application>().contentResolver.query(
