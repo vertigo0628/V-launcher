@@ -42,8 +42,8 @@ import com.vertigo.launcher.ui.HomeViewModel
 import com.vertigo.launcher.utils.rememberBouncyOverscrollModifier
 
 // ─── Data models ───────────────────────────────────────────────────────────────
-data class TaskItem(val id: Long = System.currentTimeMillis(), val text: String, val done: Boolean = false)
-data class NoteItem(val id: Long = System.currentTimeMillis(), val text: String, val timestamp: Long = System.currentTimeMillis())
+data class TaskItem(val id: Long = System.currentTimeMillis(), val text: String, val done: Boolean = false, val priority: Int = 1) // 0=low, 1=medium, 2=high
+data class NoteItem(val id: Long = System.currentTimeMillis(), val text: String, val timestamp: Long = System.currentTimeMillis(), val colorIdx: Int = 0, val pinned: Boolean = false)
 // ─── Mini-Apps Hub Composable ─────────────────────────────────────────────────
 
 @Composable
@@ -359,35 +359,81 @@ fun NotesCard() {
     val prefs = remember { context.getSharedPreferences("mini_apps_prefs", Context.MODE_PRIVATE) }
     var notes by remember { mutableStateOf(loadNotes(prefs)) }
     var newNoteText by remember { mutableStateOf("") }
+    var selectedColor by remember { mutableIntStateOf(0) }
+    var editingNoteId by remember { mutableStateOf<Long?>(null) }
+    var editText by remember { mutableStateOf("") }
+
+    val noteColors = listOf(
+        Color(0xFF00F0FF), // Cyan
+        Color(0xFFBD00FF), // Purple
+        Color(0xFFFF006E), // Pink
+        Color(0xFF10B981), // Green
+        Color(0xFFF59E0B)  // Amber
+    )
 
     Column {
-        // Add new note input
+        // ── Color Picker Row ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("COLOR", color = Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Spacer(modifier = Modifier.width(4.dp))
+            noteColors.forEachIndexed { idx, color ->
+                val sel = idx == selectedColor
+                Box(
+                    modifier = Modifier
+                        .size(if (sel) 20.dp else 16.dp)
+                        .clip(CircleShape)
+                        .background(color.copy(alpha = if (sel) 1f else 0.4f))
+                        .then(
+                            if (sel) Modifier.border(2.dp, Color.White.copy(alpha = 0.6f), CircleShape)
+                            else Modifier
+                        )
+                        .clickable { selectedColor = idx }
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "${notes.size} notes",
+                color = Color.Gray.copy(alpha = 0.5f),
+                fontSize = 10.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // ── Add Note Input ──
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color(0x1AFFFFFF))
-                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .border(1.dp, noteColors[selectedColor].copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 BasicTextField(
                     value = newNoteText,
                     onValueChange = { newNoteText = it },
                     textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
-                    cursorBrush = SolidColor(Color(0xFF00F0FF)),
-                    singleLine = true,
+                    cursorBrush = SolidColor(noteColors[selectedColor]),
+                    singleLine = false,
+                    maxLines = 3,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = {
                         if (newNoteText.isNotBlank()) {
-                            val updated = notes.toMutableList().also { it.add(0, NoteItem(text = newNoteText.trim())) }
+                            val updated = notes.toMutableList().also {
+                                it.add(0, NoteItem(text = newNoteText.trim(), colorIdx = selectedColor))
+                            }
                             notes = updated
                             saveNotes(prefs, updated)
                             newNoteText = ""
                         }
                     }),
                     decorationBox = { inner ->
-                        if (newNoteText.isEmpty()) Text("Write a new note...", color = Color.Gray, fontSize = 13.sp)
+                        if (newNoteText.isEmpty()) Text("Write a note...", color = Color.Gray, fontSize = 13.sp)
                         inner()
                     }
                 )
@@ -395,12 +441,14 @@ fun NotesCard() {
             Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF00F0FF))
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(noteColors[selectedColor])
                     .clickable {
                         if (newNoteText.isNotBlank()) {
-                            val updated = notes.toMutableList().also { it.add(0, NoteItem(text = newNoteText.trim())) }
+                            val updated = notes.toMutableList().also {
+                                it.add(0, NoteItem(text = newNoteText.trim(), colorIdx = selectedColor))
+                            }
                             notes = updated
                             saveNotes(prefs, updated)
                             newNoteText = ""
@@ -408,37 +456,87 @@ fun NotesCard() {
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text("+", color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("+", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Note list
+        // ── Note List ──
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 240.dp)
+                .heightIn(max = 280.dp)
                 .then(rememberBouncyOverscrollModifier())
                 .verticalScroll(rememberScrollState())
         ) {
-            notes.forEach { note ->
-                Box(
+            // Pinned first, then by timestamp
+            val sortedNotes = remember(notes) {
+                notes.sortedWith(compareByDescending<NoteItem> { it.pinned }.thenByDescending { it.timestamp })
+            }
+
+            sortedNotes.forEach { note ->
+                val accent = noteColors.getOrElse(note.colorIdx) { noteColors[0] }
+                val isEditing = editingNoteId == note.id
+
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0x1AFFFFFF))
-                        .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(12.dp))
-                        .padding(12.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0x0DFFFFFF))
+                        .then(
+                            if (note.pinned) Modifier.border(1.dp, accent.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                            else Modifier
+                        )
                 ) {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Column(modifier = Modifier.weight(1f)) {
+                    // Left accent bar
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .fillMaxHeight()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .background(accent)
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(12.dp)
+                    ) {
+                        if (isEditing) {
+                            BasicTextField(
+                                value = editText,
+                                onValueChange = { editText = it },
+                                textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
+                                cursorBrush = SolidColor(accent),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    val updated = notes.map {
+                                        if (it.id == note.id) it.copy(text = editText.trim()) else it
+                                    }.toMutableList()
+                                    notes = updated
+                                    saveNotes(prefs, updated)
+                                    editingNoteId = null
+                                }),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
                             Text(
                                 text = note.text,
                                 color = Color.White,
-                                fontSize = 13.sp
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp,
+                                modifier = Modifier.clickable {
+                                    editingNoteId = note.id
+                                    editText = note.text
+                                }
                             )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             val timeAgo = remember(note.timestamp) {
                                 val diff = System.currentTimeMillis() - note.timestamp
                                 val mins = diff / 60000
@@ -453,11 +551,41 @@ fun NotesCard() {
                             }
                             Text(
                                 text = timeAgo,
-                                color = Color.Gray.copy(alpha = 0.5f),
+                                color = Color.Gray.copy(alpha = 0.4f),
                                 fontSize = 10.sp
                             )
+                            if (note.pinned) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("📌", fontSize = 10.sp)
+                            }
                         }
-                        // Delete Button (larger tap target)
+                    }
+
+                    // Actions column
+                    Column(
+                        modifier = Modifier.padding(top = 8.dp, end = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Pin/Unpin
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    val updated = notes.map {
+                                        if (it.id == note.id) it.copy(pinned = !it.pinned) else it
+                                    }.toMutableList()
+                                    notes = updated
+                                    saveNotes(prefs, updated)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (note.pinned) "📌" else "📍",
+                                fontSize = 12.sp
+                            )
+                        }
+                        // Delete
                         Box(
                             modifier = Modifier
                                 .size(28.dp)
@@ -469,23 +597,27 @@ fun NotesCard() {
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "✕",
-                                color = Color(0x99FF4444),
-                                fontSize = 14.sp
-                            )
+                            Text("✕", color = Color(0x66FF4444), fontSize = 12.sp)
                         }
                     }
                 }
             }
 
             if (notes.isEmpty()) {
-                Text(
-                    text = "No notes yet. Add one above!",
-                    color = Color.Gray,
-                    fontSize = 11.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("📝", fontSize = 32.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "No notes yet. Start writing!",
+                        color = Color.Gray,
+                        fontSize = 12.sp
+                    )
+                }
             }
         }
     }
@@ -514,17 +646,98 @@ fun TasksCard() {
     val prefs = remember { context.getSharedPreferences(TASKS_PREFS, Context.MODE_PRIVATE) }
     var tasks by remember { mutableStateOf(loadTasks(prefs)) }
     var newTaskText by remember { mutableStateOf("") }
+    var selectedPriority by remember { mutableIntStateOf(1) }
+
+    val priorityColors = listOf(
+        Color(0xFF10B981), // Low — green
+        Color(0xFFF59E0B), // Medium — amber
+        Color(0xFFEF4444)  // High — red
+    )
+    val priorityLabels = listOf("LOW", "MED", "HIGH")
+
+    val activeTasks = remember(tasks) { tasks.filter { !it.done } }
+    val completedTasks = remember(tasks) { tasks.filter { it.done } }
+    val progress = remember(tasks) {
+        if (tasks.isEmpty()) 0f else completedTasks.size.toFloat() / tasks.size
+    }
 
     Column {
-        // Add new task input
+        // ── Progress Header ──
+        if (tasks.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "${completedTasks.size}/${tasks.size} completed",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 11.sp
+                    )
+                }
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    color = Color(0xFF00F0FF),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp)),
+                color = Color(0xFF00F0FF),
+                trackColor = Color(0x1AFFFFFF),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // ── Priority Selector ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            priorityLabels.forEachIndexed { idx, label ->
+                val sel = idx == selectedPriority
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (sel) priorityColors[idx].copy(alpha = 0.25f) else Color(0x0DFFFFFF))
+                        .border(
+                            1.dp,
+                            if (sel) priorityColors[idx] else Color.Transparent,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .clickable { selectedPriority = idx }
+                        .padding(vertical = 5.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (sel) priorityColors[idx] else Color.Gray,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ── Add Task Input ──
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color(0x1AFFFFFF))
-                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .border(1.dp, priorityColors[selectedPriority].copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 BasicTextField(
                     value = newTaskText,
@@ -535,7 +748,9 @@ fun TasksCard() {
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = {
                         if (newTaskText.isNotBlank()) {
-                            val updated = tasks.toMutableList().also { it.add(TaskItem(text = newTaskText.trim())) }
+                            val updated = tasks.toMutableList().also {
+                                it.add(TaskItem(text = newTaskText.trim(), priority = selectedPriority))
+                            }
                             tasks = updated
                             saveTasks(prefs, updated)
                             newTaskText = ""
@@ -550,12 +765,14 @@ fun TasksCard() {
             Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF00F0FF))
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(priorityColors[selectedPriority])
                     .clickable {
                         if (newTaskText.isNotBlank()) {
-                            val updated = tasks.toMutableList().also { it.add(TaskItem(text = newTaskText.trim())) }
+                            val updated = tasks.toMutableList().also {
+                                it.add(TaskItem(text = newTaskText.trim(), priority = selectedPriority))
+                            }
                             tasks = updated
                             saveTasks(prefs, updated)
                             newTaskText = ""
@@ -563,86 +780,166 @@ fun TasksCard() {
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text("+", color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("+", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Task list — sort: incomplete first, completed at bottom
-        val sortedTasks = remember(tasks) {
-            tasks.sortedBy { it.done }
-        }
-
+        // ── Task List ──
         Column(
-            verticalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 240.dp)
+                .heightIn(max = 280.dp)
                 .then(rememberBouncyOverscrollModifier())
                 .verticalScroll(rememberScrollState())
         ) {
-            sortedTasks.forEach { task ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (task.done) Color(0x06FFFFFF) else Color(0x0DFFFFFF))
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Checkbox(
-                        checked = task.done,
-                        onCheckedChange = { checked ->
-                            val updated = tasks.map {
-                                if (it.id == task.id) it.copy(done = checked) else it
-                            }.toMutableList()
-                            tasks = updated
-                            saveTasks(prefs, updated)
-                        },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = Color(0xFF00F0FF),
-                            uncheckedColor = Color.Gray,
-                            checkmarkColor = Color.Black
-                        ),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = task.text,
-                        color = if (task.done) Color.Gray.copy(alpha = 0.5f) else Color.White,
-                        fontSize = 13.sp,
-                        textDecoration = if (task.done) TextDecoration.LineThrough else null,
-                        modifier = Modifier.weight(1f)
-                    )
-                    // Delete button (larger tap target)
-                    Box(
+            // Active tasks
+            if (activeTasks.isNotEmpty()) {
+                activeTasks.sortedByDescending { it.priority }.forEach { task ->
+                    val pColor = priorityColors.getOrElse(task.priority) { priorityColors[1] }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .clickable {
-                                val updated = tasks.filter { it.id != task.id }.toMutableList()
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0x0DFFFFFF))
+                            .border(1.dp, pColor.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                    ) {
+                        // Priority dot
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(pColor)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Checkbox(
+                            checked = false,
+                            onCheckedChange = {
+                                val updated = tasks.map {
+                                    if (it.id == task.id) it.copy(done = true) else it
+                                }.toMutableList()
                                 tasks = updated
                                 saveTasks(prefs, updated)
                             },
-                        contentAlignment = Alignment.Center
-                    ) {
+                            colors = CheckboxDefaults.colors(
+                                uncheckedColor = pColor.copy(alpha = 0.6f),
+                                checkmarkColor = Color.Black
+                            ),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "✕",
-                            color = Color(0x99FF4444),
-                            fontSize = 14.sp
+                            text = task.text,
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    val updated = tasks.filter { it.id != task.id }.toMutableList()
+                                    tasks = updated
+                                    saveTasks(prefs, updated)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("✕", color = Color(0x66FF4444), fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
+            // Completed section
+            if (completedTasks.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "COMPLETED",
+                        color = Color.Gray.copy(alpha = 0.5f),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "CLEAR ALL",
+                        color = Color(0xFF00F0FF).copy(alpha = 0.5f),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable {
+                                val updated = tasks.filter { !it.done }.toMutableList()
+                                tasks = updated
+                                saveTasks(prefs, updated)
+                            }
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+
+                completedTasks.forEach { task ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0x06FFFFFF))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Checkbox(
+                            checked = true,
+                            onCheckedChange = {
+                                val updated = tasks.map {
+                                    if (it.id == task.id) it.copy(done = false) else it
+                                }.toMutableList()
+                                tasks = updated
+                                saveTasks(prefs, updated)
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF00F0FF).copy(alpha = 0.4f),
+                                checkmarkColor = Color.Black
+                            ),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = task.text,
+                            color = Color.Gray.copy(alpha = 0.4f),
+                            fontSize = 13.sp,
+                            textDecoration = TextDecoration.LineThrough,
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
             }
 
+            // Empty state
             if (tasks.isEmpty()) {
-                Text(
-                    text = "No tasks yet. Add one above!",
-                    color = Color.Gray,
-                    fontSize = 11.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("✅", fontSize = 32.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "All clear! Add your first task above.",
+                        color = Color.Gray,
+                        fontSize = 12.sp
+                    )
+                }
             }
         }
     }
