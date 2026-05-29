@@ -7,6 +7,7 @@ class PreferencesManager(context: Context) {
     
     private val prefs: SharedPreferences = 
         context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+    private val gson = com.google.gson.Gson()
     
     companion object {
         const val PREF_GRID_SIZE = "grid_size"
@@ -85,9 +86,88 @@ class PreferencesManager(context: Context) {
 
     fun isAppLocked(packageName: String): Boolean = getLockedApps().contains(packageName)
 
+    // ─── Hidden Drawer Layers ────────────────────────────────────────
+    private val PREF_HIDDEN_LAYERS = "hidden_drawer_layers"
+
+    fun getHiddenLayers(): Map<String, Set<String>> {
+        val json = prefs.getString(PREF_HIDDEN_LAYERS, null) ?: return emptyMap()
+        val type = object : com.google.gson.reflect.TypeToken<Map<String, Set<String>>>() {}.type
+        return try {
+            gson.fromJson(json, type)
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    fun saveHiddenLayers(layers: Map<String, Set<String>>) {
+        val json = gson.toJson(layers)
+        prefs.edit().putString(PREF_HIDDEN_LAYERS, json).apply()
+    }
+
+    fun createHiddenLayer(name: String) {
+        val layers = getHiddenLayers().toMutableMap()
+        if (!layers.containsKey(name)) {
+            layers[name] = emptySet()
+            saveHiddenLayers(layers)
+        }
+    }
+
+    fun deleteHiddenLayer(name: String) {
+        val layers = getHiddenLayers().toMutableMap()
+        layers.remove(name)
+        saveHiddenLayers(layers)
+        setLayerProtected(name, false)
+    }
+
+    fun addAppToHiddenLayer(layerName: String, packageName: String) {
+        val layers = getHiddenLayers().toMutableMap()
+        val apps = layers[layerName]?.toMutableSet() ?: mutableSetOf()
+        apps.add(packageName)
+        layers[layerName] = apps
+        saveHiddenLayers(layers)
+    }
+
+    fun removeAppFromHiddenLayer(layerName: String, packageName: String) {
+        val layers = getHiddenLayers().toMutableMap()
+        val apps = layers[layerName]?.toMutableSet() ?: return
+        apps.remove(packageName)
+        // Keep empty layers — user can delete them explicitly via long-press
+        layers[layerName] = apps
+        saveHiddenLayers(layers)
+    }
+
+    /** Returns the set of all package names that belong to ANY hidden layer. */
+    fun getAllLayerPackages(): Set<String> {
+        return getHiddenLayers().values.flatten().toSet()
+    }
+
+    // --- Protected Onion Layers Security Settings ---
+    private val PREF_PROTECTED_LAYERS = "protected_onion_layers"
+
+    fun getProtectedLayers(): Set<String> {
+        val set = prefs.getStringSet(PREF_PROTECTED_LAYERS, null)
+        if (set == null) {
+            return setOf("__base__")
+        }
+        return set
+    }
+
+    fun setLayerProtected(layerKey: String, isProtected: Boolean) {
+        val set = getProtectedLayers().toMutableSet()
+        if (isProtected) {
+            set.add(layerKey)
+        } else {
+            set.remove(layerKey)
+        }
+        prefs.edit().putStringSet(PREF_PROTECTED_LAYERS, set).apply()
+    }
+
+    fun isLayerProtected(layerKey: String): Boolean {
+        return getProtectedLayers().contains(layerKey)
+    }
+
     // ─── Folder Support ──────────────────────────────────────────────────────
     private val PREF_FOLDERS = "app_folders"
-    private val gson = com.google.gson.Gson()
 
     fun getFolders(): Map<String, Set<String>> {
         val json = prefs.getString(PREF_FOLDERS, null) ?: return emptyMap()

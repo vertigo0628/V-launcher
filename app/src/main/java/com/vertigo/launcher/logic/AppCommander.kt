@@ -1,5 +1,9 @@
 package com.vertigo.launcher.logic
 
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.util.Log
 import com.vertigo.launcher.utils.ShizukuShell
 
@@ -83,6 +87,74 @@ object AppCommander {
     /** Kill all background processes for an app */
     suspend fun killBackground(packageName: String): ShizukuShell.CommandResult {
         return ShizukuShell.exec("am kill $packageName")
+    }
+
+    /** Force stop all user-installed apps and user-facing system apps (Kill Switch) */
+    suspend fun killAllApps(context: Context): ShizukuShell.CommandResult {
+        Log.d(TAG, "Kill Switch: Gathering packages to stop")
+        val pm = context.packageManager
+        
+        // Exclude critical packages to avoid crashing the system UI, Shizuku, or the launcher itself
+        val excludedPackages = setOf(
+            context.packageName,
+            "rikka.app.shizuku",
+            "rikka.app.shizuku.manager",
+            "com.android.systemui",
+            "android",
+            "com.google.android.inputmethod.latin",
+            "com.android.inputmethod.latin",
+            "com.google.android.providers.media",
+            "com.android.providers.media",
+            "com.android.providers.media.module"
+        )
+        
+        val packagesToKill = mutableSetOf<String>()
+        
+        try {
+            // 1. Get all installed packages
+            val installedPackages = pm.getInstalledPackages(0)
+            for (pkgInfo in installedPackages) {
+                val appInfo = pkgInfo.applicationInfo ?: continue
+                val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                val isSystemUpdate = (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+                
+                // If it's a user app (not system, or updated system app), we can kill it
+                if (!isSystemApp || isSystemUpdate) {
+                    packagesToKill.add(pkgInfo.packageName)
+                }
+            }
+            
+            // 2. Get all launchable packages (including user-facing system apps like YouTube, Chrome, Maps, etc.)
+            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+            val launchableActivities = pm.queryIntentActivities(mainIntent, 0)
+            for (resolveInfo in launchableActivities) {
+                val pkgName = resolveInfo.activityInfo.packageName
+                packagesToKill.add(pkgName)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error querying packages for kill switch", e)
+        }
+        
+        // Apply exclusions
+        val finalPackages = packagesToKill.filter { pkg ->
+            pkg !in excludedPackages && !pkg.contains("shizuku") && !pkg.contains("launcher")
+        }
+        
+        if (finalPackages.isEmpty()) {
+            return ShizukuShell.CommandResult(0, "No packages to kill", "")
+        }
+        
+        Log.d(TAG, "Force stopping ${finalPackages.size} packages via shell loop")
+        
+        // Construct a single shell script command executing force-stop on all packages
+        val sb = StringBuilder()
+        for (pkg in finalPackages) {
+            sb.append("am force-stop ").append(pkg).append("; ")
+        }
+        
+        return ShizukuShell.exec(sb.toString())
     }
 
     /** Get running services for an app */

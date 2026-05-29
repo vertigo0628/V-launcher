@@ -22,6 +22,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.* // Use wildcard used to simplify or list relevant ones
 import androidx.compose.material3.Icon
@@ -47,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
@@ -70,6 +79,7 @@ import androidx.compose.animation.core.*
 import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     flowerApps: List<AppModel>,
@@ -143,8 +153,13 @@ fun HomeScreen(
     onBatchFreeze: () -> Unit = {},
     onBatchUnhide: () -> Unit = {},
     onBatchUnfreeze: () -> Unit = {},
-    onClearSelection: () -> Unit = {}
-) {
+    onClearSelection: () -> Unit = {},
+    hiddenLayers: Map<String, Set<String>> = emptyMap(),
+    // Callback to create/delete layers passed from ViewModel
+    onCreateLayer: (String, Boolean) -> Unit = { _, _ -> },
+    onDeleteLayer: (String) -> Unit = {},
+    // Callback to open layer drawer after PIN verification
+    onEnterLayer: (String) -> Unit = {}) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
@@ -157,21 +172,30 @@ fun HomeScreen(
         }
     }
     
-    // Internal state for the inline search overlay
     var showInlineSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
-    
-    // Gesture Logic Removed: Swipe Up/Down disabled as per request
-    
-    // Internal state for folder view
-    var activeFolder by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var showHiddenDrawer by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var activeFolder by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     
-    // Intercept Back Press to close overlays instead of crashing/resetting everything
+    // --- Onion Drawer Depth Navigation ---
+    // Depth 0 = base hidden apps, Depth 1+ = custom layers (peel inward)
+    var currentDepth by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var showPinDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var pinUnlocked by remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    // BackHandler: peel outward through onion layers
     BackHandler(enabled = true) {
         if (showInlineSearch) {
             showInlineSearch = false
         } else if (showHiddenDrawer) {
-            showHiddenDrawer = false
+            if (currentDepth > 0) {
+                // Peel back one layer
+                currentDepth--
+            } else {
+                // Exit hidden drawer entirely
+                showHiddenDrawer = false
+                currentDepth = 0
+                pinUnlocked = false
+            }
         } else if (activeFolder != null) {
             activeFolder = null
         } else if (showNeuralHub) {
@@ -183,6 +207,8 @@ fun HomeScreen(
             android.util.Log.d("HomeScreen", "Back pressed on clean home screen - ignoring to prevent reset")
         }
     }
+    
+    // Removed duplicate BackHandler — handled by the first BackHandler above
 
     var accumulatedDragY by remember { mutableFloatStateOf(0f) }
 
@@ -481,6 +507,20 @@ fun HomeScreen(
                             ) {
                                 Text("📁 Add to Folder", color = Color.White)
                             }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Onion Layers Management
+                            Button(
+                                onClick = {
+                                    actionType = "MANAGE_ONION_LAYERS"
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                                modifier = Modifier.fillMaxWidth(),
+                                border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.5f))
+                            ) {
+                                Text("🧅 Manage Onion Layers", color = Color(0xFF00F0FF))
+                            }
                         }
                     },
                     dismissButton = {
@@ -492,6 +532,87 @@ fun HomeScreen(
                     },
                     containerColor = Color(0xFF1E293B),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                )
+            }
+        }
+        // Onion Layers Management Dialog
+        if (actionType == "MANAGE_ONION_LAYERS") {
+            val app = appPendingAction
+            if (app != null) {
+                AlertDialog(
+                    onDismissRequest = { 
+                        appPendingAction = null
+                        actionType = null
+                    },
+                    title = { Text("ONION COMPARTMENTS", color = Color(0xFF00F0FF), fontWeight = FontWeight.Black) },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 280.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                text = "Select compartments for ${app.label.uppercase()}:",
+                                color = Color.Gray,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            if (hiddenLayers.isEmpty()) {
+                                Text(
+                                    "No custom hidden layers found. Open Onion Drawer and tap ＋ to create layers first.",
+                                    color = Color.LightGray,
+                                    fontSize = 14.sp
+                                )
+                            } else {
+                                hiddenLayers.forEach { (layerName, pkgs) ->
+                                    val isAppInLayer = pkgs.contains(app.packageName)
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (isAppInLayer) Color(0x1F00F0FF) else Color(0x0AFFFFFF))
+                                            .clickable {
+                                                if (isAppInLayer) {
+                                                    viewModel?.removeAppFromHiddenLayer(layerName, app.packageName)
+                                                } else {
+                                                    viewModel?.addAppToHiddenLayer(layerName, app.packageName)
+                                                }
+                                            }
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        androidx.compose.material3.Checkbox(
+                                            checked = isAppInLayer,
+                                            onCheckedChange = null,
+                                            colors = androidx.compose.material3.CheckboxDefaults.colors(
+                                                checkedColor = Color(0xFF00F0FF),
+                                                uncheckedColor = Color.Gray
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = layerName,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 15.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                appPendingAction = null
+                                actionType = null
+                            }
+                        ) { Text("DONE", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold) }
+                    },
+                    containerColor = Color(0xFF0F172A),
+                    shape = RoundedCornerShape(24.dp)
                 )
             }
         }
@@ -575,9 +696,19 @@ fun HomeScreen(
         )
         val desktopModifier = Modifier
             .blur(blurRadius)
-            .pointerInput(Unit) {
+            .pointerInput(pinUnlocked) {
                 detectTapGestures(
-                    onDoubleTap = { showHiddenDrawer = true }
+                    onDoubleTap = {
+                        val isPinSet = viewModel?.getPreferencesManager()?.isPinSet() ?: false
+                        val isBaseProtected = viewModel?.isOnionLayerProtected(0) ?: true
+                        if (pinUnlocked || !isPinSet || !isBaseProtected) {
+                            pinUnlocked = true
+                            currentDepth = 0
+                            showHiddenDrawer = true
+                        } else {
+                            showPinDialog = true
+                        }
+                    }
                 )
             }
 
@@ -778,7 +909,154 @@ fun HomeScreen(
                 }
         }
         
-        // Hidden App Drawer Overlay
+        // --- Hidden Drawer Onion Layers UI ---
+        var showCreateLayerDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
+        var newLayerNameInput by remember { androidx.compose.runtime.mutableStateOf("") }
+        var newLayerLocked by remember { androidx.compose.runtime.mutableStateOf(true) }
+        // PIN dialog for diving into a protected deeper layer
+        var pendingProtectedDepth by remember { androidx.compose.runtime.mutableIntStateOf(-1) }
+        // Observe protected layers so recomposition happens on toggle
+        val protectedLayersState by viewModel?.protectedLayers?.collectAsState() ?: remember { mutableStateOf(emptySet<String>()) }
+
+        // PIN Dialog side-effect integration
+        if (showPinDialog) {
+            val ctx = LocalContext.current
+            androidx.compose.runtime.DisposableEffect(Unit) {
+                val prefMgr = viewModel?.getPreferencesManager()
+                if (prefMgr != null) {
+                    val dlg = com.vertigo.launcher.ui.PinDialog(
+                        context = ctx,
+                        preferencesManager = prefMgr,
+                        onSuccess = {
+                            pinUnlocked = true
+                            showHiddenDrawer = true
+                            currentDepth = 0
+                            showPinDialog = false
+                        },
+                        onCancel = {
+                            showPinDialog = false
+                        }
+                    )
+                    dlg.show()
+                    onDispose { if (dlg.isShowing) dlg.dismiss() }
+                } else {
+                    showPinDialog = false
+                    onDispose {}
+                }
+            }
+        }
+
+        // PIN dialog for peeling into a protected deeper layer
+        if (pendingProtectedDepth >= 0) {
+            val ctx = LocalContext.current
+            androidx.compose.runtime.DisposableEffect(pendingProtectedDepth) {
+                val prefMgr = viewModel?.getPreferencesManager()
+                if (prefMgr != null) {
+                    val dlg = com.vertigo.launcher.ui.PinDialog(
+                        context = ctx,
+                        preferencesManager = prefMgr,
+                        onSuccess = {
+                            currentDepth = pendingProtectedDepth
+                            pendingProtectedDepth = -1
+                        },
+                        onCancel = {
+                            pendingProtectedDepth = -1
+                        }
+                    )
+                    dlg.show()
+                    onDispose { if (dlg.isShowing) dlg.dismiss() }
+                } else {
+                    pendingProtectedDepth = -1
+                    onDispose {}
+                }
+            }
+        }
+
+        // Dialog to create a new Onion Layer
+        if (showCreateLayerDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showCreateLayerDialog = false; newLayerNameInput = ""; newLayerLocked = true },
+                title = { androidx.compose.material3.Text("NEW COMPARTMENT", color = androidx.compose.ui.graphics.Color(0xFF00F0FF), fontWeight = FontWeight.Black) },
+                text = {
+                    Column {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = newLayerNameInput,
+                            onValueChange = { newLayerNameInput = it },
+                            label = { androidx.compose.material3.Text("Layer name", color = androidx.compose.ui.graphics.Color.Gray) },
+                            singleLine = true,
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = androidx.compose.ui.graphics.Color(0xFF00F0FF),
+                                unfocusedBorderColor = androidx.compose.ui.graphics.Color.Gray,
+                                focusedTextColor = androidx.compose.ui.graphics.Color.White,
+                                unfocusedTextColor = androidx.compose.ui.graphics.Color.White
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { newLayerLocked = !newLayerLocked }
+                                .background(
+                                    if (newLayerLocked) androidx.compose.ui.graphics.Color(0x1A00F0FF)
+                                    else androidx.compose.ui.graphics.Color(0x1AFFFFFF),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                        ) {
+                            androidx.compose.material3.Icon(
+                                imageVector = if (newLayerLocked) Icons.Default.Lock else Icons.Default.Lock,
+                                contentDescription = "Lock",
+                                tint = if (newLayerLocked) androidx.compose.ui.graphics.Color(0xFF00F0FF) else androidx.compose.ui.graphics.Color.Gray,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = if (newLayerLocked) "Locked — PIN required" else "Public — no PIN needed",
+                                color = if (newLayerLocked) androidx.compose.ui.graphics.Color(0xFF00F0FF) else androidx.compose.ui.graphics.Color.Gray,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            androidx.compose.material3.Switch(
+                                checked = newLayerLocked,
+                                onCheckedChange = { newLayerLocked = it },
+                                colors = androidx.compose.material3.SwitchDefaults.colors(
+                                    checkedThumbColor = androidx.compose.ui.graphics.Color(0xFF00F0FF),
+                                    checkedTrackColor = androidx.compose.ui.graphics.Color(0xFF00F0FF).copy(alpha = 0.3f),
+                                    uncheckedThumbColor = androidx.compose.ui.graphics.Color.Gray,
+                                    uncheckedTrackColor = androidx.compose.ui.graphics.Color.Gray.copy(alpha = 0.3f)
+                                )
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.Button(
+                        onClick = {
+                            val name = newLayerNameInput.trim()
+                            if (name.isNotEmpty()) {
+                                onCreateLayer(name, newLayerLocked)
+                                newLayerNameInput = ""
+                                newLayerLocked = true
+                                showCreateLayerDialog = false
+                                // Immediately peel into this newly created layer!
+                                currentDepth++
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF))
+                    ) { androidx.compose.material3.Text("CREATE", color = androidx.compose.ui.graphics.Color.Black, fontWeight = FontWeight.Bold) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { showCreateLayerDialog = false; newLayerNameInput = ""; newLayerLocked = true }) {
+                        androidx.compose.material3.Text("CANCEL", color = androidx.compose.ui.graphics.Color.Gray)
+                    }
+                },
+                containerColor = androidx.compose.ui.graphics.Color(0xFF0F172A),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+            )
+        }
+
+        // Hidden Drawer animated wrapper
         AnimatedVisibility(
             visible = showHiddenDrawer,
             enter = slideInVertically(
@@ -790,42 +1068,243 @@ fun HomeScreen(
                 animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
             ) + fadeOut(animationSpec = tween(300))
         ) {
-                AppDrawer(
-                    apps = hiddenApps,
-                    onAppClick = { app ->
-                        if (lockedApps.contains(app.packageName)) {
-                            lockedAppPending = app
-                        } else {
-                            onAppClick(app)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color(0xFF0B0F19))
+            ) {
+                val layerApps = viewModel?.getOnionLayerApps(currentDepth) ?: emptyList()
+                val layerName = viewModel?.getOnionLayerName(currentDepth) ?: "Hidden Apps"
+                val maxDepth = viewModel?.getMaxOnionDepth() ?: 0
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.safeDrawing)
+                        .pointerInput(currentDepth, maxDepth) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    if (currentDepth < maxDepth) {
+                                        val nextDepth = currentDepth + 1
+                                        val isNextProtected = viewModel?.isOnionLayerProtected(nextDepth) ?: false
+                                        val isPinSet = viewModel?.getPreferencesManager()?.isPinSet() ?: false
+                                        if (isNextProtected && isPinSet) {
+                                            pendingProtectedDepth = nextDepth
+                                        } else {
+                                            currentDepth = nextDepth
+                                        }
+                                    } else {
+                                        showCreateLayerDialog = true
+                                    }
+                                }
+                            )
                         }
-                    },
-                    notificationCounts = notificationCounts,
-                    onClose = { showHiddenDrawer = false },
-                    onAppLongClick = { app ->
-                        appPendingAction = app
-                        actionType = "DRAWER_OPTIONS"
-                    },
-                    folders = emptyMap(),
-                    onFolderClick = { },
-                    onDeleteFolder = { },
-                    viewModel = viewModel,
-                    showLabels = showLabels,
-                    showBadges = showBadges,
-                    isSelectionMode = isSelectionMode,
-                    selectedPackages = selectedPackages,
-                    onToggleSelection = onToggleSelection,
-                    onEnterSelectionMode = onEnterSelectionMode,
-                    onBatchHide = onBatchHide,
-                    onBatchFreeze = onBatchFreeze,
-                    onBatchUnhide = onBatchUnhide,
-                    onBatchUnfreeze = onBatchUnfreeze,
-                    onBatchUninstall = { viewModel?.batchUninstallApps() },
-                    onBatchAddToGrid = { viewModel?.batchAddToGrid() },
-                    onClearSelection = onClearSelection,
-                    shizukuState = shizukuState
-                )
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(androidx.compose.ui.graphics.Color(0x3300F0FF))
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Back Button (Peel Outward)
+                        androidx.compose.material3.IconButton(
+                            onClick = {
+                                if (currentDepth > 0) {
+                                    currentDepth--
+                                } else {
+                                    showHiddenDrawer = false
+                                    pinUnlocked = false
+                                }
+                            },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(androidx.compose.ui.graphics.Color(0x1DFFFFFF), CircleShape)
+                        ) {
+                            androidx.compose.material3.Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = androidx.compose.ui.graphics.Color(0xFF00F0FF)
+                            )
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = layerName.uppercase(),
+                                color = androidx.compose.ui.graphics.Color(0xFF00F0FF),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp
+                            )
+                            val isCurrentProtected = viewModel?.isOnionLayerProtected(currentDepth) ?: false
+                            Text(
+                                text = "Layer $currentDepth of $maxDepth | ${layerApps.size} apps" +
+                                    if (isCurrentProtected) " 🔒 secured" else " 🔓 public",
+                                color = androidx.compose.ui.graphics.Color.Gray,
+                                fontSize = 12.sp
+                            )
+                        }
+                        // Lock/Unlock toggle
+                        val isCurrentLayerProtected = viewModel?.isOnionLayerProtected(currentDepth) ?: false
+                        androidx.compose.material3.IconButton(
+                            onClick = {
+                                viewModel?.setOnionLayerProtected(currentDepth, !isCurrentLayerProtected)
+                            },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    if (isCurrentLayerProtected) androidx.compose.ui.graphics.Color(0x1A00F0FF)
+                                    else androidx.compose.ui.graphics.Color(0x1AFFFFFF),
+                                    CircleShape
+                                )
+                        ) {
+                            androidx.compose.material3.Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = if (isCurrentLayerProtected) "Locked" else "Unlocked",
+                                tint = if (isCurrentLayerProtected) androidx.compose.ui.graphics.Color(0xFF00F0FF)
+                                    else androidx.compose.ui.graphics.Color.Gray
+                            )
+                        }
+                        Spacer(Modifier.width(4.dp))
+                        
+                        // Delete Compartment Action (only for custom layers > 0)
+                        if (currentDepth > 0) {
+                            var showDeleteConfirm by remember { androidx.compose.runtime.mutableStateOf(false) }
+                            if (showDeleteConfirm) {
+                                androidx.compose.material3.AlertDialog(
+                                    onDismissRequest = { showDeleteConfirm = false },
+                                    title = { androidx.compose.material3.Text("DELETE COMPARTMENT?", color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold) },
+                                    text = { androidx.compose.material3.Text("Do you want to permanently delete this compartment? The apps will be unhidden.", color = androidx.compose.ui.graphics.Color.Gray) },
+                                    confirmButton = {
+                                        androidx.compose.material3.TextButton(
+                                            onClick = {
+                                                val layerKey = viewModel?.getOnionLayerKey(currentDepth)
+                                                if (layerKey != null) {
+                                                    onDeleteLayer(layerKey)
+                                                    showDeleteConfirm = false
+                                                    currentDepth--
+                                                }
+                                            }
+                                        ) { androidx.compose.material3.Text("DELETE", color = androidx.compose.ui.graphics.Color(0xFFFF006E), fontWeight = FontWeight.Bold) }
+                                    },
+                                    dismissButton = {
+                                        androidx.compose.material3.TextButton(onClick = { showDeleteConfirm = false }) {
+                                            androidx.compose.material3.Text("CANCEL", color = androidx.compose.ui.graphics.Color.Gray)
+                                        }
+                                    },
+                                    containerColor = androidx.compose.ui.graphics.Color(0xFF0F172A),
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+                                )
+                            }
+
+                            androidx.compose.material3.TextButton(
+                                onClick = { showDeleteConfirm = true },
+                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF006E))
+                            ) {
+                                Text("DELETE", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    androidx.compose.material3.Divider(
+                        color = androidx.compose.ui.graphics.Color(0xFF00F0FF).copy(alpha = 0.3f),
+                        thickness = 1.dp
+                    )
+
+                    if (layerApps.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("🧅", fontSize = 48.sp)
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    "No apps inside this compartment",
+                                    color = androidx.compose.ui.graphics.Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Long-press an app in the main drawer and choose 'Manage Onion Layers' to add it here, or double-tap empty space to peel deeper.",
+                                    color = androidx.compose.ui.graphics.Color.Gray,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(horizontal = 24.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 72.dp),
+                            contentPadding = PaddingValues(16.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(layerApps, key = { it.packageName }) { app ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .padding(8.dp)
+                                        .combinedClickable(
+                                            onClick = {
+                                                if (lockedApps.contains(app.packageName)) {
+                                                    lockedAppPending = app
+                                                } else {
+                                                    onAppClick(app)
+                                                }
+                                            },
+                                            onLongClick = {
+                                                appPendingAction = app
+                                                actionType = "DRAWER_OPTIONS"
+                                            }
+                                        )
+                                ) {
+                                    Box(contentAlignment = Alignment.TopEnd) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(56.dp)
+                                                .clip(CircleShape)
+                                                .background(androidx.compose.ui.graphics.Color(0x3300F0FF))
+                                                .border(1.dp, androidx.compose.ui.graphics.Color(0xFF00F0FF).copy(alpha = 0.3f), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            AndroidView(
+                                                factory = { ctx ->
+                                                    android.widget.ImageView(ctx).apply {
+                                                        setImageDrawable(app.icon)
+                                                        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                                                    }
+                                                },
+                                                modifier = Modifier.size(40.dp)
+                                            )
+                                        }
+                                        val count = if (showBadges) (notificationCounts[app.packageName] ?: 0) else 0
+                                        if (count > 0) {
+                                            NotificationDot(count = count)
+                                        }
+                                    }
+                                    if (showLabels) {
+                                        Text(
+                                            text = app.label,
+                                            color = androidx.compose.ui.graphics.Color.White,
+                                            fontSize = 12.sp,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-        
+
         // App Drawer Overlay
         AnimatedVisibility(
             visible = showDrawer,
@@ -1329,12 +1808,12 @@ fun AppDrawer(
     shizukuState: com.vertigo.launcher.utils.ShizukuSetup.ShizukuState = com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.UNAVAILABLE
 ) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0x66000000)) // Translucent glass scrim
-            .clickable { onClose() }
-            .padding(top = 40.dp)
-    ) {
+    modifier = Modifier
+        .fillMaxSize()
+        .background(Color(0x66000000)) // Translucent glass scrim
+        .clickable { onClose() }
+        .systemBarsPadding()
+) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

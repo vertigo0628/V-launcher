@@ -120,6 +120,8 @@ class MainActivity : AppCompatActivity() {
             val showLabels by viewModel.showLabels.collectAsState()
             val showBadges by viewModel.showBadges.collectAsState()
             
+            val hiddenLayers by viewModel.hiddenLayers.collectAsState()
+            
             // Multi-Select Flows
             val isSelectionMode by viewModel.isSelectionMode.collectAsState()
             val selectedPackages by viewModel.selectedPackages.collectAsState()
@@ -197,6 +199,9 @@ class MainActivity : AppCompatActivity() {
                     onClearShizukuResult = { viewModel.clearShizukuResult() },
                     showLabels = showLabels,
                     showBadges = showBadges,
+                    hiddenLayers = hiddenLayers,
+                    onCreateLayer = { name, isProtected -> viewModel.createHiddenLayer(name, isProtected) },
+                    onDeleteLayer = { viewModel.deleteHiddenLayer(it) },
                     
                     // Batch Callbacks
                     isSelectionMode = isSelectionMode,

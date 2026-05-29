@@ -116,6 +116,11 @@
             app:key="reignite_services"
             app:title="🚀 RE-IGNITE SERVICES"
             app:summary="Fix Music &amp; Boost after package change" />
+
+        <Preference
+            app:key="system_kill_switch"
+            app:title="💀 System Kill Switch"
+            app:summary="Force stop all apps &amp; activities (Soft Reboot)" />
     </PreferenceCategory>
 
 </PreferenceScreen>

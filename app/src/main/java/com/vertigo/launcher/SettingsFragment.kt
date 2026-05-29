@@ -33,6 +33,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setupAiBrainPreference()
         setupShizukuPreferences()
         setupReignitePreference()
+        setupKillSwitchPreference()
     }
 
     private fun setupReignitePreference() {
@@ -94,6 +95,34 @@ class SettingsFragment : PreferenceFragmentCompat() {
         
         findPreference<Preference>("shizuku_frozen_manager")?.setOnPreferenceClickListener {
             startActivity(Intent(requireContext(), FrozenManagerActivity::class.java))
+            true
+        }
+    }
+
+    private fun setupKillSwitchPreference() {
+        findPreference<Preference>("system_kill_switch")?.setOnPreferenceClickListener {
+            if (!com.vertigo.launcher.utils.ShizukuShell.hasPermission()) {
+                com.vertigo.launcher.utils.ShizukuSetup.requestPermissionIfNeeded()
+                Toast.makeText(context, "Shizuku authorization required", Toast.LENGTH_SHORT).show()
+                return@setOnPreferenceClickListener true
+            }
+
+            android.app.AlertDialog.Builder(requireContext())
+                .setTitle("⚠️ Activate Kill Switch?")
+                .setMessage("This will forcefully stop all background and user applications, freeing up memory like a reboot. Unsaved progress will be lost.")
+                .setPositiveButton("Purge System") { _, _ ->
+                    lifecycleScope.launch {
+                        Toast.makeText(context, "Executing System Kill Switch...", Toast.LENGTH_LONG).show()
+                        val result = AppCommander.killAllApps(requireContext())
+                        if (result.isSuccess) {
+                            Toast.makeText(context, "💀 System Purged successfully", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Execution failed: ${result.stderr}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
             true
         }
     }

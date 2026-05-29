@@ -22,6 +22,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import android.provider.Settings
 import com.vertigo.launcher.service.VLauncherAccessibilityService
 import kotlinx.coroutines.launch
@@ -49,6 +51,7 @@ fun NeuralHub(
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var showKillSwitchConfirmation by remember { mutableStateOf(false) }
     
     Box(
         modifier = Modifier
@@ -222,23 +225,128 @@ fun NeuralHub(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Shizuku Power Actions (Boost)
-            if (shizukuState == com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED) {
-                Button(
-                    onClick = {
+            // Shizuku Power Actions (Boost & Kill Switch)
+            val isShizukuAuthorized = shizukuState == com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED
+            
+            Button(
+                onClick = {
+                    if (isShizukuAuthorized) {
                         scope.launch {
                             com.vertigo.launcher.logic.AppCommander.trimMemory()
                             android.widget.Toast.makeText(context, "🚀 Neural Boost Activated", android.widget.Toast.LENGTH_SHORT).show()
                         }
+                    } else {
+                        com.vertigo.launcher.utils.ShizukuSetup.requestPermissionIfNeeded()
+                        android.widget.Toast.makeText(context, "Please authorize Shizuku to run Boost", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isShizukuAuthorized) Color(0xFF00F0FF).copy(alpha = 0.2f) else Color.Gray.copy(alpha = 0.1f)
+                ),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp, 
+                    if (isShizukuAuthorized) Color(0xFF00F0FF) else Color.Gray.copy(alpha = 0.3f)
+                )
+            ) {
+                Text(
+                    text = "🚀 NEURAL BOOST", 
+                    color = if (isShizukuAuthorized) Color(0xFF00F0FF) else Color.Gray, 
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Button(
+                onClick = {
+                    if (isShizukuAuthorized) {
+                        showKillSwitchConfirmation = true
+                    } else {
+                        com.vertigo.launcher.utils.ShizukuSetup.requestPermissionIfNeeded()
+                        android.widget.Toast.makeText(context, "Please authorize Shizuku to run Kill Switch", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isShizukuAuthorized) Color(0xFFFF003C).copy(alpha = 0.2f) else Color.Gray.copy(alpha = 0.1f)
+                ),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp, 
+                    if (isShizukuAuthorized) Color(0xFFFF003C) else Color.Gray.copy(alpha = 0.3f)
+                )
+            ) {
+                Text(
+                    text = "💀 SYSTEM KILL SWITCH", 
+                    color = if (isShizukuAuthorized) Color(0xFFFF003C) else Color.Gray, 
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            if (!isShizukuAuthorized) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "🔒 System actions require Shizuku setup",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (showKillSwitchConfirmation) {
+                AlertDialog(
+                    onDismissRequest = { showKillSwitchConfirmation = false },
+                    title = {
+                        Text(
+                            text = "⚠️ ACTIVATE KILL SWITCH?",
+                            color = Color(0xFFFF003C),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            letterSpacing = 1.sp
+                        )
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF).copy(alpha = 0.2f)),
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F0FF))
-                ) {
-                    Text("🚀 NEURAL BOOST", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.height(24.dp))
+                    text = {
+                        Text(
+                            text = "This will forcefully stop all background and user applications, freeing up memory like a reboot. Unsaved app progress will be lost.",
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 14.sp
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showKillSwitchConfirmation = false
+                                scope.launch {
+                                    android.widget.Toast.makeText(context, "Executing System Kill Switch...", android.widget.Toast.LENGTH_LONG).show()
+                                    val result = com.vertigo.launcher.logic.AppCommander.killAllApps(context)
+                                    if (result.isSuccess) {
+                                        android.widget.Toast.makeText(context, "💀 System Purged successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Execution failed: ${result.stderr}", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF003C))
+                        ) {
+                            Text("PURGE SYSTEM", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { showKillSwitchConfirmation = false }
+                        ) {
+                            Text("CANCEL", color = Color.White.copy(alpha = 0.6f))
+                        }
+                    },
+                    containerColor = Color(0xFF1E1E2E),
+                    textContentColor = Color.White,
+                    titleContentColor = Color(0xFFFF003C),
+                    shape = RoundedCornerShape(24.dp)
+                )
             }
 
             // Mini Apps Panel

@@ -55,7 +55,7 @@ fun PrivacyShieldPrompt(
     LaunchedEffect(Unit) {
         launchBiometricPrompt(
             context = context,
-            appName = app.label,
+            title = "Unlock ${app.label}",
             onSuccess = onUnlocked,
             onFail = onDismiss
         )
@@ -136,9 +136,10 @@ fun PrivacyShieldPrompt(
 /**
  * Helper to launch Android BiometricPrompt from a Composable context.
  */
-private fun launchBiometricPrompt(
+internal fun launchBiometricPrompt(
     context: Context,
-    appName: String,
+    title: String,
+    subtitle: String = "Use biometrics or device credential to continue",
     onSuccess: () -> Unit,
     onFail: () -> Unit
 ) {
@@ -177,8 +178,8 @@ private fun launchBiometricPrompt(
     }
 
     val promptInfo = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Unlock $appName")
-        .setSubtitle("Use biometrics or device credential to continue")
+        .setTitle(title)
+        .setSubtitle(subtitle)
         .setAllowedAuthenticators(
             BiometricManager.Authenticators.BIOMETRIC_WEAK or
             BiometricManager.Authenticators.DEVICE_CREDENTIAL

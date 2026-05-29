@@ -119,8 +119,58 @@ class PinDialog(
                 setOnClickListener { onConfirmClicked() }
             }
             buttonRow.addView(confirmBtn)
+
+            // Biometric button (if supported)
+            val biometricManager = androidx.biometric.BiometricManager.from(context)
+            val canAuth = biometricManager.canAuthenticate(
+                androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+            if (canAuth == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS && preferencesManager.isPinSet()) {
+                val bioBtn = TextView(context).apply {
+                    text = "Fingerprint"
+                    textSize = 16f
+                    setTextColor(0xFFAC00FF.toInt()) // Neon purple
+                    setPadding(32, 16, 32, 16)
+                    setOnClickListener { triggerBiometricPrompt() }
+                }
+                buttonRow.addView(android.view.View(context), LinearLayout.LayoutParams(48, 1))
+                buttonRow.addView(bioBtn)
+            }
             
             addView(buttonRow)
+        }
+    }
+
+    private fun triggerBiometricPrompt() {
+        val activity = context as? androidx.fragment.app.FragmentActivity ?: return
+        val executor = androidx.core.content.ContextCompat.getMainExecutor(context)
+        val callback = object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                dismiss()
+                onSuccess()
+            }
+        }
+        val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Unlock V-Launcher")
+            .setSubtitle("Confirm your fingerprint or device credentials")
+            .setAllowedAuthenticators(
+                androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+            .build()
+        androidx.biometric.BiometricPrompt(activity, executor, callback).authenticate(promptInfo)
+    }
+
+    override fun show() {
+        super.show()
+        val biometricManager = androidx.biometric.BiometricManager.from(context)
+        val canAuth = biometricManager.canAuthenticate(
+            androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
+            androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        )
+        if (canAuth == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS && preferencesManager.isPinSet()) {
+            triggerBiometricPrompt()
         }
     }
     

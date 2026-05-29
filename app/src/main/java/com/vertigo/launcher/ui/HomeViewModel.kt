@@ -95,6 +95,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AppRepository(application)
     private val flowerGridManager = com.vertigo.launcher.utils.FlowerGridManager(application)
     private val preferencesManager = com.vertigo.launcher.utils.PreferencesManager(application)
+    // Expose PreferencesManager for external usage (e.g., PIN verification)
+    fun getPreferencesManager(): com.vertigo.launcher.utils.PreferencesManager = preferencesManager
     private val launcherApps = application.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
     private val voiceManager = VoiceManager(application)
     private val searchManager = com.vertigo.launcher.utils.SearchManager(application)
@@ -134,6 +136,110 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val hiddenAppsList: StateFlow<List<AppModel>> = _hiddenAppsList.asStateFlow()
     
     private val _flowerApps = MutableStateFlow<List<AppModel>>(emptyList())
+    
+    // ─── Hidden Layer State ────────────────────────────────────────────────────────
+    private val _hiddenLayers = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+    val hiddenLayers: StateFlow<Map<String, Set<String>>> = _hiddenLayers.asStateFlow()
+
+    private val _protectedLayers = MutableStateFlow<Set<String>>(emptySet())
+    val protectedLayers: StateFlow<Set<String>> = _protectedLayers.asStateFlow()
+
+    init {
+        // Load existing hidden layers on ViewModel init
+        refreshHiddenLayers()
+        _protectedLayers.value = preferencesManager.getProtectedLayers()
+    }
+
+    /** Refresh hidden layers from PreferencesManager */
+    fun refreshHiddenLayers() {
+        _hiddenLayers.value = preferencesManager.getHiddenLayers()
+    }
+
+    /** Create a new hidden layer */
+    fun createHiddenLayer(name: String, isProtected: Boolean = true) {
+        preferencesManager.createHiddenLayer(name)
+        preferencesManager.setLayerProtected(name, isProtected)
+        refreshHiddenLayers()
+        _protectedLayers.value = preferencesManager.getProtectedLayers()
+    }
+
+    /** Delete an existing hidden layer */
+    fun deleteHiddenLayer(name: String) {
+        preferencesManager.deleteHiddenLayer(name)
+        refreshHiddenLayers()
+        _protectedLayers.value = preferencesManager.getProtectedLayers()
+    }
+
+    /** Add an app to a hidden layer — also hides it from the main drawer automatically */
+    fun addAppToHiddenLayer(layerName: String, packageName: String) {
+        preferencesManager.addAppToHiddenLayer(layerName, packageName)
+        // Ensure the app is also hidden from the main drawer
+        if (!preferencesManager.isAppHidden(packageName)) {
+            preferencesManager.hideApp(packageName)
+            loadApps() // Refresh main list
+        }
+        refreshHiddenLayers()
+    }
+
+    /** Remove an app from a hidden layer — unhides from drawer if no longer in any layer */
+    fun removeAppFromHiddenLayer(layerName: String, packageName: String) {
+        preferencesManager.removeAppFromHiddenLayer(layerName, packageName)
+        refreshHiddenLayers()
+        // If the app is no longer in ANY layer, automatically unhide it
+        if (!preferencesManager.getAllLayerPackages().contains(packageName)) {
+            preferencesManager.unhideApp(packageName)
+            loadApps()
+        }
+    }
+
+    /** Get the full unfiltered app list (including hidden) for layer content resolution */
+    fun getFullAppList(): List<AppModel> = cachedFullApps ?: emptyList()
+
+    // ─── Onion Depth Navigation ─────────────────────────────────────────────
+    // Depth 0 = base hidden apps (from hidden_apps pref)
+    // Depth 1 = first entry in hiddenLayers map
+    // Depth 2 = second entry, etc.
+
+    /** Total number of onion depths (0 = base + N custom layers) */
+    fun getMaxOnionDepth(): Int = _hiddenLayers.value.size
+
+    /** Get the display name for a given depth */
+    fun getOnionLayerName(depth: Int): String {
+        if (depth == 0) return "Hidden Apps"
+        val entries = _hiddenLayers.value.entries.toList()
+        val idx = depth - 1
+        return if (idx < entries.size) entries[idx].key else "Layer $depth"
+    }
+
+    /** Get resolved AppModel list for a given depth */
+    fun getOnionLayerApps(depth: Int): List<AppModel> {
+        if (depth == 0) return _hiddenAppsList.value
+        val entries = _hiddenLayers.value.entries.toList()
+        val idx = depth - 1
+        if (idx >= entries.size) return emptyList()
+        val packages = entries[idx].value
+        return getFullAppList().filter { packages.contains(it.packageName) }
+    }
+
+    /** Get the internal layer name key for a given depth (used for CRUD) */
+    fun getOnionLayerKey(depth: Int): String? {
+        if (depth == 0) return "__base__"
+        val entries = _hiddenLayers.value.entries.toList()
+        val idx = depth - 1
+        return if (idx < entries.size) entries[idx].key else null
+    }
+
+    fun isOnionLayerProtected(depth: Int): Boolean {
+        val key = getOnionLayerKey(depth) ?: return false
+        return _protectedLayers.value.contains(key)
+    }
+
+    fun setOnionLayerProtected(depth: Int, isProtected: Boolean) {
+        val key = getOnionLayerKey(depth) ?: return
+        preferencesManager.setLayerProtected(key, isProtected)
+        _protectedLayers.value = preferencesManager.getProtectedLayers()
+    }
+
     val flowerApps: StateFlow<List<AppModel>> = _flowerApps.asStateFlow()
     
     private val _selectedCategory = MutableStateFlow<AppCategory?>(null)
