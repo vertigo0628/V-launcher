@@ -41,6 +41,9 @@ import java.util.Locale
 import com.vertigo.launcher.ui.HomeViewModel
 import com.vertigo.launcher.utils.rememberBouncyOverscrollModifier
 import coil.compose.AsyncImage
+import coil.ImageLoader
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
 import android.content.Intent
 import android.provider.CalendarContract
 import androidx.compose.ui.window.Dialog
@@ -128,6 +131,24 @@ fun DidYouKnowSection(
     var selectedFact by remember { mutableStateOf<com.vertigo.launcher.logic.WikiInsightItem?>(null) }
     val prefs by viewModel?.insightPrefs?.collectAsState() ?: mutableStateOf(emptyMap())
 
+    val context = LocalContext.current
+    val imageLoader = remember(context) {
+        ImageLoader.Builder(context)
+            .memoryCache {
+                MemoryCache.Builder(context)
+                    .maxSizePercent(0.25)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(context.cacheDir.resolve("image_cache"))
+                    .maxSizePercent(0.05)
+                    .build()
+            }
+            .respectCacheHeaders(false) // ignore server "no-cache" headers to keep images offline
+            .build()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -208,6 +229,7 @@ fun DidYouKnowSection(
                             Spacer(modifier = Modifier.width(6.dp))
                             AsyncImage(
                                 model = insight.imageUrl,
+                                imageLoader = imageLoader,
                                 contentDescription = "Article image",
                                 modifier = Modifier
                                     .size(24.dp)
@@ -260,6 +282,7 @@ fun DidYouKnowSection(
                     if (fact.imageUrl != null) {
                         AsyncImage(
                             model = fact.imageUrl,
+                            imageLoader = imageLoader,
                             contentDescription = fact.pageTitle ?: "Historical Image",
                             modifier = Modifier
                                 .fillMaxWidth()
