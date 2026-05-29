@@ -40,6 +40,7 @@ import java.util.Date
 import java.util.Locale
 import com.vertigo.launcher.ui.HomeViewModel
 import com.vertigo.launcher.utils.rememberBouncyOverscrollModifier
+import coil.compose.AsyncImage
 import android.content.Intent
 import android.provider.CalendarContract
 import androidx.compose.ui.window.Dialog
@@ -119,11 +120,12 @@ fun MiniAppsPanel(modifier: Modifier = Modifier, viewModel: HomeViewModel? = nul
 @Composable
 fun DidYouKnowSection(
     holiday: String?,
-    insights: List<String>,
+    insights: List<com.vertigo.launcher.logic.WikiInsightItem>,
     cosmic: String?,
     viewModel: HomeViewModel? = null
 ) {
     var showSettings by remember { mutableStateOf(false) }
+    var selectedFact by remember { mutableStateOf<com.vertigo.launcher.logic.WikiInsightItem?>(null) }
     val prefs by viewModel?.insightPrefs?.collectAsState() ?: mutableStateOf(emptyMap())
 
     Column(
@@ -185,8 +187,36 @@ fun DidYouKnowSection(
 
             if (insights.isNotEmpty()) {
                 insights.forEach { insight ->
-                    BulletPoint(text = insight)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { selectedFact = insight }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text("• ", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = insight.text,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                        if (insight.imageUrl != null) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            AsyncImage(
+                                model = insight.imageUrl,
+                                contentDescription = "Article image",
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color(0x1AFFFFFF))
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
             } else {
                 Text("Scanning historical archives...", color = Color.Gray, fontSize = 10.sp)
@@ -200,6 +230,71 @@ fun DidYouKnowSection(
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold
                 )
+            }
+        }
+    }
+
+    // ── Fact Detail Dialog with Wikipedia image & extract summary ──
+    selectedFact?.let { fact ->
+        Dialog(onDismissRequest = { selectedFact = null }) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFF0F172A),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.2f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "HISTORICAL INSIGHT",
+                        color = Color(0xFF00F0FF),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp
+                    )
+
+                    if (fact.imageUrl != null) {
+                        AsyncImage(
+                            model = fact.imageUrl,
+                            contentDescription = fact.pageTitle ?: "Historical Image",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0x1AFFFFFF)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    }
+
+                    Text(
+                        text = fact.pageTitle ?: "Details",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black
+                    )
+
+                    Text(
+                        text = fact.extract ?: fact.text,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { selectedFact = null }) {
+                            Text("DISMISS", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
     }
@@ -228,19 +323,6 @@ fun CategoryToggle(label: String, enabled: Boolean, onToggle: () -> Unit) {
                 .size(12.dp)
                 .clip(CircleShape)
                 .background(if (enabled) Color(0xFF00F0FF) else Color.DarkGray)
-        )
-    }
-}
-
-@Composable
-fun BulletPoint(text: String) {
-    Row {
-        Text("• ", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
-        Text(
-            text = text,
-            color = Color.White.copy(alpha = 0.9f),
-            fontSize = 11.sp,
-            lineHeight = 16.sp
         )
     }
 }

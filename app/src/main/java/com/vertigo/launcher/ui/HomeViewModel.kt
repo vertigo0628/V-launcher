@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.collect
 import com.vertigo.launcher.logic.VoiceManager
+import com.vertigo.launcher.logic.WikiInsightItem
 import com.vertigo.launcher.data.WeatherRepository
 import android.location.Location
 import android.location.LocationManager
@@ -273,8 +274,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _neuralHubState = MutableStateFlow(NeuralHubState())
     val neuralHubState: StateFlow<NeuralHubState> = _neuralHubState.asStateFlow()
 
-    private val _dailyInsight = MutableStateFlow<List<String>>(emptyList())
-    val dailyInsight: StateFlow<List<String>> = _dailyInsight.asStateFlow()
+    private val _dailyInsight = MutableStateFlow<List<WikiInsightItem>>(emptyList())
+    val dailyInsight: StateFlow<List<WikiInsightItem>> = _dailyInsight.asStateFlow()
 
     private val _currentHoliday = MutableStateFlow<String?>(null)
     val currentHoliday: StateFlow<String?> = _currentHoliday.asStateFlow()

@@ -57,3 +57,10 @@ data class WikiTitles(
 data class WikiThumbnail(
     val source: String
 )
+
+data class WikiInsightItem(
+    val text: String,
+    val imageUrl: String? = null,
+    val pageTitle: String? = null,
+    val extract: String? = null
+)

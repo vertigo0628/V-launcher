@@ -6,6 +6,8 @@ import com.vertigo.launcher.logic.HolidayApi
 import com.vertigo.launcher.logic.PublicHoliday
 import com.vertigo.launcher.logic.WikipediaApi
 import com.vertigo.launcher.logic.WikipediaResponse
+import com.vertigo.launcher.logic.WikiInsightItem
+import com.vertigo.launcher.logic.WikiEvent
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -67,7 +69,7 @@ class NeuralInsightRepository(private val context: Context) {
         holidays.find { it.date == today }?.name
     }
 
-    suspend fun getDailyInsights(interests: Map<String, Boolean>): List<String> = withContext(Dispatchers.IO) {
+    suspend fun getDailyInsights(interests: Map<String, Boolean>): List<WikiInsightItem> = withContext(Dispatchers.IO) {
         val todayKey = SimpleDateFormat("MM_dd", Locale.getDefault()).format(Date())
         val cacheKey = "wiki_cache_$todayKey"
         
@@ -98,7 +100,7 @@ class NeuralInsightRepository(private val context: Context) {
         }
 
         if (finalResponse == null) {
-            return@withContext listOf("Neural Link Error: Check your network connection.")
+            return@withContext listOf(WikiInsightItem("Neural Link Error: Check your network connection."))
         }
 
         // 4. Process and Filter the response (Cached or Fresh)
@@ -106,7 +108,7 @@ class NeuralInsightRepository(private val context: Context) {
                        (finalResponse.events ?: emptyList()) + 
                        (finalResponse.births ?: emptyList())
 
-        val filteredInsights = mutableListOf<String>()
+        val filteredInsights = mutableListOf<WikiInsightItem>()
         
         // Keyword Maps for the Neural Filter
         val keywords = mapOf(
@@ -116,6 +118,18 @@ class NeuralInsightRepository(private val context: Context) {
             "Innovators" to listOf("inventor", "scientist", "engineer", "founder", "pioneer", "physicist", "chemist"),
             "History" to listOf("war", "treaty", "king", "queen", "president", "empire", "battle", "independence", "signed")
         )
+
+        // Helper to construct WikiInsightItem from WikiEvent
+        fun mapToInsight(event: WikiEvent): WikiInsightItem {
+            val textStr = "In ${event.year ?: ""}: ${event.text}"
+            val firstPage = event.pages?.find { it.thumbnail?.source != null } ?: event.pages?.firstOrNull()
+            return WikiInsightItem(
+                text = textStr,
+                imageUrl = firstPage?.thumbnail?.source,
+                pageTitle = firstPage?.titles?.normalized,
+                extract = firstPage?.extract
+            )
+        }
 
         // Dynamic Filtering
         for (item in allEvents) {
@@ -135,15 +149,18 @@ class NeuralInsightRepository(private val context: Context) {
             }
 
             if (matchesAnyActivePref) {
-                filteredInsights.add("In ${item.year ?: ""}: ${item.text}")
+                filteredInsights.add(mapToInsight(item))
             }
         }
 
         // Fallback: If filter is too strict, just show 2-3 significant items
         if (filteredInsights.size < 2) {
-            finalResponse.selected?.take(3)?.forEach { 
-                val entry = "In ${it.year ?: ""}: ${it.text}"
-                if (!filteredInsights.contains(entry)) filteredInsights.add(entry)
+            finalResponse.selected?.take(3)?.forEach { item ->
+                val textStr = "In ${item.year ?: ""}: ${item.text}"
+                val alreadyAdded = filteredInsights.any { it.text == textStr }
+                if (!alreadyAdded) {
+                    filteredInsights.add(mapToInsight(item))
+                }
             }
         }
 
