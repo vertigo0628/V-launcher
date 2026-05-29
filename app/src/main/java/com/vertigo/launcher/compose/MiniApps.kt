@@ -41,9 +41,11 @@ import java.util.Locale
 import com.vertigo.launcher.ui.HomeViewModel
 import com.vertigo.launcher.utils.rememberBouncyOverscrollModifier
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import coil.ImageLoader
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import okhttp3.OkHttpClient
 import android.content.Intent
 import android.provider.CalendarContract
 import androidx.compose.ui.window.Dialog
@@ -133,7 +135,22 @@ fun DidYouKnowSection(
 
     val context = LocalContext.current
     val imageLoader = remember(context) {
+        val okHttpClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .removeHeader("User-Agent")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36")
+                    .build()
+                android.util.Log.e("CoilTest", "Request URL: ${request.url}")
+                android.util.Log.e("CoilTest", "Request User-Agent: ${request.header("User-Agent")}")
+                val response = chain.proceed(request)
+                android.util.Log.e("CoilTest", "Response code: ${response.code} for URL: ${request.url}")
+                response
+            }
+            .build()
+
         ImageLoader.Builder(context)
+            .okHttpClient(okHttpClient)
             .memoryCache {
                 MemoryCache.Builder(context)
                     .maxSizePercent(0.25)
@@ -146,6 +163,7 @@ fun DidYouKnowSection(
                     .build()
             }
             .respectCacheHeaders(false) // ignore server "no-cache" headers to keep images offline
+            .logger(coil.util.DebugLogger())
             .build()
     }
 
@@ -206,39 +224,71 @@ fun DidYouKnowSection(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
+            android.util.Log.e("CoilTrace", "DidYouKnowSection rendered. insights count: ${insights.size}")
             if (insights.isNotEmpty()) {
                 insights.forEach { insight ->
-                    Row(
+                    android.util.Log.e("CoilTrace", "  Rendering insight: imageUrl=${insight.imageUrl?.take(60)}")
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { selectedFact = insight }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.Top
+                            .clickable { selectedFact = insight },
+                        colors = CardDefaults.cardColors(containerColor = Color(0x12FFFFFF)),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("• ", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = insight.text,
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp
-                            )
-                        }
-                        if (insight.imageUrl != null) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            AsyncImage(
-                                model = insight.imageUrl,
-                                imageLoader = imageLoader,
-                                contentDescription = "Article image",
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0x1AFFFFFF))
-                            )
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (insight.imageUrl != null) {
+                                AsyncImage(
+                                    model = insight.imageUrl,
+                                    imageLoader = imageLoader,
+                                    contentDescription = "Article image",
+                                    onState = { state ->
+                                        when (state) {
+                                            is AsyncImagePainter.State.Success -> {
+                                                android.util.Log.e("CoilTest", "List Image Success: ${insight.imageUrl}")
+                                            }
+                                            is AsyncImagePainter.State.Error -> {
+                                                android.util.Log.e("CoilTest", "List Image Error: ${insight.imageUrl}", state.result.throwable)
+                                            }
+                                            is AsyncImagePainter.State.Loading -> {
+                                                android.util.Log.e("CoilTest", "List Image Loading: ${insight.imageUrl}")
+                                            }
+                                            else -> {}
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0x1AFFFFFF)),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                            } else {
+                                // Fallback placeholder icon box to keep consistent alignment and visuals
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0x0AFFFFFF)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("🎓", fontSize = 20.sp)
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = insight.text,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
             } else {
                 Text("Scanning historical archives...", color = Color.Gray, fontSize = 10.sp)
@@ -284,6 +334,20 @@ fun DidYouKnowSection(
                             model = fact.imageUrl,
                             imageLoader = imageLoader,
                             contentDescription = fact.pageTitle ?: "Historical Image",
+                            onState = { state ->
+                                when (state) {
+                                    is AsyncImagePainter.State.Success -> {
+                                        android.util.Log.e("CoilTest", "Dialog Image Success: ${fact.imageUrl}")
+                                    }
+                                    is AsyncImagePainter.State.Error -> {
+                                        android.util.Log.e("CoilTest", "Dialog Image Error: ${fact.imageUrl}", state.result.throwable)
+                                    }
+                                    is AsyncImagePainter.State.Loading -> {
+                                        android.util.Log.e("CoilTest", "Dialog Image Loading: ${fact.imageUrl}")
+                                    }
+                                    else -> {}
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(160.dp)

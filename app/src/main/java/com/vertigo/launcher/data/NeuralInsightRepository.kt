@@ -73,6 +73,8 @@ class NeuralInsightRepository(private val context: Context) {
         val todayKey = SimpleDateFormat("MM_dd", Locale.getDefault()).format(Date())
         val cacheKey = "wiki_cache_v2_$todayKey"
         
+        android.util.Log.d("NeuralInsight", "getDailyInsights started for key: $cacheKey")
+        
         // 1. Try to load from cache first
         val cachedJson = prefs.getString(cacheKey, null)
         val response: WikipediaResponse? = if (cachedJson != null) {
@@ -87,6 +89,7 @@ class NeuralInsightRepository(private val context: Context) {
 
         val finalResponse = response ?: try {
             // 2. Fetch from API if not cached or cache invalid
+            android.util.Log.d("NeuralInsight", "Cache miss, fetching from Wikipedia API")
             val fetched = wikiApi.getOnThisDay(
                 String.format("%02d", Calendar.getInstance().get(Calendar.MONTH) + 1),
                 String.format("%02d", Calendar.getInstance().get(Calendar.DAY_OF_MONTH))
@@ -95,15 +98,17 @@ class NeuralInsightRepository(private val context: Context) {
             prefs.edit().putString(cacheKey, gson.toJson(fetched)).apply()
             fetched
         } catch (e: Exception) {
+            android.util.Log.e("NeuralInsight", "Error fetching from Wikipedia API", e)
             e.printStackTrace()
             null
         }
 
         if (finalResponse == null) {
+            android.util.Log.w("NeuralInsight", "finalResponse is null!")
             return@withContext listOf(WikiInsightItem("Neural Link Error: Check your network connection."))
         }
 
-        // 4. Process and Filter the response (Cached or Fresh)
+        android.util.Log.d("NeuralInsight", "Fetched/Loaded WikipediaResponse. Selected count: ${finalResponse.selected?.size}, Events count: ${finalResponse.events?.size}")
         val allEvents = (finalResponse.selected ?: emptyList()) + 
                        (finalResponse.events ?: emptyList()) + 
                        (finalResponse.births ?: emptyList())
@@ -123,12 +128,14 @@ class NeuralInsightRepository(private val context: Context) {
         fun mapToInsight(event: WikiEvent): WikiInsightItem {
             val textStr = "In ${event.year ?: ""}: ${event.text}"
             val firstPage = event.pages?.find { it.thumbnail?.source != null } ?: event.pages?.firstOrNull()
-            return WikiInsightItem(
+            val item = WikiInsightItem(
                 text = textStr,
                 imageUrl = firstPage?.thumbnail?.source,
                 pageTitle = firstPage?.titles?.normalized,
                 extract = firstPage?.extract
             )
+            android.util.Log.d("NeuralInsight", "Mapped event. Text: ${item.text.take(40)}..., ImageUrl: ${item.imageUrl}, PageTitle: ${item.pageTitle}, HasExtract: ${item.extract != null}")
+            return item
         }
 
         // Dynamic Filtering
@@ -155,6 +162,7 @@ class NeuralInsightRepository(private val context: Context) {
 
         // Fallback: If filter is too strict, just show 2-3 significant items
         if (filteredInsights.size < 2) {
+            android.util.Log.d("NeuralInsight", "Filtered count is ${filteredInsights.size}, running fallback selected items")
             finalResponse.selected?.take(3)?.forEach { item ->
                 val textStr = "In ${item.year ?: ""}: ${item.text}"
                 val alreadyAdded = filteredInsights.any { it.text == textStr }
@@ -164,6 +172,10 @@ class NeuralInsightRepository(private val context: Context) {
             }
         }
 
+        android.util.Log.d("NeuralInsight", "Returning ${filteredInsights.size} daily insights to VM")
+        filteredInsights.forEachIndexed { index, item ->
+            android.util.Log.d("NeuralInsight", "  [$index] image: ${item.imageUrl}")
+        }
         filteredInsights
     }
 
