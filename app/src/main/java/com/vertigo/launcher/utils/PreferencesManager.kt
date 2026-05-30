@@ -16,7 +16,13 @@ class PreferencesManager(context: Context) {
     }
     
     fun getGridSize(): Int {
-        return prefs.getInt(PREF_GRID_SIZE, DEFAULT_GRID_SIZE)
+        // ListPreference stores values as String, so try String first, then Int fallback
+        return try {
+            prefs.getString(PREF_GRID_SIZE, DEFAULT_GRID_SIZE.toString())?.toIntOrNull() ?: DEFAULT_GRID_SIZE
+        } catch (e: ClassCastException) {
+            // Fallback if stored as Int from code (e.g. setGridSize)
+            prefs.getInt(PREF_GRID_SIZE, DEFAULT_GRID_SIZE)
+        }
     }
     
     fun setGridSize(size: Int) {

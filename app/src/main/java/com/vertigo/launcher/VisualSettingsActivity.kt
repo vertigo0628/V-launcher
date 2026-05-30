@@ -5,11 +5,13 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.vertigo.launcher.utils.BlurManager
 import com.vertigo.launcher.utils.IconCustomizer
+import com.vertigo.launcher.utils.ThemeManager
 
 class VisualSettingsActivity : AppCompatActivity() {
     
     private lateinit var iconCustomizer: IconCustomizer
     private lateinit var blurManager: BlurManager
+    private lateinit var themeManager: ThemeManager
     
     private lateinit var iconPackSpinner: Spinner
     private lateinit var shapeContainer: LinearLayout
@@ -26,6 +28,9 @@ class VisualSettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_visual_settings)
+        
+        themeManager = ThemeManager(this)
+        window.decorView.setBackgroundColor(themeManager.getBackgroundColor())
         
         iconCustomizer = IconCustomizer(this)
         blurManager = BlurManager(this)
@@ -213,13 +218,14 @@ class VisualSettingsActivity : AppCompatActivity() {
         }
         
         // AMOLED mode - toggle pure black bg
+        amoledSwitch.isChecked = themeManager.getCurrentTheme() == ThemeManager.THEME_AMOLED
         amoledSwitch.setOnCheckedChangeListener { _, isChecked ->
-            val themeManager = com.vertigo.launcher.utils.ThemeManager(this)
             if (isChecked) {
-                themeManager.setTheme(com.vertigo.launcher.utils.ThemeManager.THEME_AMOLED)
+                themeManager.setTheme(ThemeManager.THEME_AMOLED)
             } else {
-                themeManager.setTheme(com.vertigo.launcher.utils.ThemeManager.THEME_DARK)
+                themeManager.setTheme(ThemeManager.THEME_DARK)
             }
+            window.decorView.setBackgroundColor(themeManager.getBackgroundColor())
         }
     }
     

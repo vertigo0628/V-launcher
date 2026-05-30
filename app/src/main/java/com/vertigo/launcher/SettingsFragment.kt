@@ -19,7 +19,8 @@ import com.vertigo.launcher.service.VLauncherAccessibilityService
 class SettingsFragment : PreferenceFragmentCompat() {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        // Use custom SharedPreferences to match PreferencesManager
+        // Use Device Protected storage to match StorageHelper (Direct Boot safe)
+        preferenceManager.setStorageDeviceProtected()
         preferenceManager.sharedPreferencesName = "launcher_prefs"
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
         
