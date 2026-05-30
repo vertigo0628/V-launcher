@@ -146,6 +146,8 @@ fun HomeScreen(
     showLabels: Boolean = true,
     showBadges: Boolean = true,
     gridSize: Int = 4,
+    themeAccentColor: Color = Color(0xFF00F0FF),
+    clockColors: Triple<Int, Int, Int> = Triple(0xFF00F0FF.toInt(), 0xFFFF006E.toInt(), 0xFFBD00FF.toInt()),
     isSelectionMode: Boolean = false,
     selectedPackages: Set<String> = emptySet(),
     onToggleSelection: (String) -> Unit = {},
@@ -258,7 +260,7 @@ fun HomeScreen(
                                 appPendingAction = null
                                 actionType = null
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF))
+                            colors = ButtonDefaults.buttonColors(containerColor = themeAccentColor)
                         ) { Text("Remove", color = Color.Black) }
                     },
                     dismissButton = {
@@ -288,7 +290,7 @@ fun HomeScreen(
                                         appPendingAction = null
                                         actionType = null
                                     },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF))
+                                    colors = ButtonDefaults.buttonColors(containerColor = themeAccentColor)
                                 ) { Text("Add to Grid", color = Color.Black) }
                                 
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -518,9 +520,9 @@ fun HomeScreen(
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
                                 modifier = Modifier.fillMaxWidth(),
-                                border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.5f))
+                                border = BorderStroke(1.dp, themeAccentColor.copy(alpha = 0.5f))
                             ) {
-                                Text("🧅 Manage Onion Layers", color = Color(0xFF00F0FF))
+                                Text("🧅 Manage Onion Layers", color = themeAccentColor)
                             }
                         }
                     },
@@ -545,7 +547,7 @@ fun HomeScreen(
                         appPendingAction = null
                         actionType = null
                     },
-                    title = { Text("ONION COMPARTMENTS", color = Color(0xFF00F0FF), fontWeight = FontWeight.Black) },
+                    title = { Text("ONION COMPARTMENTS", color = themeAccentColor, fontWeight = FontWeight.Black) },
                     text = {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -588,7 +590,7 @@ fun HomeScreen(
                                             checked = isAppInLayer,
                                             onCheckedChange = null,
                                             colors = androidx.compose.material3.CheckboxDefaults.colors(
-                                                checkedColor = Color(0xFF00F0FF),
+                                                checkedColor = themeAccentColor,
                                                 uncheckedColor = Color.Gray
                                             )
                                         )
@@ -610,7 +612,7 @@ fun HomeScreen(
                                 appPendingAction = null
                                 actionType = null
                             }
-                        ) { Text("DONE", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold) }
+                        ) { Text("DONE", color = themeAccentColor, fontWeight = FontWeight.Bold) }
                     },
                     containerColor = Color(0xFF0F172A),
                     shape = RoundedCornerShape(24.dp)
@@ -649,7 +651,7 @@ fun HomeScreen(
                         }
                         actionType = null
                         appPendingAction = null
-                    }) { Text("ADD", color = Color(0xFF00F0FF)) }
+                    }) { Text("ADD", color = themeAccentColor) }
                 },
                 dismissButton = {
                     TextButton(onClick = { actionType = null; appPendingAction = null }) { 
@@ -686,7 +688,8 @@ fun HomeScreen(
                 onClose = { activeFolder = null },
                 onRemoveFromFolder = { app ->
                     // Logic already handled via onDeleteFolder or add/remove methods in future
-                }
+                },
+                themeAccentColor = themeAccentColor
             )
         }
         // Blur Animation for Home Screen Desktop
@@ -729,7 +732,7 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     val holiday by viewModel?.currentHoliday?.collectAsState() ?: mutableStateOf(null)
-                    ClockWidget(modifier = Modifier.size(200.dp), holiday = holiday)
+                    ClockWidget(modifier = Modifier.size(200.dp), holiday = holiday, clockColors = clockColors)
                     WeatherWidget(state = weatherState)
                     Spacer(modifier = Modifier.height(32.dp))
                     VoiceAssistantWidget(
@@ -830,7 +833,7 @@ fun HomeScreen(
                             // Scale factor for weather widget
                             val weatherScale = if (isLargeScreen) 1.5f else 1f
                             val holiday by viewModel?.currentHoliday?.collectAsState() ?: mutableStateOf(null)
-                            ClockWidget(modifier = Modifier.size(clockSize), holiday = holiday)
+                            ClockWidget(modifier = Modifier.size(clockSize), holiday = holiday, clockColors = clockColors)
                             WeatherWidget(state = weatherState, scaleFactor = weatherScale)
 
                             Spacer(modifier = Modifier.height(4.dp))
@@ -963,7 +966,7 @@ fun HomeScreen(
         if (showCreateLayerDialog) {
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { showCreateLayerDialog = false; newLayerNameInput = ""; newLayerLocked = true },
-                title = { androidx.compose.material3.Text("NEW COMPARTMENT", color = androidx.compose.ui.graphics.Color(0xFF00F0FF), fontWeight = FontWeight.Black) },
+                title = { androidx.compose.material3.Text("NEW COMPARTMENT", color = themeAccentColor, fontWeight = FontWeight.Black) },
                 text = {
                     Column {
                         androidx.compose.material3.OutlinedTextField(
@@ -972,7 +975,7 @@ fun HomeScreen(
                             label = { androidx.compose.material3.Text("Layer name", color = androidx.compose.ui.graphics.Color.Gray) },
                             singleLine = true,
                             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = androidx.compose.ui.graphics.Color(0xFF00F0FF),
+                                focusedBorderColor = themeAccentColor,
                                 unfocusedBorderColor = androidx.compose.ui.graphics.Color.Gray,
                                 focusedTextColor = androidx.compose.ui.graphics.Color.White,
                                 unfocusedTextColor = androidx.compose.ui.graphics.Color.White
@@ -994,13 +997,13 @@ fun HomeScreen(
                             androidx.compose.material3.Icon(
                                 imageVector = if (newLayerLocked) Icons.Default.Lock else Icons.Default.Lock,
                                 contentDescription = "Lock",
-                                tint = if (newLayerLocked) androidx.compose.ui.graphics.Color(0xFF00F0FF) else androidx.compose.ui.graphics.Color.Gray,
+                                tint = if (newLayerLocked) themeAccentColor else androidx.compose.ui.graphics.Color.Gray,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = if (newLayerLocked) "Locked — PIN required" else "Public — no PIN needed",
-                                color = if (newLayerLocked) androidx.compose.ui.graphics.Color(0xFF00F0FF) else androidx.compose.ui.graphics.Color.Gray,
+                                color = if (newLayerLocked) themeAccentColor else androidx.compose.ui.graphics.Color.Gray,
                                 fontSize = 14.sp
                             )
                             Spacer(modifier = Modifier.weight(1f))
@@ -1008,8 +1011,8 @@ fun HomeScreen(
                                 checked = newLayerLocked,
                                 onCheckedChange = { newLayerLocked = it },
                                 colors = androidx.compose.material3.SwitchDefaults.colors(
-                                    checkedThumbColor = androidx.compose.ui.graphics.Color(0xFF00F0FF),
-                                    checkedTrackColor = androidx.compose.ui.graphics.Color(0xFF00F0FF).copy(alpha = 0.3f),
+                                    checkedThumbColor = themeAccentColor,
+                                    checkedTrackColor = themeAccentColor.copy(alpha = 0.3f),
                                     uncheckedThumbColor = androidx.compose.ui.graphics.Color.Gray,
                                     uncheckedTrackColor = androidx.compose.ui.graphics.Color.Gray.copy(alpha = 0.3f)
                                 )
@@ -1030,7 +1033,7 @@ fun HomeScreen(
                                 currentDepth++
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF))
+                        colors = ButtonDefaults.buttonColors(containerColor = themeAccentColor)
                     ) { androidx.compose.material3.Text("CREATE", color = androidx.compose.ui.graphics.Color.Black, fontWeight = FontWeight.Bold) }
                 },
                 dismissButton = {
@@ -1112,14 +1115,14 @@ fun HomeScreen(
                             androidx.compose.material3.Icon(
                                 imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
                                 contentDescription = "Back",
-                                tint = androidx.compose.ui.graphics.Color(0xFF00F0FF)
+                                tint = themeAccentColor
                             )
                         }
                         Spacer(Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = layerName.uppercase(),
-                                color = androidx.compose.ui.graphics.Color(0xFF00F0FF),
+                                color = themeAccentColor,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 1.sp
@@ -1149,7 +1152,7 @@ fun HomeScreen(
                             androidx.compose.material3.Icon(
                                 imageVector = Icons.Default.Lock,
                                 contentDescription = if (isCurrentLayerProtected) "Locked" else "Unlocked",
-                                tint = if (isCurrentLayerProtected) androidx.compose.ui.graphics.Color(0xFF00F0FF)
+                                tint = if (isCurrentLayerProtected) themeAccentColor
                                     else androidx.compose.ui.graphics.Color.Gray
                             )
                         }
@@ -1195,7 +1198,7 @@ fun HomeScreen(
                     }
 
                     androidx.compose.material3.Divider(
-                        color = androidx.compose.ui.graphics.Color(0xFF00F0FF).copy(alpha = 0.3f),
+                        color = themeAccentColor.copy(alpha = 0.3f),
                         thickness = 1.dp
                     )
 
@@ -1256,7 +1259,7 @@ fun HomeScreen(
                                                 .size(56.dp)
                                                 .clip(CircleShape)
                                                 .background(androidx.compose.ui.graphics.Color(0x3300F0FF))
-                                                .border(1.dp, androidx.compose.ui.graphics.Color(0xFF00F0FF).copy(alpha = 0.3f), CircleShape),
+                                                .border(1.dp, themeAccentColor.copy(alpha = 0.3f), CircleShape),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             AndroidView(
@@ -1327,6 +1330,7 @@ fun HomeScreen(
                 showLabels = showLabels,
                 showBadges = showBadges,
                 gridSize = gridSize,
+                themeAccentColor = themeAccentColor,
                 isSelectionMode = isSelectionMode,
                 selectedPackages = selectedPackages,
                 onToggleSelection = onToggleSelection,
@@ -1403,7 +1407,11 @@ fun HomeScreen(
 }
 
 @Composable
-fun ClockWidget(modifier: Modifier = Modifier, holiday: String? = null) {
+fun ClockWidget(
+    modifier: Modifier = Modifier,
+    holiday: String? = null,
+    clockColors: Triple<Int, Int, Int> = Triple(0xFF00F0FF.toInt(), 0xFFFF006E.toInt(), 0xFFBD00FF.toInt())
+) {
     var currentTime by remember { androidx.compose.runtime.mutableStateOf(System.currentTimeMillis()) }
     
     // Ticker to update time every second
@@ -1419,11 +1427,13 @@ fun ClockWidget(modifier: Modifier = Modifier, holiday: String? = null) {
             CyberClockView(context).apply {
                 setTime(currentTime)
                 setHoliday(holiday)
+                setColors(clockColors.first, clockColors.second, clockColors.third)
             }
         },
         update = { view ->
             view.setTime(currentTime)
             view.setHoliday(holiday)
+            view.setColors(clockColors.first, clockColors.second, clockColors.third)
         },
         modifier = modifier
     )
@@ -1588,14 +1598,15 @@ fun AppIcon(
 @Composable
 fun SearchBar(
     isListening: Boolean,
-    onSearchClick: () -> Unit
+    onSearchClick: () -> Unit,
+    themeAccentColor: Color = Color(0xFF00F0FF)
 ) {
-    val borderColor = if (isListening) Color(0xFF00F0FF) else Color.Transparent
+    val borderColor = if (isListening) themeAccentColor else Color.Transparent
     val borderWidth = if (isListening) 2.dp else 0.dp
-    val textColor = if (isListening) Color(0xFF00F0FF) else Color.White.copy(alpha = 0.7f)
+    val textColor = if (isListening) themeAccentColor else Color.White.copy(alpha = 0.7f)
     val text = if (isListening) "Listening..." else "Search apps, web, & more..."
     val icon = if (isListening) android.R.drawable.ic_btn_speak_now else android.R.drawable.ic_menu_search
-    val iconTint = if (isListening) Color(0xFF00F0FF) else Color.White.copy(alpha = 0.7f)
+    val iconTint = if (isListening) themeAccentColor else Color.White.copy(alpha = 0.7f)
     
     // Debug logging removed to optimize performance
 
@@ -1699,7 +1710,8 @@ fun BatchSelectionBar(
     onUninstall: () -> Unit,
     onAddToGrid: () -> Unit,
     onClear: () -> Unit,
-    shizukuEnabled: Boolean
+    shizukuEnabled: Boolean,
+    themeAccentColor: Color = Color(0xFF00F0FF)
 ) {
     Surface(
         modifier = Modifier
@@ -1708,7 +1720,7 @@ fun BatchSelectionBar(
             .statusBarsPadding(),
         color = Color(0xCC0F172A),
         shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, Color(0xFF00F0FF).copy(alpha = 0.4f)),
+        border = BorderStroke(1.dp, themeAccentColor.copy(alpha = 0.4f)),
         tonalElevation = 8.dp
     ) {
         Row(
@@ -1719,7 +1731,7 @@ fun BatchSelectionBar(
             Column {
                 Text(
                     text = "$selectedCount SELECTED",
-                    color = Color(0xFF00F0FF),
+                    color = themeAccentColor,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
@@ -1783,6 +1795,7 @@ fun AppDrawer(
     showLabels: Boolean = true,
     showBadges: Boolean = true,
     gridSize: Int = 4,
+    themeAccentColor: Color = Color(0xFF00F0FF),
     isSelectionMode: Boolean = false,
     selectedPackages: Set<String> = emptySet(),
     onToggleSelection: (String) -> Unit = {},
@@ -1833,7 +1846,8 @@ fun AppDrawer(
                     onUninstall = onBatchUninstall,
                     onAddToGrid = onBatchAddToGrid,
                     onClear = onClearSelection,
-                    shizukuEnabled = shizukuState == com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED
+                    shizukuEnabled = shizukuState == com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.AUTHORIZED,
+                    themeAccentColor = themeAccentColor
                 )
             }
             
@@ -1852,7 +1866,8 @@ fun AppDrawer(
                             apps = folderApps,
                             onClick = { onFolderClick(name) },
                             onLongClick = { onDeleteFolder(name) },
-                            notificationCount = folderNotifCount
+                            notificationCount = folderNotifCount,
+                            themeAccentColor = themeAccentColor
                         )
                     }
                 }
@@ -1876,7 +1891,7 @@ fun AppDrawer(
                             )
                             .then(
                                 if (selectedPackages.contains(app.packageName)) {
-                                    Modifier.border(2.dp, Color(0xFF00F0FF), RoundedCornerShape(12.dp)).padding(4.dp)
+                                    Modifier.border(2.dp, themeAccentColor, RoundedCornerShape(12.dp)).padding(4.dp)
                                 } else Modifier
                             )
                     ) {
@@ -1937,11 +1952,11 @@ fun AppDrawer(
 }
 
 @Composable
-fun NotificationDot(count: Int, modifier: Modifier = Modifier) {
+fun NotificationDot(count: Int, modifier: Modifier = Modifier, themeAccentColor: Color = Color(0xFF00F0FF)) {
     Box(
         modifier = modifier
             .size(18.dp)
-            .background(Color(0xFF00F0FF), CircleShape)
+            .background(themeAccentColor, CircleShape)
             .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
         contentAlignment = Alignment.Center
     ) {
@@ -1957,10 +1972,11 @@ fun NotificationDot(count: Int, modifier: Modifier = Modifier) {
 @Composable
 fun FolderIcon(
     name: String,
-    apps: List<AppModel>, // First few apps in folder
+    apps: List<AppModel>,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    notificationCount: Int = 0
+    notificationCount: Int = 0,
+    themeAccentColor: Color = Color(0xFF00F0FF)
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -2020,7 +2036,8 @@ fun FolderOverlay(
     apps: List<AppModel>,
     onAppClick: (AppModel) -> Unit,
     onClose: () -> Unit,
-    onRemoveFromFolder: (AppModel) -> Unit
+    onRemoveFromFolder: (AppModel) -> Unit,
+    themeAccentColor: Color = Color(0xFF00F0FF)
 ) {
     Box(
         modifier = Modifier
@@ -2035,14 +2052,14 @@ fun FolderOverlay(
                 .widthIn(max = 400.dp) // Max out at reasonable modal width on tablets
                 .clip(RoundedCornerShape(24.dp))
                 .background(Color(0x1AFFFFFF))
-                .border(1.dp, Color(0xFF00F0FF).copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                .border(1.dp, themeAccentColor.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
                 .padding(24.dp)
                 .clickable(enabled = false) {},
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = name.uppercase(),
-                color = Color(0xFF00F0FF),
+                color = themeAccentColor,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp

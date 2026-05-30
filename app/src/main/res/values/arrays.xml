@@ -3,12 +3,14 @@
         <item>Midnight Blue</item>
         <item>Dark</item>
         <item>AMOLED Black</item>
+        <item>Diurnal (Time of Day)</item>
     </string-array>
     
     <string-array name="theme_values">
         <item>midnight</item>
         <item>dark</item>
         <item>amoled</item>
+        <item>diurnal</item>
     </string-array>
     
     <string-array name="grid_size_entries">

@@ -120,6 +120,8 @@ class MainActivity : AppCompatActivity() {
             val showLabels by viewModel.showLabels.collectAsState()
             val showBadges by viewModel.showBadges.collectAsState()
             val gridSize by viewModel.gridSize.collectAsState()
+            val themeAccentColor by viewModel.themeAccentColor.collectAsState()
+            val clockColors by viewModel.clockColors.collectAsState()
             
             val hiddenLayers by viewModel.hiddenLayers.collectAsState()
             
@@ -201,6 +203,8 @@ class MainActivity : AppCompatActivity() {
                     showLabels = showLabels,
                     showBadges = showBadges,
                     gridSize = gridSize,
+                    themeAccentColor = themeAccentColor,
+                    clockColors = clockColors,
                     hiddenLayers = hiddenLayers,
                     onCreateLayer = { name, isProtected -> viewModel.createHiddenLayer(name, isProtected) },
                     onDeleteLayer = { viewModel.deleteHiddenLayer(it) },

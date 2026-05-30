@@ -105,6 +105,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val visionAnalyzer = com.vertigo.launcher.logic.VisionAnalyzer(application)
     private val systemMonitor = com.vertigo.launcher.utils.SystemMonitor(application)
     private val themeEngine = com.vertigo.launcher.utils.ThemeEngine(application)
+    private val themeManager = com.vertigo.launcher.utils.ThemeManager(application)
     private val weatherRepository = WeatherRepository(application)
     private val locationHelper = com.vertigo.launcher.logic.LocationHelper(application)
     private val neuralInsightRepository = com.vertigo.launcher.data.NeuralInsightRepository(application)
@@ -375,6 +376,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _gridSize = MutableStateFlow(4)
     val gridSize: StateFlow<Int> = _gridSize.asStateFlow()
+
+    private val _themeAccentColor = MutableStateFlow(androidx.compose.ui.graphics.Color(0xFF00F0FF))
+    val themeAccentColor: StateFlow<androidx.compose.ui.graphics.Color> = _themeAccentColor.asStateFlow()
+
+    private val _clockColors = MutableStateFlow(Triple(0xFF00F0FF.toInt(), 0xFFFF006E.toInt(), 0xFFBD00FF.toInt()))
+    val clockColors: StateFlow<Triple<Int, Int, Int>> = _clockColors.asStateFlow()
 
     // Other Properties
     private var _flashlightState = false
@@ -1543,6 +1550,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _showLabels.value = prefs.getBoolean("show_labels", true)
         _showBadges.value = prefs.getBoolean("show_badges", true)
         _gridSize.value = preferencesManager.getGridSize()
+        _themeAccentColor.value = androidx.compose.ui.graphics.Color(themeManager.getAccentColor())
+        _clockColors.value = themeManager.getThemeColors()
         
         // Voice
         val voiceEnabled = prefs.getBoolean("voice_assistant_enabled", true)
