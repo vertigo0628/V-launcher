@@ -145,6 +145,7 @@ fun HomeScreen(
     onClearShizukuResult: () -> Unit = {},
     showLabels: Boolean = true,
     showBadges: Boolean = true,
+    gridSize: Int = 4,
     isSelectionMode: Boolean = false,
     selectedPackages: Set<String> = emptySet(),
     onToggleSelection: (String) -> Unit = {},
@@ -1325,6 +1326,7 @@ fun HomeScreen(
                 viewModel = viewModel,
                 showLabels = showLabels,
                 showBadges = showBadges,
+                gridSize = gridSize,
                 isSelectionMode = isSelectionMode,
                 selectedPackages = selectedPackages,
                 onToggleSelection = onToggleSelection,
@@ -1780,6 +1782,7 @@ fun AppDrawer(
     viewModel: com.vertigo.launcher.ui.HomeViewModel? = null,
     showLabels: Boolean = true,
     showBadges: Boolean = true,
+    gridSize: Int = 4,
     isSelectionMode: Boolean = false,
     selectedPackages: Set<String> = emptySet(),
     onToggleSelection: (String) -> Unit = {},
@@ -1835,7 +1838,7 @@ fun AppDrawer(
             }
             
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 72.dp),
+                columns = GridCells.Fixed(gridSize),
                 contentPadding = PaddingValues(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {

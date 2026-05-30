@@ -373,6 +373,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _showBadges = MutableStateFlow(true)
     val showBadges: StateFlow<Boolean> = _showBadges.asStateFlow()
 
+    private val _gridSize = MutableStateFlow(4)
+    val gridSize: StateFlow<Int> = _gridSize.asStateFlow()
+
     // Other Properties
     private var _flashlightState = false
     private var hubUpdateJob: kotlinx.coroutines.Job? = null
@@ -1539,6 +1542,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun reloadSettings() {
         _showLabels.value = prefs.getBoolean("show_labels", true)
         _showBadges.value = prefs.getBoolean("show_badges", true)
+        _gridSize.value = preferencesManager.getGridSize()
         
         // Voice
         val voiceEnabled = prefs.getBoolean("voice_assistant_enabled", true)
