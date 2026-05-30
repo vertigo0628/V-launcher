@@ -11,7 +11,7 @@ import org.json.JSONObject
 class CategoryManager(context: Context) {
     
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("category_prefs", Context.MODE_PRIVATE)
+        StorageHelper.getSafeSharedPreferences(context, "category_prefs")
     
     companion object {
         private const val PREF_CATEGORIES = "categories"

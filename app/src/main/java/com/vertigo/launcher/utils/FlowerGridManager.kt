@@ -9,7 +9,7 @@ import android.content.SharedPreferences
 class FlowerGridManager(context: Context) {
     
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("flower_grid_prefs", Context.MODE_PRIVATE)
+        StorageHelper.getSafeSharedPreferences(context, "flower_grid_prefs")
     
     companion object {
         const val PREF_GRID_APPS = "grid_apps"

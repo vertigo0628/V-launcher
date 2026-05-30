@@ -376,7 +376,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun checkMiuiAutoStart() {
-        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeDefaultSharedPreferences(this)
         if (!prefs.getBoolean("miui_autostart_prompted", false)) {
             val intent = Intent()
             intent.component = android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")

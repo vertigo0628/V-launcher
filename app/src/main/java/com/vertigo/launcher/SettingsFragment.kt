@@ -347,7 +347,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun setupAiBrainPreference() {
         val aiBrainPref = findPreference<Preference>("ollama_model_select")
         val aiUrlPref = findPreference<Preference>("ollama_base_url")
-        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeDefaultSharedPreferences(requireContext())
         
         val currentModel = prefs.getString("ollama_model_select", "llama3.2:1b")
         aiBrainPref?.summary = currentModel

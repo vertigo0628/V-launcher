@@ -25,7 +25,7 @@ import org.xmlpull.v1.XmlPullParser
 class IconCustomizer(private val context: Context) {
     
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("icon_prefs", Context.MODE_PRIVATE)
+        StorageHelper.getSafeSharedPreferences(context, "icon_prefs")
     
     private var iconPackResources: Resources? = null
     private var iconPackPackage: String? = null

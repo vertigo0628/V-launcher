@@ -63,7 +63,7 @@ class BackupManager(private val context: Context) {
                 // Backup each preference file
                 val prefsData = JSONObject()
                 PREFS_TO_BACKUP.forEach { prefName ->
-                    val prefs = context.getSharedPreferences(prefName, Context.MODE_PRIVATE)
+                    val prefs = StorageHelper.getSafeSharedPreferences(context, prefName)
                     val prefJson = backupPreferences(prefs)
                     prefsData.put(prefName, prefJson)
                 }
@@ -105,7 +105,7 @@ class BackupManager(private val context: Context) {
             prefsData?.keys()?.forEach { prefName ->
                 if (prefName in PREFS_TO_BACKUP) {
                     val prefJson = prefsData.getJSONObject(prefName)
-                    val prefs = context.getSharedPreferences(prefName, Context.MODE_PRIVATE)
+                    val prefs = StorageHelper.getSafeSharedPreferences(context, prefName)
                     restorePreferences(prefs, prefJson)
                 }
             }
@@ -186,25 +186,25 @@ class BackupManager(private val context: Context) {
     }
     
     private fun backupDockApps(): org.json.JSONArray {
-        val prefs = context.getSharedPreferences("dock_prefs", Context.MODE_PRIVATE)
+        val prefs = StorageHelper.getSafeSharedPreferences(context, "dock_prefs")
         val apps = prefs.getString("dock_apps", null)
         return if (apps != null) org.json.JSONArray(apps.split(",")) else org.json.JSONArray()
     }
     
     private fun backupHiddenApps(): org.json.JSONArray {
-        val prefs = context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+        val prefs = StorageHelper.getSafeSharedPreferences(context, "launcher_prefs")
         val apps = prefs.getStringSet("hidden_apps", emptySet()) ?: emptySet()
         return org.json.JSONArray(apps.toList())
     }
     
     private fun backupCategories(): JSONObject? {
-        val prefs = context.getSharedPreferences("category_prefs", Context.MODE_PRIVATE)
+        val prefs = StorageHelper.getSafeSharedPreferences(context, "category_prefs")
         val json = prefs.getString("categories", null)
         return if (json != null) JSONObject().put("data", json) else null
     }
     
     private fun backupFolders(): JSONObject? {
-        val prefs = context.getSharedPreferences("folder_prefs", Context.MODE_PRIVATE)
+        val prefs = StorageHelper.getSafeSharedPreferences(context, "folder_prefs")
         val json = prefs.getString("folders", null)
         return if (json != null) JSONObject().put("data", json) else null
     }

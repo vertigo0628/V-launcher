@@ -11,7 +11,7 @@ import java.util.Calendar
 class SmartWidgetManager(context: Context) {
     
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("smart_widget_prefs", Context.MODE_PRIVATE)
+        StorageHelper.getSafeSharedPreferences(context, "smart_widget_prefs")
     
     /**
      * Rule for when to show a specific widget configuration

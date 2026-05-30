@@ -6,7 +6,7 @@ import android.content.SharedPreferences
 class PreferencesManager(context: Context) {
     
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+        StorageHelper.getSafeSharedPreferences(context, "launcher_prefs")
     private val gson = com.google.gson.Gson()
     
     companion object {

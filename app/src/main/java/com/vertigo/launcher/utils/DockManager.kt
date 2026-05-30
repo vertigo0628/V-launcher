@@ -9,7 +9,7 @@ import android.content.SharedPreferences
 class DockManager(context: Context) {
     
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("dock_prefs", Context.MODE_PRIVATE)
+        StorageHelper.getSafeSharedPreferences(context, "dock_prefs")
     
     companion object {
         const val PREF_DOCK_APPS = "dock_apps"

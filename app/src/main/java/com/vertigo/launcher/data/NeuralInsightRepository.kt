@@ -16,10 +16,12 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.text.SimpleDateFormat
 import java.util.*
 
+import com.vertigo.launcher.utils.StorageHelper
+
 class NeuralInsightRepository(private val context: Context) {
     private val holidayApi: HolidayApi
     private val wikiApi: WikipediaApi
-    private val prefs: SharedPreferences = context.getSharedPreferences("neural_insights_cache", Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences = StorageHelper.getSafeSharedPreferences(context, "neural_insights_cache")
     private val gson = Gson()
 
     init {

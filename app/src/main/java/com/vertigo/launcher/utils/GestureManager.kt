@@ -9,7 +9,7 @@ import android.content.SharedPreferences
 class GestureManager(context: Context) {
     
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("gesture_prefs", Context.MODE_PRIVATE)
+        StorageHelper.getSafeSharedPreferences(context, "gesture_prefs")
     
     companion object {
         // Gesture types

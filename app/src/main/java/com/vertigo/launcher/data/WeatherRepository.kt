@@ -3,9 +3,11 @@ package com.vertigo.launcher.data
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
+import com.vertigo.launcher.utils.StorageHelper
+
 class WeatherRepository(private val context: android.content.Context) {
     private val api: WeatherApi
-    private val prefs = context.getSharedPreferences("weather_cache", android.content.Context.MODE_PRIVATE)
+    private val prefs = StorageHelper.getSafeSharedPreferences(context, "weather_cache")
     private val gson = com.google.gson.Gson()
     
     init {

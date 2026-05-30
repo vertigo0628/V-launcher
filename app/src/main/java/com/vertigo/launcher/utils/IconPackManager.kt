@@ -8,7 +8,7 @@ import androidx.core.content.res.ResourcesCompat
 
 class IconPackManager(private val context: Context) {
     
-    private val prefs = context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+    private val prefs = StorageHelper.getSafeSharedPreferences(context, "launcher_prefs")
     private var iconPackPackageName: String? = null
     private var iconPackResources: Resources? = null
     

@@ -14,7 +14,7 @@ data class AppUsageStats(
 )
 
 class SmartUsageManager(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences("smart_usage_prefs", Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences = StorageHelper.getSafeSharedPreferences(context, "smart_usage_prefs")
     private val gson = Gson()
     private var usageMap: MutableMap<String, AppUsageStats> = mutableMapOf()
 

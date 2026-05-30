@@ -739,7 +739,7 @@ private fun saveNotes(prefs: SharedPreferences, notes: List<NoteItem>) {
 @Composable
 fun NotesCard() {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("mini_apps_prefs", Context.MODE_PRIVATE) }
+    val prefs = remember { com.vertigo.launcher.utils.StorageHelper.getSafeSharedPreferences(context, "mini_apps_prefs") }
     var notes by remember { mutableStateOf(loadNotes(prefs)) }
     var newNoteText by remember { mutableStateOf("") }
     var selectedColor by remember { mutableIntStateOf(0) }
@@ -1026,7 +1026,7 @@ private fun saveTasks(prefs: SharedPreferences, tasks: List<TaskItem>) {
 @Composable
 fun TasksCard() {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences(TASKS_PREFS, Context.MODE_PRIVATE) }
+    val prefs = remember { com.vertigo.launcher.utils.StorageHelper.getSafeSharedPreferences(context, TASKS_PREFS) }
     var tasks by remember { mutableStateOf(loadTasks(prefs)) }
     var newTaskText by remember { mutableStateOf("") }
     var selectedPriority by remember { mutableIntStateOf(1) }

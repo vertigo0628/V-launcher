@@ -7,7 +7,7 @@ import androidx.preference.PreferenceManager
 class ThemeManager(context: Context) {
     
     private val prefs: SharedPreferences = 
-        PreferenceManager.getDefaultSharedPreferences(context)
+        StorageHelper.getSafeDefaultSharedPreferences(context)
     
     companion object {
         const val PREF_THEME = "theme"

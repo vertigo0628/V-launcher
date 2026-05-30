@@ -19,7 +19,7 @@ import androidx.core.view.WindowInsetsControllerCompat
  */
 class SmartFeaturesManager(private val context: Context) {
     
-    private val prefs = context.getSharedPreferences("smart_features_prefs", Context.MODE_PRIVATE)
+    private val prefs = StorageHelper.getSafeSharedPreferences(context, "smart_features_prefs")
     
     companion object {
         const val PREF_DOUBLE_TAP_LOCK = "double_tap_lock"

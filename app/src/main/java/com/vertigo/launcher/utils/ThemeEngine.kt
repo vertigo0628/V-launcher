@@ -16,7 +16,7 @@ import androidx.palette.graphics.Palette
  */
 class ThemeEngine(private val context: Context) {
 
-    private val prefs = context.getSharedPreferences("theme_prefs", Context.MODE_PRIVATE)
+    private val prefs = StorageHelper.getSafeSharedPreferences(context, "theme_prefs")
 
     companion object {
         const val PREF_PRIMARY    = "ambient_primary"

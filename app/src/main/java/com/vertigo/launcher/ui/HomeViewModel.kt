@@ -109,7 +109,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val locationHelper = com.vertigo.launcher.logic.LocationHelper(application)
     private val neuralInsightRepository = com.vertigo.launcher.data.NeuralInsightRepository(application)
     private val smartUsageManager = com.vertigo.launcher.utils.SmartUsageManager(application)
-    private val prefs = application.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+    private val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeSharedPreferences(application, "launcher_prefs")
 
     // Shizuku state
     val shizukuState = com.vertigo.launcher.utils.ShizukuSetup.state
@@ -1667,7 +1667,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 android.util.Log.d("HomeViewModel", "Vision prompt built: ${userPrompt.take(200)}...")
 
                 // Step 3: Stream to Ollama (reuse existing pipeline)
-                val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(getApplication())
+                val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeDefaultSharedPreferences(getApplication())
                 val selectedModel = prefs.getString("ollama_model_select", "llama3.2:1b") ?: "llama3.2:1b"
                 val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
 
@@ -1719,7 +1719,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _isAiThinking.value = true
             _currentStreamingResponse.value = null // Keep null so UI shows "Thinking..."
             
-            val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(getApplication())
+            val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeDefaultSharedPreferences(getApplication())
             val selectedModel = prefs.getString("ollama_model_select", "llama3.2:1b") ?: "llama3.2:1b"
             val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
             

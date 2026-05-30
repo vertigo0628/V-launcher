@@ -11,7 +11,7 @@ import org.json.JSONObject
 class FolderManager(context: Context) {
     
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("folder_prefs", Context.MODE_PRIVATE)
+        StorageHelper.getSafeSharedPreferences(context, "folder_prefs")
     
     companion object {
         private const val PREF_FOLDERS = "folders"
