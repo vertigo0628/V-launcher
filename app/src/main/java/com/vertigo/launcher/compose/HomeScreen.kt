@@ -522,7 +522,7 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 border = BorderStroke(1.dp, themeAccentColor.copy(alpha = 0.5f))
                             ) {
-                                Text("🧅 Manage Onion Layers", color = themeAccentColor)
+                                Text("⚙️ Sector Allocation", color = themeAccentColor)
                             }
                         }
                     },
@@ -547,7 +547,7 @@ fun HomeScreen(
                         appPendingAction = null
                         actionType = null
                     },
-                    title = { Text("ONION COMPARTMENTS", color = themeAccentColor, fontWeight = FontWeight.Black) },
+                    title = { Text("SECTOR ALLOCATION", color = themeAccentColor, fontWeight = FontWeight.Black) },
                     text = {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -557,14 +557,14 @@ fun HomeScreen(
                                 .verticalScroll(rememberScrollState())
                         ) {
                             Text(
-                                text = "Select compartments for ${app.label.uppercase()}:",
+                                text = "Assign console sectors for ${app.label.uppercase()}:",
                                 color = Color.Gray,
                                 fontSize = 13.sp,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                             if (hiddenLayers.isEmpty()) {
                                 Text(
-                                    "No custom hidden layers found. Open Onion Drawer and tap ＋ to create layers first.",
+                                    "No custom sectors found. Open system console and tap ＋ to create sectors first.",
                                     color = Color.LightGray,
                                     fontSize = 14.sp
                                 )
@@ -914,6 +914,7 @@ fun HomeScreen(
         
         // --- Hidden Drawer Onion Layers UI ---
         var showCreateLayerDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
+        var showStealthLayerOptions by remember { androidx.compose.runtime.mutableStateOf(false) }
         var newLayerNameInput by remember { androidx.compose.runtime.mutableStateOf("") }
         var newLayerLocked by remember { androidx.compose.runtime.mutableStateOf(true) }
         // PIN dialog for diving into a protected deeper layer
@@ -928,8 +929,8 @@ fun HomeScreen(
             androidx.compose.runtime.LaunchedEffect(showBiometricAuth) {
                 launchBiometricPrompt(
                     context = ctx,
-                    title = "Unlock Onion Drawer",
-                    subtitle = "Verify identity to view compartments",
+                    title = "System Authentication",
+                    subtitle = "Confirm device ownership to proceed",
                     onSuccess = {
                         pinUnlocked = true
                         showHiddenDrawer = true
@@ -949,8 +950,8 @@ fun HomeScreen(
             androidx.compose.runtime.LaunchedEffect(pendingProtectedDepth) {
                 launchBiometricPrompt(
                     context = ctx,
-                    title = "Access Compartment",
-                    subtitle = "Verify identity to peel deeper",
+                    title = "System Verification",
+                    subtitle = "Confirm device ownership to proceed",
                     onSuccess = {
                         currentDepth = pendingProtectedDepth
                         pendingProtectedDepth = -1
@@ -966,13 +967,13 @@ fun HomeScreen(
         if (showCreateLayerDialog) {
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { showCreateLayerDialog = false; newLayerNameInput = ""; newLayerLocked = true },
-                title = { androidx.compose.material3.Text("NEW COMPARTMENT", color = themeAccentColor, fontWeight = FontWeight.Black) },
+                title = { androidx.compose.material3.Text("NEW SYSTEM INSTANCE", color = themeAccentColor, fontWeight = FontWeight.Black) },
                 text = {
                     Column {
                         androidx.compose.material3.OutlinedTextField(
                             value = newLayerNameInput,
                             onValueChange = { newLayerNameInput = it },
-                            label = { androidx.compose.material3.Text("Layer name", color = androidx.compose.ui.graphics.Color.Gray) },
+                            label = { androidx.compose.material3.Text("Instance key", color = androidx.compose.ui.graphics.Color.Gray) },
                             singleLine = true,
                             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = themeAccentColor,
@@ -1002,7 +1003,7 @@ fun HomeScreen(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = if (newLayerLocked) "Locked — PIN required" else "Public — no PIN needed",
+                                text = if (newLayerLocked) "Secure Instance — Auth Required" else "Standard Instance — Public",
                                 color = if (newLayerLocked) themeAccentColor else androidx.compose.ui.graphics.Color.Gray,
                                 fontSize = 14.sp
                             )
@@ -1046,6 +1047,60 @@ fun HomeScreen(
             )
         }
 
+        // Stealth Options configuration dialog
+        if (showStealthLayerOptions) {
+            val isCurrentLayerProtected = viewModel?.isOnionLayerProtected(currentDepth) ?: false
+            val layerKey = viewModel?.getOnionLayerKey(currentDepth)
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showStealthLayerOptions = false },
+                title = { androidx.compose.material3.Text("SYSTEM CONFIGURATION", color = themeAccentColor, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.material3.Text("Configure core settings for Sector $currentDepth:", color = androidx.compose.ui.graphics.Color.Gray)
+                        
+                        // Toggle security shield
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                viewModel?.setOnionLayerProtected(currentDepth, !isCurrentLayerProtected)
+                                showStealthLayerOptions = false
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isCurrentLayerProtected) androidx.compose.ui.graphics.Color(0xFF6B21A8) else themeAccentColor
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            androidx.compose.material3.Text(
+                                text = if (isCurrentLayerProtected) "Disable Security Shield" else "Enable Security Shield",
+                                color = if (isCurrentLayerProtected) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black
+                            )
+                        }
+                        
+                        // Terminate Sector (Delete Compartment, only if currentDepth > 0)
+                        if (currentDepth > 0 && layerKey != null) {
+                            androidx.compose.material3.Button(
+                                onClick = {
+                                    onDeleteLayer(layerKey)
+                                    showStealthLayerOptions = false
+                                    currentDepth--
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFFFF006E)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                androidx.compose.material3.Text("Terminate Sector", color = androidx.compose.ui.graphics.Color.White)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = { showStealthLayerOptions = false }) {
+                        androidx.compose.material3.Text("CLOSE", color = themeAccentColor)
+                    }
+                },
+                containerColor = androidx.compose.ui.graphics.Color(0xFF0F172A),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+            )
+        }
+
         // Hidden Drawer animated wrapper
         AnimatedVisibility(
             visible = showHiddenDrawer,
@@ -1064,7 +1119,7 @@ fun HomeScreen(
                     .background(androidx.compose.ui.graphics.Color(0xFF0B0F19))
             ) {
                 val layerApps = viewModel?.getOnionLayerApps(currentDepth) ?: emptyList()
-                val layerName = viewModel?.getOnionLayerName(currentDepth) ?: "Hidden Apps"
+                val layerName = viewModel?.getOnionLayerName(currentDepth) ?: "System Storage"
                 val maxDepth = viewModel?.getMaxOnionDepth() ?: 0
 
                 Column(
@@ -1119,7 +1174,14 @@ fun HomeScreen(
                             )
                         }
                         Spacer(Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .combinedClickable(
+                                    onLongClick = { showStealthLayerOptions = true },
+                                    onClick = {}
+                                )
+                        ) {
                             Text(
                                 text = layerName.uppercase(),
                                 color = themeAccentColor,
@@ -1127,76 +1189,14 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 1.sp
                             )
-                            val isCurrentProtected = viewModel?.isOnionLayerProtected(currentDepth) ?: false
                             Text(
-                                text = "Layer $currentDepth of $maxDepth | ${layerApps.size} apps" +
-                                    if (isCurrentProtected) " 🔒 secured" else " 🔓 public",
+                                text = "CORE SERVICE: ACTIVE | SECTOR: $currentDepth",
                                 color = androidx.compose.ui.graphics.Color.Gray,
                                 fontSize = 12.sp
                             )
                         }
-                        // Lock/Unlock toggle
-                        val isCurrentLayerProtected = viewModel?.isOnionLayerProtected(currentDepth) ?: false
-                        androidx.compose.material3.IconButton(
-                            onClick = {
-                                viewModel?.setOnionLayerProtected(currentDepth, !isCurrentLayerProtected)
-                            },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(
-                                    if (isCurrentLayerProtected) androidx.compose.ui.graphics.Color(0x1A00F0FF)
-                                    else androidx.compose.ui.graphics.Color(0x1AFFFFFF),
-                                    CircleShape
-                                )
-                        ) {
-                            androidx.compose.material3.Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = if (isCurrentLayerProtected) "Locked" else "Unlocked",
-                                tint = if (isCurrentLayerProtected) themeAccentColor
-                                    else androidx.compose.ui.graphics.Color.Gray
-                            )
-                        }
-                        Spacer(Modifier.width(4.dp))
-                        
-                        // Delete Compartment Action (only for custom layers > 0)
-                        if (currentDepth > 0) {
-                            var showDeleteConfirm by remember { androidx.compose.runtime.mutableStateOf(false) }
-                            if (showDeleteConfirm) {
-                                androidx.compose.material3.AlertDialog(
-                                    onDismissRequest = { showDeleteConfirm = false },
-                                    title = { androidx.compose.material3.Text("DELETE COMPARTMENT?", color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold) },
-                                    text = { androidx.compose.material3.Text("Do you want to permanently delete this compartment? The apps will be unhidden.", color = androidx.compose.ui.graphics.Color.Gray) },
-                                    confirmButton = {
-                                        androidx.compose.material3.TextButton(
-                                            onClick = {
-                                                val layerKey = viewModel?.getOnionLayerKey(currentDepth)
-                                                if (layerKey != null) {
-                                                    onDeleteLayer(layerKey)
-                                                    showDeleteConfirm = false
-                                                    currentDepth--
-                                                }
-                                            }
-                                        ) { androidx.compose.material3.Text("DELETE", color = androidx.compose.ui.graphics.Color(0xFFFF006E), fontWeight = FontWeight.Bold) }
-                                    },
-                                    dismissButton = {
-                                        androidx.compose.material3.TextButton(onClick = { showDeleteConfirm = false }) {
-                                            androidx.compose.material3.Text("CANCEL", color = androidx.compose.ui.graphics.Color.Gray)
-                                        }
-                                    },
-                                    containerColor = androidx.compose.ui.graphics.Color(0xFF0F172A),
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
-                                )
-                            }
-
-                            androidx.compose.material3.TextButton(
-                                onClick = { showDeleteConfirm = true },
-                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF006E))
-                            ) {
-                                Text("DELETE", fontWeight = FontWeight.Bold)
-                            }
-                        }
                     }
-
+                    
                     androidx.compose.material3.Divider(
                         color = themeAccentColor.copy(alpha = 0.3f),
                         thickness = 1.dp
@@ -1210,17 +1210,17 @@ fun HomeScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("🧅", fontSize = 48.sp)
+                                Text("⚙️", fontSize = 48.sp)
                                 Spacer(Modifier.height(16.dp))
                                 Text(
-                                    "No apps inside this compartment",
+                                    "No system logs recorded",
                                     color = androidx.compose.ui.graphics.Color.White,
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(Modifier.height(8.dp))
                                 Text(
-                                    "Long-press an app in the main drawer and choose 'Manage Onion Layers' to add it here, or double-tap empty space to peel deeper.",
+                                    "System is running in safe mode. No diagnostic entries have been logged to this console sector.",
                                     color = androidx.compose.ui.graphics.Color.Gray,
                                     fontSize = 12.sp,
                                     modifier = Modifier.padding(horizontal = 24.dp),
@@ -1276,28 +1276,7 @@ fun HomeScreen(
                                         if (count > 0) {
                                             NotificationDot(count = count)
                                         }
-                                        Box(
-                                            modifier = Modifier
-                                                .align(Alignment.BottomEnd)
-                                                .offset(x = 4.dp, y = 4.dp)
-                                                .size(20.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(0xFF0F172A))
-                                                .border(1.dp, themeAccentColor.copy(alpha = 0.8f), CircleShape)
-                                                .clickable {
-                                                    viewModel?.sendAppToNextCompartment(app.packageName, currentDepth)
-                                                },
-                                            contentAlignment = Alignment.Center
-                                         ) {
-                                             Text(
-                                                 text = "➔",
-                                                 color = themeAccentColor,
-                                                 fontSize = 10.sp,
-                                                 fontWeight = FontWeight.Bold
-                                             )
-                                         }
-                                         if (false) {
-                                        }
+
                                     }
                                     if (showLabels) {
                                         Text(

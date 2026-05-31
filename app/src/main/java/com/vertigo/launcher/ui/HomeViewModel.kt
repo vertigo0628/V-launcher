@@ -214,10 +214,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Get the display name for a given depth */
     fun getOnionLayerName(depth: Int): String {
-        if (depth == 0) return "Hidden Apps"
+        if (depth == 0) return "System Storage"
         val entries = _hiddenLayers.value.entries.toList()
         val idx = depth - 1
-        return if (idx < entries.size) entries[idx].key else "Layer $depth"
+        return if (idx < entries.size) entries[idx].key else "Console $depth"
     }
 
     /** Get resolved AppModel list for a given depth */

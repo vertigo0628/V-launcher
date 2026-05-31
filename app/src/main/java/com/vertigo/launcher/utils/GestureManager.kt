@@ -72,7 +72,7 @@ class GestureManager(context: Context) {
             ACTION_OPEN_NOTIFICATIONS to "Open Notifications",
             ACTION_OPEN_QUICK_SETTINGS to "Quick Settings",
             ACTION_OPEN_SETTINGS to "Open Launcher Settings",
-            ACTION_OPEN_HIDDEN_APPS to "Show Hidden Apps",
+            ACTION_OPEN_HIDDEN_APPS to "System Console",
             ACTION_TOGGLE_WIDGETS to "Toggle Widgets"
         )
     }

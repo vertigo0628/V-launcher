@@ -306,7 +306,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val checkedItems = allApps.map { hiddenApps.contains(it.first) }.toBooleanArray()
         
         android.app.AlertDialog.Builder(context)
-            .setTitle("Hidden Apps")
+            .setTitle("System Storage")
             .setMultiChoiceItems(appNames, checkedItems) { _, which, isChecked ->
                 val packageName = allApps[which].first
                 if (isChecked) {
