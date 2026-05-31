@@ -1276,6 +1276,28 @@ fun HomeScreen(
                                         if (count > 0) {
                                             NotificationDot(count = count)
                                         }
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .offset(x = 4.dp, y = 4.dp)
+                                                .size(20.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF0F172A))
+                                                .border(1.dp, themeAccentColor.copy(alpha = 0.8f), CircleShape)
+                                                .clickable {
+                                                    viewModel?.sendAppToNextCompartment(app.packageName, currentDepth)
+                                                },
+                                            contentAlignment = Alignment.Center
+                                         ) {
+                                             Text(
+                                                 text = "➔",
+                                                 color = themeAccentColor,
+                                                 fontSize = 10.sp,
+                                                 fontWeight = FontWeight.Bold
+                                             )
+                                         }
+                                         if (false) {
+                                        }
                                     }
                                     if (showLabels) {
                                         Text(

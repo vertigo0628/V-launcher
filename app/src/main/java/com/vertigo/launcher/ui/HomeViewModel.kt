@@ -174,6 +174,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Add an app to a hidden layer — also hides it from the main drawer automatically */
     fun addAppToHiddenLayer(layerName: String, packageName: String) {
+        // Remove from all other hidden layers first so it only exists in the target layer
+        val layers = preferencesManager.getHiddenLayers()
+        layers.forEach { (name, pkgs) ->
+            if (name != layerName && pkgs.contains(packageName)) {
+                preferencesManager.removeAppFromHiddenLayer(name, packageName)
+            }
+        }
         preferencesManager.addAppToHiddenLayer(layerName, packageName)
         // Ensure the app is also hidden from the main drawer
         if (!preferencesManager.isAppHidden(packageName)) {
@@ -215,7 +222,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Get resolved AppModel list for a given depth */
     fun getOnionLayerApps(depth: Int): List<AppModel> {
-        if (depth == 0) return _hiddenAppsList.value
+        if (depth == 0) {
+            val customLayerPackages = preferencesManager.getAllLayerPackages()
+            return _hiddenAppsList.value.filter { !customLayerPackages.contains(it.packageName) }
+        }
         val entries = _hiddenLayers.value.entries.toList()
         val idx = depth - 1
         if (idx >= entries.size) return emptyList()
@@ -240,6 +250,22 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val key = getOnionLayerKey(depth) ?: return
         preferencesManager.setLayerProtected(key, isProtected)
         _protectedLayers.value = preferencesManager.getProtectedLayers()
+    }
+
+    fun sendAppToNextCompartment(packageName: String, currentDepth: Int) {
+        val maxDepth = getMaxOnionDepth()
+        if (currentDepth < maxDepth) {
+            val nextKey = getOnionLayerKey(currentDepth + 1)
+            if (nextKey != null) {
+                addAppToHiddenLayer(nextKey, packageName)
+            }
+        } else {
+            val newLayerName = "Compartment ${maxDepth + 1}"
+            createHiddenLayer(newLayerName, isProtected = false)
+            addAppToHiddenLayer(newLayerName, packageName)
+        }
+        refreshHiddenLayers()
+        loadApps()
     }
 
     val flowerApps: StateFlow<List<AppModel>> = _flowerApps.asStateFlow()
