@@ -2150,17 +2150,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun startOllamaBackend() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                val intent = android.content.Intent()
-                intent.setClassName("com.termux", "com.termux.app.RunCommandService")
-                intent.action = "com.termux.RUN_COMMAND"
+                // 1. Kill any existing or hung Ollama instances first to avoid port binding conflicts
+                val killIntent = android.content.Intent().apply {
+                    setClassName("com.termux", "com.termux.app.RunCommandService")
+                    action = "com.termux.RUN_COMMAND"
+                    putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
+                    putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "pkill -9 -f ollama || killall -9 ollama || true"))
+                    putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+                }
+                getApplication<Application>().startService(killIntent)
                 
-                // Start the Ollama server in Termux
-                intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/ollama")
-                intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("serve"))
-                intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+                // Give Termux a moment to terminate the processes
+                kotlinx.coroutines.delay(1200)
+
+                // 2. Start the Ollama server cleanly in Termux
+                val startIntent = android.content.Intent().apply {
+                    setClassName("com.termux", "com.termux.app.RunCommandService")
+                    action = "com.termux.RUN_COMMAND"
+                    putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/ollama")
+                    putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("serve"))
+                    putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+                }
                 
-                getApplication<Application>().startService(intent)
-                android.util.Log.d("HomeViewModel", "Sent RUN_COMMAND intent to Termux for Ollama")
+                getApplication<Application>().startService(startIntent)
+                android.util.Log.d("HomeViewModel", "Sent RUN_COMMAND intents to cleanly stop and restart Termux Ollama")
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "Failed to start Termux, is it installed?", e)
             }

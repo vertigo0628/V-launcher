@@ -19,10 +19,14 @@ class VLauncherAccessibilityService : AccessibilityService() {
     private var leftZone: View? = null
     private var rightZone: View? = null
 
+    // Floating terminal overlay (Dynamic Island)
+    private var floatingTerminal: FloatingTerminalOverlay? = null
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
         setupZones()
+        setupFloatingTerminal()
     }
 
     private fun setupZones() {
@@ -66,6 +70,26 @@ class VLauncherAccessibilityService : AccessibilityService() {
     ).apply {
         this.gravity = gravity
     }
+
+    // ==================== Floating Terminal ====================
+
+    private fun setupFloatingTerminal() {
+        val prefs = com.vertigo.launcher.utils.StorageHelper
+            .getSafeDefaultSharedPreferences(this)
+        val enabled = prefs.getBoolean("floating_assistant_enabled", true)
+        if (!enabled) return
+
+        val wm = windowManager ?: return
+        floatingTerminal = FloatingTerminalOverlay(this, wm)
+        floatingTerminal?.show()
+    }
+
+    private fun removeFloatingTerminal() {
+        floatingTerminal?.hide()
+        floatingTerminal = null
+    }
+
+    // ==================== Gesture Zones ====================
 
     private fun setupBottomGestures(view: View) {
         var startY = 0f
@@ -115,11 +139,14 @@ class VLauncherAccessibilityService : AccessibilityService() {
         }
     }
 
+    // ==================== Lifecycle ====================
+
     override fun onDestroy() {
         super.onDestroy()
         bottomZone?.let { windowManager?.removeView(it) }
         leftZone?.let { windowManager?.removeView(it) }
         rightZone?.let { windowManager?.removeView(it) }
+        removeFloatingTerminal()
         instance = null
     }
 
@@ -137,6 +164,8 @@ class VLauncherAccessibilityService : AccessibilityService() {
     }
 
     companion object {
+        const val ACTION_ACTIVATE_VOICE = "com.vertigo.launcher.ACTION_ACTIVATE_VOICE"
+
         private var instance: VLauncherAccessibilityService? = null
 
         fun performHome() {
@@ -152,5 +181,19 @@ class VLauncherAccessibilityService : AccessibilityService() {
         }
         
         fun isEnabled(): Boolean = instance != null
+
+        /** Refresh floating terminal visibility from preferences */
+        fun refreshFloatingButton() {
+            val service = instance ?: return
+            val prefs = com.vertigo.launcher.utils.StorageHelper
+                .getSafeDefaultSharedPreferences(service)
+            val enabled = prefs.getBoolean("floating_assistant_enabled", true)
+
+            if (enabled && service.floatingTerminal?.isVisible() != true) {
+                service.setupFloatingTerminal()
+            } else if (!enabled) {
+                service.removeFloatingTerminal()
+            }
+        }
     }
 }
