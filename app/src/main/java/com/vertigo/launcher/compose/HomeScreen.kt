@@ -1195,6 +1195,27 @@ fun HomeScreen(
                                 fontSize = 12.sp
                             )
                         }
+                        // Lock/Unlock toggle
+                        val isCurrentLayerProtected = viewModel?.isOnionLayerProtected(currentDepth) ?: false
+                        androidx.compose.material3.IconButton(
+                            onClick = {
+                                viewModel?.setOnionLayerProtected(currentDepth, !isCurrentLayerProtected)
+                            },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    if (isCurrentLayerProtected) androidx.compose.ui.graphics.Color(0x1A00F0FF)
+                                    else androidx.compose.ui.graphics.Color(0x1AFFFFFF),
+                                    CircleShape
+                                )
+                        ) {
+                            androidx.compose.material3.Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = if (isCurrentLayerProtected) "Locked" else "Unlocked",
+                                tint = if (isCurrentLayerProtected) themeAccentColor
+                                    else androidx.compose.ui.graphics.Color.Gray
+                            )
+                        }
                     }
                     
                     androidx.compose.material3.Divider(

@@ -1819,8 +1819,37 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         // Clear previous AI response on new command
         clearAiResponse()
         
-        // Command: Play Music
-        if (command == "play music" || command == "play some music" || command.contains("play music")) {
+        val cleaned = command.trim().lowercase()
+
+        // 1. App Drawer Navigation
+        val isDrawerOpenCommand = cleaned == "open drawer" || cleaned == "show apps" || 
+                                  cleaned == "show drawer" || cleaned == "all apps" || 
+                                  cleaned == "open app drawer" || cleaned == "open apps list" ||
+                                  cleaned == "show apps list"
+        val isDrawerCloseCommand = cleaned == "close drawer" || cleaned == "hide apps" || 
+                                   cleaned == "hide drawer" || cleaned == "go home" || 
+                                   cleaned == "close apps" || cleaned == "exit drawer"
+        
+        if (isDrawerOpenCommand || isDrawerCloseCommand) {
+            _chatHistory.value = _chatHistory.value + ChatMessage(role = "user", content = command)
+            if (isDrawerOpenCommand) {
+                setDrawerOpen(true)
+                _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Opening app drawer.")
+            } else {
+                setDrawerOpen(false)
+                _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Closing app drawer.")
+            }
+            return
+        }
+
+        // 2. Play Music
+        val isMusicCommand = cleaned.contains("music") || cleaned.contains("song") || 
+                             cleaned.contains("songs") || cleaned.contains("tunes") || 
+                             cleaned.contains("audio")
+        val hasMusicActionWord = cleaned.contains("play") || cleaned.contains("start") || 
+                                 cleaned.contains("resume") || cleaned.contains("listen")
+        if (isMusicCommand && hasMusicActionWord) {
+            _chatHistory.value = _chatHistory.value + ChatMessage(role = "user", content = command)
             try {
                 val intent = android.content.Intent.makeMainSelectorActivity(
                     android.content.Intent.ACTION_MAIN,
@@ -1828,42 +1857,173 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                 getApplication<Application>().startActivity(intent)
+                _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Opening default music player...")
             } catch (e: Exception) {
+                _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Failed to open music player: ${e.message}")
                 e.printStackTrace()
             }
-        } 
-        // Command: Search Google
-        else if (command.startsWith("search") || command.startsWith("google")) {
-            val query = command.removePrefix("search").removePrefix("google").trim()
-            if (query.isNotEmpty()) {
-                performSearchAction(
-                    com.vertigo.launcher.utils.SearchManager.SearchResult(
-                        type = com.vertigo.launcher.utils.SearchManager.ResultType.WEB_SEARCH,
-                        id = "voice_web",
-                        title = query,
-                        action = com.vertigo.launcher.utils.SearchManager.SearchAction.WebSearch(query, "google")
-                    ).action
-                )
+            return
+        }
+
+        // 3. Weather
+        val isWeatherCommand = cleaned.contains("weather") || cleaned.contains("forecast") || 
+                               cleaned.contains("temperature") || cleaned.contains("temp")
+        if (isWeatherCommand) {
+            _chatHistory.value = _chatHistory.value + ChatMessage(role = "user", content = command)
+            refreshWeather()
+            val currentTemp = _weatherState.value.temp
+            val currentCondition = _weatherState.value.condition
+            val response = if (currentCondition == "Loading...") {
+                "Fetching weather updates... Please wait a moment."
+            } else {
+                "Currently: $currentTemp and $currentCondition."
+            }
+            _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = response)
+            return
+        }
+
+        // 4. Volume Control
+        val isVolumeUp = cleaned.contains("volume up") || cleaned.contains("increase volume") || 
+                         cleaned.contains("louder") || cleaned.contains("make it louder")
+        val isVolumeDown = cleaned.contains("volume down") || cleaned.contains("decrease volume") || 
+                           cleaned.contains("softer") || cleaned.contains("quieter") || 
+                           cleaned.contains("lower volume")
+        val isMute = cleaned.contains("mute") || cleaned.contains("silence") || 
+                     cleaned.contains("shutup") || cleaned.contains("quiet")
+        val isUnmute = cleaned.contains("unmute") || cleaned.contains("turn volume on")
+
+        if (isVolumeUp || isVolumeDown || isMute || isUnmute) {
+            _chatHistory.value = _chatHistory.value + ChatMessage(role = "user", content = command)
+            try {
+                val audioManager = getApplication<Application>().getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                when {
+                    isVolumeUp -> {
+                        audioManager.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_RAISE, android.media.AudioManager.FLAG_SHOW_UI)
+                        _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Raising system volume.")
+                    }
+                    isVolumeDown -> {
+                        audioManager.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_LOWER, android.media.AudioManager.FLAG_SHOW_UI)
+                        _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Lowering system volume.")
+                    }
+                    isMute -> {
+                        audioManager.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_MUTE, android.media.AudioManager.FLAG_SHOW_UI)
+                        _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Muting audio.")
+                    }
+                    isUnmute -> {
+                        audioManager.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_UNMUTE, android.media.AudioManager.FLAG_SHOW_UI)
+                        _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Unmuting audio.")
+                    }
+                }
+            } catch (e: Exception) {
+                _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Error adjusting volume: ${e.message}")
+            }
+            return
+        }
+
+        // 5. Settings Shortcuts
+        val isSettingsCommand = cleaned.contains("settings") || cleaned.contains("configure") || 
+                                cleaned.contains("preferences")
+        if (isSettingsCommand) {
+            _chatHistory.value = _chatHistory.value + ChatMessage(role = "user", content = command)
+            try {
+                if (cleaned.contains("launcher")) {
+                    val intent = android.content.Intent(getApplication(), com.vertigo.launcher.LauncherSettingsActivity::class.java).apply {
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    getApplication<Application>().startActivity(intent)
+                    _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Opening Launcher settings...")
+                } else if (cleaned.contains("wifi") || cleaned.contains("wi-fi")) {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_WIFI_SETTINGS).apply {
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    getApplication<Application>().startActivity(intent)
+                    _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Opening Wi-Fi settings...")
+                } else if (cleaned.contains("bluetooth")) {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).apply {
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    getApplication<Application>().startActivity(intent)
+                    _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Opening Bluetooth settings...")
+                } else {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS).apply {
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    getApplication<Application>().startActivity(intent)
+                    _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Opening system settings...")
+                }
+            } catch (e: Exception) {
+                _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Failed to open settings: ${e.message}")
+            }
+            return
+        }
+
+        // 6. Open/Launch Installed App
+        val openAppVerbs = listOf("open up", "open", "launch", "start", "run", "go to")
+        var appToOpen: String? = null
+        for (verb in openAppVerbs) {
+            if (cleaned.startsWith(verb + " ")) {
+                appToOpen = cleaned.removePrefix(verb).trim()
+                break
             }
         }
-        // Command: Open App
-        else if (command.startsWith("open")) {
-            val appName = command.removePrefix("open").trim()
-            onSearchQueryChanged(appName)
-            
+        
+        if (appToOpen != null && appToOpen.isNotEmpty()) {
+            _chatHistory.value = _chatHistory.value + ChatMessage(role = "user", content = command)
+            onSearchQueryChanged(appToOpen)
+            val finalAppToOpen = appToOpen
             viewModelScope.launch {
-                // Find and launch the first matching app
-                val results = searchManager.search(appName)
+                val results = searchManager.search(finalAppToOpen)
                 val appResult = results.firstOrNull { it.type == com.vertigo.launcher.utils.SearchManager.ResultType.APP }
-                
-                appResult?.let { 
-                    performSearchAction(it.action)
+                if (appResult != null) {
+                    _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Launching ${appResult.title}...")
+                    performSearchAction(appResult.action)
+                } else {
+                    _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Could not find an app named '$finalAppToOpen'.")
                 }
             }
+            return
         }
-        // Unrecognized command - Query Local Termux Brain
-        else {
-            processAiQuery(command)
+
+        // 7. Search Google/Web
+        val searchVerbs = listOf("search for", "search", "google", "look up", "find", "web search")
+        var searchQuery: String? = null
+        for (verb in searchVerbs) {
+            if (cleaned.startsWith(verb + " ")) {
+                searchQuery = cleaned.removePrefix(verb).trim()
+                break
+            }
+        }
+        
+        if (searchQuery != null && searchQuery.isNotEmpty()) {
+            _chatHistory.value = _chatHistory.value + ChatMessage(role = "user", content = command)
+            val finalQuery = searchQuery
+            performSearchAction(
+                com.vertigo.launcher.utils.SearchManager.SearchResult(
+                    type = com.vertigo.launcher.utils.SearchManager.ResultType.WEB_SEARCH,
+                    id = "voice_web",
+                    title = finalQuery,
+                    action = com.vertigo.launcher.utils.SearchManager.SearchAction.WebSearch(finalQuery, "google")
+                ).action
+            )
+            _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Searching the web for '$finalQuery'...")
+            return
+        }
+
+        // 8. Direct exact app name match or AI fallback
+        viewModelScope.launch {
+            val results = searchManager.search(cleaned)
+            val appResult = results.firstOrNull { 
+                it.type == com.vertigo.launcher.utils.SearchManager.ResultType.APP &&
+                (it.title.lowercase() == cleaned || it.title.lowercase().replace(" ", "") == cleaned.replace(" ", ""))
+            }
+            
+            if (appResult != null) {
+                _chatHistory.value = _chatHistory.value + ChatMessage(role = "user", content = command)
+                _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = "Launching ${appResult.title}...")
+                performSearchAction(appResult.action)
+            } else {
+                processAiQuery(command)
+            }
         }
     }
 
