@@ -686,9 +686,6 @@ fun HomeScreen(
                     activeFolder = null
                 },
                 onClose = { activeFolder = null },
-                onRemoveFromFolder = { app ->
-                    // Logic already handled via onDeleteFolder or add/remove methods in future
-                },
                 themeAccentColor = themeAccentColor
             )
         }
@@ -1932,8 +1929,7 @@ fun AppDrawer(
                             apps = folderApps,
                             onClick = { onFolderClick(name) },
                             onLongClick = { onDeleteFolder(name) },
-                            notificationCount = folderNotifCount,
-                            themeAccentColor = themeAccentColor
+                            notificationCount = folderNotifCount
                         )
                     }
                 }
@@ -2034,8 +2030,7 @@ fun FolderIcon(
     apps: List<AppModel>,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    notificationCount: Int = 0,
-    themeAccentColor: Color = Color(0xFF00F0FF)
+    notificationCount: Int = 0
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -2116,7 +2111,6 @@ fun FolderOverlay(
     apps: List<AppModel>,
     onAppClick: (AppModel) -> Unit,
     onClose: () -> Unit,
-    onRemoveFromFolder: (AppModel) -> Unit,
     themeAccentColor: Color = Color(0xFF00F0FF)
 ) {
     Box(
