@@ -126,3 +126,8 @@ A futuristic "Minus 1" dashboard for system intelligence.
 - **Lightweight Folder Icon Previews**: Replaced nested `LazyVerticalGrid` inside folder icons with lightweight static `Column`/`Row` templates.
 - **Cache-Optimized Filtering**: Wrapped folder and app filtering logic inside `remember` blocks in `AppDrawer` to prevent CPU allocations and GC pressure during scrolling.
 - **Unique Recycler Keys**: Assigned unique keys to grid item containers (`key = "folder_$name"`) to maximize Compose grid recycling performance.
+
+### 🧹 Codebase Health & Maintenance
+- **Compose UI Deprecations Resolved**: Updated legacy Material API components (`Divider` -> `HorizontalDivider`) and icon references to ensure compatibility with modern Jetpack Compose.
+- **Dead Code Eradication**: Removed unused `HomeScreen` parameters, unused ViewModel state flows, and obsolete composable variables, significantly reducing complexity.
+- **SDK Compilation Standards**: Updated `gradle.properties` to suppress unsupported `compileSdk` warnings for smoother, warning-free local builds.
