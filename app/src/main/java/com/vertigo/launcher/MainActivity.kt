@@ -82,9 +82,6 @@ class MainActivity : AppCompatActivity() {
         // Initialize Shizuku connection manager
         com.vertigo.launcher.utils.ShizukuSetup.init()
         
-        // Handle voice activation if launched from floating button
-        handleVoiceActivationIntent(intent)
-        
         setContent {
             val flowerApps by viewModel.flowerApps.collectAsState(initial = emptyList())
             val allApps by viewModel.apps.collectAsState(initial = emptyList())
@@ -328,22 +325,6 @@ class MainActivity : AppCompatActivity() {
         val intent = packageManager.getLaunchIntentForPackage(app.packageName)
         if (intent != null) {
             startActivity(intent)
-        }
-    }
-    
-    // ==================== Floating Button Voice Activation ====================
-    
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleVoiceActivationIntent(intent)
-    }
-    
-    private fun handleVoiceActivationIntent(intent: Intent?) {
-        if (intent?.action == com.vertigo.launcher.service.VLauncherAccessibilityService.ACTION_ACTIVATE_VOICE) {
-            // Activate voice assistant if not already enabled
-            if (!viewModel.isVoiceEnabled.value) {
-                viewModel.toggleVoiceEnabled()
-            }
         }
     }
     

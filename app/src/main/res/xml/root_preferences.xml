@@ -79,12 +79,6 @@
             
         <SwitchPreferenceCompat
             app:defaultValue="true"
-            app:key="floating_assistant_enabled"
-            app:title="Floating Assistant Button"
-            app:summary="Draggable mic bubble over all apps (requires Accessibility)" />
-            
-        <SwitchPreferenceCompat
-            app:defaultValue="true"
             app:key="neural_hub_enabled"
             app:title="Neural Hub"
             app:summary="Background system monitoring" />
