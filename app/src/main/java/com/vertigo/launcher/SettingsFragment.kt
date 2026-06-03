@@ -35,6 +35,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setupShizukuPreferences()
         setupReignitePreference()
         setupKillSwitchPreference()
+        setupFloatingAssistantPreference()
     }
 
     private fun setupReignitePreference() {
@@ -48,6 +49,20 @@ class SettingsFragment : PreferenceFragmentCompat() {
             Toast.makeText(context, "Please re-authorize both services for Vertigo Launcher", Toast.LENGTH_LONG).show()
             true
         }
+    }
+
+    private fun setupFloatingAssistantPreference() {
+        findPreference<SwitchPreferenceCompat>("floating_assistant_enabled")
+            ?.setOnPreferenceChangeListener { _, newValue ->
+                val enabled = newValue as Boolean
+                if (enabled && !VLauncherAccessibilityService.isEnabled()) {
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    Toast.makeText(context, "Please enable 'V-launcher' in Accessibility", Toast.LENGTH_LONG).show()
+                }
+                // Refresh the overlay immediately
+                VLauncherAccessibilityService.refreshFloatingButton()
+                true
+            }
     }
 
     private fun setupNeuralNavPreference() {
