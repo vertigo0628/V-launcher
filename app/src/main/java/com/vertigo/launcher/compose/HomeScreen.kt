@@ -1165,7 +1165,7 @@ fun HomeScreen(
                                 .background(androidx.compose.ui.graphics.Color(0x1DFFFFFF), CircleShape)
                         ) {
                             androidx.compose.material3.Icon(
-                                imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
+                                imageVector = androidx.compose.material.icons.Icons.Filled.ArrowBack,
                                 contentDescription = "Back",
                                 tint = themeAccentColor
                             )
