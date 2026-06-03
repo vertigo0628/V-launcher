@@ -1170,7 +1170,7 @@ fun HomeScreen(
                                 .background(androidx.compose.ui.graphics.Color(0x1DFFFFFF), CircleShape)
                         ) {
                             androidx.compose.material3.Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
+                                imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
                                 tint = themeAccentColor
                             )
@@ -1220,7 +1220,7 @@ fun HomeScreen(
                         }
                     }
                     
-                    androidx.compose.material3.Divider(
+                    androidx.compose.material3.HorizontalDivider(
                         color = themeAccentColor.copy(alpha = 0.3f),
                         thickness = 1.dp
                     )
