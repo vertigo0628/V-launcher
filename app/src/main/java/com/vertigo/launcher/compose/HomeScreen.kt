@@ -138,7 +138,6 @@ fun HomeScreen(
     shizukuState: com.vertigo.launcher.utils.ShizukuSetup.ShizukuState = com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.UNAVAILABLE,
     shizukuActionResult: String? = null,
     frozenApps: Set<String> = emptySet(),
-    frozenAppsList: List<AppModel> = emptyList(),
     onFreezeApp: (String) -> Unit = {},
     onUnfreezeApp: (String) -> Unit = {},
     onForceStopApp: (String) -> Unit = {},
@@ -162,9 +161,8 @@ fun HomeScreen(
     hiddenLayers: Map<String, Set<String>> = emptyMap(),
     // Callback to create/delete layers passed from ViewModel
     onCreateLayer: (String, Boolean) -> Unit = { _, _ -> },
-    onDeleteLayer: (String) -> Unit = {},
-    // Callback to open layer drawer after PIN verification
-    onEnterLayer: (String) -> Unit = {}) {
+    onDeleteLayer: (String) -> Unit = {}
+) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
