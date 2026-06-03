@@ -119,9 +119,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _frozenApps = MutableStateFlow<Set<String>>(emptySet())
     val frozenApps: StateFlow<Set<String>> = _frozenApps.asStateFlow()
     
-    private val _frozenAppsList = MutableStateFlow<List<AppModel>>(emptyList())
-    val frozenAppsList: StateFlow<List<AppModel>> = _frozenAppsList.asStateFlow()
-    
     private val _shizukuActionResult = MutableStateFlow<String?>(null)
     val shizukuActionResult: StateFlow<String?> = _shizukuActionResult.asStateFlow()
 
@@ -2178,9 +2175,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val frozenPkgs = com.vertigo.launcher.logic.AppCommander.getFrozenApps()
             _frozenApps.value = frozenPkgs.toSet()
-            
-            // Also fetch full AppModel objects from repository
-            _frozenAppsList.value = repository.getFrozenApps()
         }
     }
 
