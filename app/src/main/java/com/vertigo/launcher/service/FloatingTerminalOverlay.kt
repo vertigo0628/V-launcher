@@ -502,6 +502,10 @@ class FloatingTerminalOverlay(
     }
 
     private fun sendQuery(query: String) {
+        if (executeLocalCommand(query)) {
+            return
+        }
+
         // Add user message
         chatMessages.add("user" to query)
         addUserMessageUI(query)
@@ -519,7 +523,7 @@ class FloatingTerminalOverlay(
         val prefs = com.vertigo.launcher.utils.StorageHelper
             .getSafeDefaultSharedPreferences(context)
         val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
-        val model = prefs.getString("selected_ollama_model", "llama3.2:1b") ?: "llama3.2:1b"
+        val model = prefs.getString("ollama_model_select", "llama3.2:1b") ?: "llama3.2:1b"
 
         val systemPrompt = "You are Sunday, an advanced AI assistant integrated into the V-Launcher for Android. " +
             "Keep responses concise and helpful. You are speaking through a floating overlay terminal. " +
@@ -849,6 +853,246 @@ class FloatingTerminalOverlay(
         try { expandedView?.let { windowManager.removeView(it) } } catch (_: Exception) {}
         expandedView = null
         expandedParams = null
+    }
+
+    // ===================== Local Command Execution =====================
+
+    private fun executeLocalCommand(query: String): Boolean {
+        val cleaned = query.trim().lowercase()
+        if (cleaned.isBlank()) return false
+
+        // 1. App Drawer Navigation / Home / Back
+        val isHomeCommand = cleaned == "go home" || cleaned == "close drawer" || cleaned == "hide apps" || cleaned == "hide drawer"
+        val isBackCommand = cleaned == "go back" || cleaned == "back"
+        val isRecentsCommand = cleaned == "recents" || cleaned == "recent apps" || cleaned == "show recents"
+        
+        if (isHomeCommand || isBackCommand || isRecentsCommand) {
+            chatMessages.add("user" to query)
+            addUserMessageUI(query)
+            if (isHomeCommand) {
+                VLauncherAccessibilityService.performHome()
+                addAssistantMessageDirect("Returning to Home screen.")
+            } else if (isBackCommand) {
+                VLauncherAccessibilityService.performBack()
+                addAssistantMessageDirect("Going back.")
+            } else {
+                VLauncherAccessibilityService.performRecents()
+                addAssistantMessageDirect("Opening recent apps.")
+            }
+            return true
+        }
+
+        // 2. Play Music
+        val isMusicCommand = cleaned.contains("music") || cleaned.contains("song") || 
+                             cleaned.contains("songs") || cleaned.contains("tunes") || 
+                             cleaned.contains("audio")
+        val hasMusicActionWord = cleaned.contains("play") || cleaned.contains("start") || 
+                                 cleaned.contains("resume") || cleaned.contains("listen")
+        if (isMusicCommand && hasMusicActionWord) {
+            chatMessages.add("user" to query)
+            addUserMessageUI(query)
+            try {
+                val intent = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MUSIC).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                addAssistantMessageDirect("Opening default music player...")
+            } catch (e: Exception) {
+                addAssistantMessageDirect("Failed to open music player: ${e.message}")
+            }
+            return true
+        }
+
+        // 3. Volume Control
+        val isVolumeUp = cleaned.contains("volume up") || cleaned.contains("increase volume") || 
+                         cleaned.contains("louder") || cleaned.contains("make it louder")
+        val isVolumeDown = cleaned.contains("volume down") || cleaned.contains("decrease volume") || 
+                           cleaned.contains("softer") || cleaned.contains("quieter") || 
+                           cleaned.contains("lower volume")
+        val isMute = cleaned.contains("mute") || cleaned.contains("silence") || 
+                     cleaned.contains("shutup") || cleaned.contains("quiet")
+        val isUnmute = cleaned.contains("unmute") || cleaned.contains("turn volume on")
+
+        if (isVolumeUp || isVolumeDown || isMute || isUnmute) {
+            chatMessages.add("user" to query)
+            addUserMessageUI(query)
+            try {
+                val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                when {
+                    isVolumeUp -> {
+                        audioManager.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_RAISE, android.media.AudioManager.FLAG_SHOW_UI)
+                        addAssistantMessageDirect("Raising system volume.")
+                    }
+                    isVolumeDown -> {
+                        audioManager.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_LOWER, android.media.AudioManager.FLAG_SHOW_UI)
+                        addAssistantMessageDirect("Lowering system volume.")
+                    }
+                    isMute -> {
+                        audioManager.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_MUTE, android.media.AudioManager.FLAG_SHOW_UI)
+                        addAssistantMessageDirect("Muting audio.")
+                    }
+                    isUnmute -> {
+                        audioManager.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_UNMUTE, android.media.AudioManager.FLAG_SHOW_UI)
+                        addAssistantMessageDirect("Unmuting audio.")
+                    }
+                }
+            } catch (e: Exception) {
+                addAssistantMessageDirect("Error adjusting volume: ${e.message}")
+            }
+            return true
+        }
+
+        // 4. Settings Shortcuts
+        val isSettingsCommand = cleaned.contains("settings") || cleaned.contains("configure") || 
+                                cleaned.contains("preferences")
+        if (isSettingsCommand) {
+            chatMessages.add("user" to query)
+            addUserMessageUI(query)
+            try {
+                if (cleaned.contains("launcher")) {
+                    val intent = Intent(context, com.vertigo.launcher.LauncherSettingsActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                    addAssistantMessageDirect("Opening Launcher settings...")
+                } else if (cleaned.contains("wifi") || cleaned.contains("wi-fi")) {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                    addAssistantMessageDirect("Opening Wi-Fi settings...")
+                } else if (cleaned.contains("bluetooth")) {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                    addAssistantMessageDirect("Opening Bluetooth settings...")
+                } else {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                    addAssistantMessageDirect("Opening system settings...")
+                }
+            } catch (e: Exception) {
+                addAssistantMessageDirect("Failed to open settings: ${e.message}")
+            }
+            return true
+        }
+
+        // 5. Open/Launch App
+        val openAppVerbs = listOf("open up", "open", "launch", "start", "run", "go to")
+        var appToOpen: String? = null
+        for (verb in openAppVerbs) {
+            if (cleaned.startsWith(verb + " ")) {
+                appToOpen = cleaned.removePrefix(verb).trim()
+                break
+            }
+        }
+
+        if (appToOpen != null && appToOpen.isNotEmpty()) {
+            chatMessages.add("user" to query)
+            addUserMessageUI(query)
+            val pkg = findInstalledAppPackage(appToOpen)
+            if (pkg != null) {
+                val appName = getAppName(pkg)
+                addAssistantMessageDirect("Launching $appName...")
+                launchAppPackage(pkg)
+            } else {
+                addAssistantMessageDirect("Could not find an app named '$appToOpen'.")
+            }
+            return true
+        }
+
+        // 6. Search Web
+        val searchVerbs = listOf("search for", "search", "google", "look up", "find", "web search")
+        var searchQuery: String? = null
+        for (verb in searchVerbs) {
+            if (cleaned.startsWith(verb + " ")) {
+                searchQuery = cleaned.removePrefix(verb).trim()
+                break
+            }
+        }
+
+        if (searchQuery != null && searchQuery.isNotEmpty()) {
+            chatMessages.add("user" to query)
+            addUserMessageUI(query)
+            try {
+                val url = "https://www.google.com/search?q=" + java.net.URLEncoder.encode(searchQuery, "UTF-8")
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                addAssistantMessageDirect("Searching the web for '$searchQuery'...")
+            } catch (e: Exception) {
+                addAssistantMessageDirect("Failed to start web search: ${e.message}")
+            }
+            return true
+        }
+
+        // 7. Direct App Match
+        val pkg = findInstalledAppPackage(cleaned)
+        if (pkg != null) {
+            chatMessages.add("user" to query)
+            addUserMessageUI(query)
+            val appName = getAppName(pkg)
+            addAssistantMessageDirect("Launching $appName...")
+            launchAppPackage(pkg)
+            return true
+        }
+
+        return false
+    }
+
+    private fun addAssistantMessageDirect(text: String) {
+        chatMessages.add("assistant" to text)
+        val tv = createAssistantMessageView(text)
+        chatContainer?.addView(tv)
+        scrollToBottom()
+    }
+
+    private fun findInstalledAppPackage(name: String): String? {
+        val pm = context.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
+        val list = pm.queryIntentActivities(intent, 0)
+        
+        // Try exact match
+        for (info in list) {
+            val label = info.loadLabel(pm).toString().lowercase().trim()
+            if (label == name) {
+                return info.activityInfo.packageName
+            }
+        }
+        
+        // Try loose match
+        for (info in list) {
+            val label = info.loadLabel(pm).toString().lowercase().replace(" ", "").trim()
+            val cleanName = name.replace(" ", "")
+            if (label == cleanName || label.contains(cleanName) || cleanName.contains(label)) {
+                return info.activityInfo.packageName
+            }
+        }
+        return null
+    }
+
+    private fun getAppName(packageName: String): String {
+        return try {
+            val pm = context.packageManager
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            pm.getApplicationLabel(appInfo).toString()
+        } catch (e: Exception) {
+            packageName
+        }
+    }
+
+    private fun launchAppPackage(packageName: String) {
+        try {
+            val pm = context.packageManager
+            val launchIntent = pm.getLaunchIntentForPackage(packageName)
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(launchIntent)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch package $packageName", e)
+        }
     }
 
     // ===================== Utilities =====================
