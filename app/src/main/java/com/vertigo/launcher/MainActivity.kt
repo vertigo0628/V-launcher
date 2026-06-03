@@ -114,7 +114,6 @@ class MainActivity : AppCompatActivity() {
             val isHotwordActive by viewModel.isHotwordActive.collectAsState()
             val hiddenApps by viewModel.hiddenAppsList.collectAsState()
             val frozenApps by viewModel.frozenApps.collectAsState()
-            val frozenAppsList by viewModel.frozenAppsList.collectAsState()
             val shizukuState by viewModel.shizukuState.collectAsState()
             val shizukuActionResult by viewModel.shizukuActionResult.collectAsState()
             val showLabels by viewModel.showLabels.collectAsState()
@@ -193,7 +192,6 @@ class MainActivity : AppCompatActivity() {
                     shizukuState = shizukuState,
                     shizukuActionResult = shizukuActionResult,
                     frozenApps = frozenApps,
-                    frozenAppsList = frozenAppsList,
                     onFreezeApp = { pkg -> viewModel.freezeApp(pkg) },
                     onUnfreezeApp = { pkg -> viewModel.unfreezeApp(pkg) },
                     onForceStopApp = { pkg -> viewModel.forceStopApp(pkg) },
