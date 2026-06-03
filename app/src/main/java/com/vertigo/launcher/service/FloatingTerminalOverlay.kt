@@ -319,6 +319,17 @@ class FloatingTerminalOverlay(
         }
         headerRow.addView(statusText)
 
+        // Clear conversation button
+        val clearBtn = TextView(context).apply {
+            text = "🗑"
+            setTextColor(COLOR_TEXT_DIM)
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(6), dpToPx(4), dpToPx(2), dpToPx(4))
+            setOnClickListener { clearConversation() }
+        }
+        headerRow.addView(clearBtn)
+
         // Close button
         val closeBtn = TextView(context).apply {
             text = "✕"
@@ -592,6 +603,25 @@ class FloatingTerminalOverlay(
         updateButtonStates()
         statusText?.text = "Ready"
         statusText?.setTextColor(COLOR_TEXT_DIM)
+    }
+
+    private fun clearConversation() {
+        // Stop any active streaming
+        currentStreamJob?.cancel()
+        currentStreamJob = null
+        stopListening()
+        
+        // Clear state
+        chatMessages.clear()
+        currentStreamingText = ""
+        isAiThinking = false
+        updateButtonStates()
+        statusText?.text = "Ready"
+        statusText?.setTextColor(COLOR_TEXT_DIM)
+        
+        // Clear UI and show fresh hint
+        chatContainer?.removeAllViews()
+        addSystemMessage("Tap 🎤 or type to talk to Sunday")
     }
 
     private fun updateButtonStates() {
