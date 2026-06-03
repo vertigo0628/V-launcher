@@ -41,6 +41,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -1283,13 +1285,8 @@ fun HomeScreen(
                                                 .border(1.dp, themeAccentColor.copy(alpha = 0.3f), CircleShape),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            AndroidView(
-                                                factory = { ctx ->
-                                                    android.widget.ImageView(ctx).apply {
-                                                        setImageDrawable(app.icon)
-                                                        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
-                                                    }
-                                                },
+                                            AsyncAppIcon(
+                                                app = app,
                                                 modifier = Modifier.size(40.dp)
                                             )
                                         }
@@ -1557,6 +1554,51 @@ fun FlowerGrid(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
+fun AsyncAppIcon(
+    app: AppModel,
+    modifier: Modifier = Modifier
+) {
+    var drawable by remember(app.packageName) {
+        mutableStateOf<android.graphics.drawable.Drawable?>(
+            com.vertigo.launcher.utils.PerformanceOptimizer.getIconIfCached(app.packageName)
+        )
+    }
+
+    LaunchedEffect(app.packageName) {
+        if (drawable == null) {
+            withContext(Dispatchers.IO) {
+                try {
+                    drawable = app.icon
+                } catch (e: Exception) {
+                    android.util.Log.e("AsyncAppIcon", "Failed to load icon for ${app.packageName}", e)
+                }
+            }
+        }
+    }
+
+    if (drawable != null) {
+        AndroidView(
+            factory = { ctx ->
+                android.widget.ImageView(ctx).apply {
+                    scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                }
+            },
+            update = { imageView ->
+                imageView.setImageDrawable(drawable)
+            },
+            modifier = modifier
+        )
+    } else {
+        Box(
+            modifier = modifier
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.1f))
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 fun AppIcon(
     app: AppModel,
     onClick: (AppModel) -> Unit,
@@ -1584,12 +1626,8 @@ fun AppIcon(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                val iconBitmap = remember(app.packageName) {
-                    app.icon.toBitmap().asImageBitmap()
-                }
-                Image(
-                    bitmap = iconBitmap,
-                    contentDescription = app.label,
+                AsyncAppIcon(
+                    app = app,
                     modifier = Modifier.size(size * 0.65f)
                 )
             }
@@ -1831,6 +1869,14 @@ fun AppDrawer(
     onClearSelection: () -> Unit = {},
     shizukuState: com.vertigo.launcher.utils.ShizukuSetup.ShizukuState = com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.UNAVAILABLE
 ) {
+    val appsInFolders = remember(folders) { folders.values.flatten().toSet() }
+    val filteredApps = remember(apps, appsInFolders) { apps.filter { !appsInFolders.contains(it.packageName) } }
+    val folderAppsMap = remember(folders, apps) {
+        folders.mapValues { (_, packages) ->
+            apps.filter { packages.contains(it.packageName) }
+        }
+    }
+
     Box(
     modifier = Modifier
         .fillMaxSize()
@@ -1880,8 +1926,8 @@ fun AppDrawer(
             ) {
                 // Phase 13: Render Folders
                 folders.entries.forEach { (name, packages) ->
-                    item {
-                        val folderApps = apps.filter { packages.contains(it.packageName) }
+                    item(key = "folder_$name") {
+                        val folderApps = folderAppsMap[name] ?: emptyList()
                         val folderNotifCount = if (showBadges) (folderApps.sumOf { notificationCounts[it.packageName] ?: 0 }) else 0
                         FolderIcon(
                             name = name,
@@ -1895,8 +1941,6 @@ fun AppDrawer(
                 }
 
                 // Render Apps (filter out those already in folders for cleaner look)
-                val appsInFolders = folders.values.flatten().toSet()
-                val filteredApps = apps.filter { !appsInFolders.contains(it.packageName) }
                 items(filteredApps.size, key = { filteredApps[it].packageName }) { index ->
                     val app = filteredApps[index]
                     Column(
@@ -1918,13 +1962,8 @@ fun AppDrawer(
                             )
                     ) {
                         Box(contentAlignment = Alignment.TopEnd) {
-                            AndroidView(
-                                factory = { ctx ->
-                                    android.widget.ImageView(ctx).apply {
-                                        setImageDrawable(app.icon)
-                                        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
-                                    }
-                                },
+                            AsyncAppIcon(
+                                app = app,
                                 modifier = Modifier.size(56.dp)
                             )
                             // Notification Dot
@@ -2017,21 +2056,42 @@ fun FolderIcon(
                 .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) {
-            // 2x2 Grid of mini icons
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+            // 2x2 Grid of mini icons using lightweight Column and Rows (no LazyVerticalGrid overhead!)
+            Column(
                 modifier = Modifier.padding(6.dp).size(44.dp),
-                userScrollEnabled = false
+                verticalArrangement = Arrangement.SpaceEvenly
             ) {
-                items(apps.take(4)) { app ->
-                    AndroidView(
-                        factory = { ctx ->
-                            android.widget.ImageView(ctx).apply {
-                                setImageDrawable(app.icon)
-                            }
-                        },
-                        modifier = Modifier.padding(2.dp).size(18.dp)
-                    )
+                val takenApps = apps.take(4)
+                val row1 = takenApps.take(2)
+                val row2 = takenApps.drop(2).take(2)
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    row1.forEach { app ->
+                        AsyncAppIcon(
+                            app = app,
+                            modifier = Modifier.padding(2.dp).size(18.dp)
+                        )
+                    }
+                    repeat(2 - row1.size) {
+                        Spacer(modifier = Modifier.size(18.dp))
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    row2.forEach { app ->
+                        AsyncAppIcon(
+                            app = app,
+                            modifier = Modifier.padding(2.dp).size(18.dp)
+                        )
+                    }
+                    repeat(2 - row2.size) {
+                        Spacer(modifier = Modifier.size(18.dp))
+                    }
                 }
             }
             
@@ -2100,12 +2160,8 @@ fun FolderOverlay(
                             .padding(8.dp)
                             .clickable { onAppClick(app) }
                     ) {
-                        AndroidView(
-                            factory = { ctx ->
-                                android.widget.ImageView(ctx).apply {
-                                    setImageDrawable(app.icon)
-                                }
-                            },
+                        AsyncAppIcon(
+                            app = app,
                             modifier = Modifier.size(48.dp)
                         )
                         Text(

@@ -49,6 +49,14 @@ object PerformanceOptimizer {
     }
     
     /**
+     * Get cached icon if already present in memory cache
+     */
+    fun getIconIfCached(packageName: String): Drawable? {
+        return softIconCache[packageName]?.get()
+    }
+
+    
+    /**
      * Preload icons in background
      */
     fun preloadIcons(packageNames: List<String>, loader: (String) -> Drawable?) {

@@ -40,6 +40,7 @@ import android.hardware.camera2.CameraManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.provider.MediaStore
+import androidx.core.graphics.drawable.toBitmap
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -561,7 +562,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _cosmicInsight.value = neuralInsightRepository.getCosmicInsight()
         }
     }
-
     fun loadApps(forceRefresh: Boolean = false) {
         viewModelScope.launch {
             val fullList = if (forceRefresh || cachedFullApps == null) {
@@ -582,9 +582,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             
             updateAppList()
             updateFlowerGrid()
+
+            // Preload icons and cache bitmaps asynchronously on Dispatchers.IO
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                fullList.forEach { app ->
+                    val packageName = app.packageName
+                    if (com.vertigo.launcher.utils.PerformanceOptimizer.getCachedBitmapIcon(packageName) == null) {
+                        try {
+                            val drawable = app.icon
+                            val bitmap = drawable.toBitmap()
+                            com.vertigo.launcher.utils.PerformanceOptimizer.cacheBitmapIcon(packageName, bitmap)
+                        } catch (e: Exception) {
+                            android.util.Log.e("HomeViewModel", "Failed to cache bitmap for $packageName", e)
+                        }
+                    }
+                }
+            }
         }
     }
-
     fun hideApp(app: AppModel) {
         preferencesManager.hideApp(app.packageName)
         loadApps() // Reload to refresh lists
@@ -982,7 +997,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     // ─── App Shortcuts ──────────────────────────────────────────────────────
     fun loadShortcutsForApp(packageName: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val query = LauncherApps.ShortcutQuery().apply {
                     setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or 
@@ -992,7 +1007,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 
                 val shortcutList = launcherApps.getShortcuts(query, Process.myUserHandle()) ?: emptyList()
-                _shortcuts.value = shortcutList.map { info ->
+                val mapped = shortcutList.map { info ->
                     AppShortcut(
                         id = info.id,
                         label = (info.shortLabel ?: info.longLabel ?: "Shortcut").toString(),
@@ -1000,6 +1015,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         packageName = packageName
                     )
                 }
+                _shortcuts.value = mapped
             } catch (e: Exception) {
                 _shortcuts.value = emptyList()
             }

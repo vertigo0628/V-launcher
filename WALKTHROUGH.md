@@ -98,5 +98,31 @@ A futuristic "Minus 1" dashboard for system intelligence.
 2. **Swipe Right**: Slide your finger from left to right on the home screen to open the Neural Hub.
 3. **Check Vitals**: Verify battery level matches your status bar.
 4. **Try the Grid**: Open App Drawer -> Long Press App -> Add to Home.
-3. **Change Wallpaper**: Long press Clock -> Visual Settings -> Change Wallpaper.
-4. **Check Layout**: Verify the dock buttons are above your phone's navigation bar.
+5. **Change Wallpaper**: Long press Clock -> Visual Settings -> Change Wallpaper.
+6. **Check Layout**: Verify the dock buttons are above your phone's navigation bar.
+
+---
+
+## 🔒 Recent Upgrades: Security, Voice, and Performance
+
+### 🛡️ Stealth Onion Drawer & Lock Toggle
+- **Stealth Rename**: Removed visible titles containing "onion", "hidden", or "compartment". The Onion Drawer is now disguised as "SYSTEM STORAGE".
+- **Lock/Unlock Icon**: Replaced the lock icon in the Onion Drawer header to toggle the layer's protected status.
+  - **Locked (Protected)**: Glows in cyan color.
+  - **Unlocked (Public)**: Diminished gray color.
+
+### 🗣️ Flexible Speech Recognition Voice Commands
+- Natural speech processing added in `HomeViewModel` mapping to:
+  - Opening/closing the drawer (*"open drawer"*, *"show apps"*).
+  - Launching apps (*"run Chrome"*, *"launch Settings"*).
+  - Music playback (*"play some tunes"*, *"stop music"*).
+  - Weather details (*"what's the weather"*).
+  - Stream volume management (*"volume up"*, *"mute"*).
+- Exact app match checks resolve names (e.g. *"calculator"*) directly to the installed package before falling back to local LLM processing.
+- Assistant chat provides visual action confirmations.
+
+### ⚡ Performance & Smooth Scrolling Optimizations
+- **Asynchronous Icon Loading (`AsyncAppIcon`)**: Uses background coroutines on `Dispatchers.IO` and memory cache fast-path checks (`getIconIfCached`) in `PerformanceOptimizer` to load app icons. This removes heavy system binder calls and bitmap drawing from the main UI thread during scroll/recomposition.
+- **Lightweight Folder Icon Previews**: Replaced nested `LazyVerticalGrid` inside folder icons with lightweight static `Column`/`Row` templates.
+- **Cache-Optimized Filtering**: Wrapped folder and app filtering logic inside `remember` blocks in `AppDrawer` to prevent CPU allocations and GC pressure during scrolling.
+- **Unique Recycler Keys**: Assigned unique keys to grid item containers (`key = "folder_$name"`) to maximize Compose grid recycling performance.
