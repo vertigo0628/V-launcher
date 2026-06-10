@@ -397,23 +397,47 @@ fun HomeScreen(
                                     Text("ℹ️ App Info", fontSize = 12.sp, color = Color.White)
                                 }
 
-                                // Share App — shares the APK or Play Store link
+                                // Share App — shares the actual installed APK file
                                 Button(
                                     onClick = {
                                         appPendingAction?.let { app ->
-                                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                                type = "text/plain"
-                                                putExtra(android.content.Intent.EXTRA_SUBJECT, app.label)
-                                                putExtra(
-                                                    android.content.Intent.EXTRA_TEXT,
-                                                    "Check out ${app.label} on the Play Store:\nhttps://play.google.com/store/apps/details?id=${app.packageName}"
+                                            try {
+                                                // Get the installed APK source path
+                                                val appInfo = uninstallContext.packageManager
+                                                    .getApplicationInfo(app.packageName, 0)
+                                                val apkSource = java.io.File(appInfo.sourceDir)
+
+                                                // Copy APK to external cache so FileProvider can serve it
+                                                val destDir = uninstallContext.externalCacheDir
+                                                    ?: uninstallContext.cacheDir
+                                                val destFile = java.io.File(destDir, "${app.label}.apk")
+                                                apkSource.copyTo(destFile, overwrite = true)
+
+                                                // Build a content:// URI via FileProvider (required Android 7+)
+                                                val apkUri = androidx.core.content.FileProvider.getUriForFile(
+                                                    uninstallContext,
+                                                    "${uninstallContext.packageName}.fileprovider",
+                                                    destFile
                                                 )
-                                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+
+                                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                                    type = "application/vnd.android.package-archive"
+                                                    putExtra(android.content.Intent.EXTRA_STREAM, apkUri)
+                                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "${app.label}.apk")
+                                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                uninstallContext.startActivity(
+                                                    android.content.Intent.createChooser(shareIntent, "Share ${app.label} APK via")
+                                                        .apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+                                                )
+                                            } catch (e: Exception) {
+                                                android.widget.Toast.makeText(
+                                                    uninstallContext,
+                                                    "Could not share APK: ${e.message}",
+                                                    android.widget.Toast.LENGTH_SHORT
+                                                ).show()
                                             }
-                                            uninstallContext.startActivity(
-                                                android.content.Intent.createChooser(shareIntent, "Share ${app.label} via")
-                                                    .apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
-                                            )
                                         }
                                         appPendingAction = null
                                         actionType = null
@@ -422,7 +446,7 @@ fun HomeScreen(
                                     modifier = Modifier.weight(1f),
                                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                                 ) {
-                                    Text("↗️ Share App", fontSize = 12.sp, color = Color.White)
+                                    Text("↗️ Share APK", fontSize = 12.sp, color = Color.White)
                                 }
                             }
 
