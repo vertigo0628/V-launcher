@@ -1436,7 +1436,8 @@ fun HomeScreen(
                 onBatchUninstall = { viewModel?.batchUninstallApps() },
                 onBatchAddToGrid = { viewModel?.batchAddToGrid() },
                 onClearSelection = onClearSelection,
-                shizukuState = shizukuState
+                shizukuState = shizukuState,
+                frozenApps = frozenApps
             )
         }
         
@@ -1942,7 +1943,8 @@ fun AppDrawer(
     onBatchUninstall: () -> Unit = {},
     onBatchAddToGrid: () -> Unit = {},
     onClearSelection: () -> Unit = {},
-    shizukuState: com.vertigo.launcher.utils.ShizukuSetup.ShizukuState = com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.UNAVAILABLE
+    shizukuState: com.vertigo.launcher.utils.ShizukuSetup.ShizukuState = com.vertigo.launcher.utils.ShizukuSetup.ShizukuState.UNAVAILABLE,
+    frozenApps: Set<String> = emptySet()
 ) {
     val appsInFolders = remember(folders) { folders.values.flatten().toSet() }
     val filteredApps = remember(apps, appsInFolders) { apps.filter { !appsInFolders.contains(it.packageName) } }
@@ -2047,7 +2049,7 @@ fun AppDrawer(
                             }
                             
                             // Frozen Indicator (Phase 15)
-                            val isFrozen = viewModel?.frozenApps?.collectAsState()?.value?.contains(app.packageName) == true
+                            val isFrozen = frozenApps.contains(app.packageName)
                             if (isFrozen) {
                                 Text(
                                     "❄️",
