@@ -349,7 +349,7 @@ fun HomeScreen(
                                 )
                             }
 
-                            // Standard Uninstall (no Shizuku needed — uses system prompt)
+                             // Standard Uninstall (no Shizuku needed — uses system prompt)
                             val uninstallContext = LocalContext.current
                             Button(
                                 onClick = {
@@ -368,6 +368,86 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text("🗑️ Uninstall App", color = Color.White)
+                            }
+
+                            // App Info + Share row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // App Info — opens system App Settings detail page
+                                Button(
+                                    onClick = {
+                                        appPendingAction?.let { app ->
+                                            val intent = android.content.Intent(
+                                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                            ).apply {
+                                                data = android.net.Uri.parse("package:${app.packageName}")
+                                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            uninstallContext.startActivity(intent)
+                                        }
+                                        appPendingAction = null
+                                        actionType = null
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E40AF)),
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                ) {
+                                    Text("ℹ️ App Info", fontSize = 12.sp, color = Color.White)
+                                }
+
+                                // Share App — shares the actual installed APK file
+                                Button(
+                                    onClick = {
+                                        appPendingAction?.let { app ->
+                                            try {
+                                                // Get the installed APK source path
+                                                val appInfo = uninstallContext.packageManager
+                                                    .getApplicationInfo(app.packageName, 0)
+                                                val apkSource = java.io.File(appInfo.sourceDir)
+
+                                                // Copy APK to external cache so FileProvider can serve it
+                                                val destDir = uninstallContext.externalCacheDir
+                                                    ?: uninstallContext.cacheDir
+                                                val destFile = java.io.File(destDir, "${app.label}.apk")
+                                                apkSource.copyTo(destFile, overwrite = true)
+
+                                                // Build a content:// URI via FileProvider (required Android 7+)
+                                                val apkUri = androidx.core.content.FileProvider.getUriForFile(
+                                                    uninstallContext,
+                                                    "${uninstallContext.packageName}.fileprovider",
+                                                    destFile
+                                                )
+
+                                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                                    type = "application/vnd.android.package-archive"
+                                                    putExtra(android.content.Intent.EXTRA_STREAM, apkUri)
+                                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "${app.label}.apk")
+                                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                uninstallContext.startActivity(
+                                                    android.content.Intent.createChooser(shareIntent, "Share ${app.label} APK via")
+                                                        .apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+                                                )
+                                            } catch (e: Exception) {
+                                                android.widget.Toast.makeText(
+                                                    uninstallContext,
+                                                    "Could not share APK: ${e.message}",
+                                                    android.widget.Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                        appPendingAction = null
+                                        actionType = null
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0369A1)),
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                ) {
+                                    Text("↗️ Share APK", fontSize = 12.sp, color = Color.White)
+                                }
                             }
 
                             // Shizuku Power Actions

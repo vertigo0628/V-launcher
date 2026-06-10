@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Allows sharing files from the external cache directory (APK copies) -->
+    <external-cache-path
+        name="apk_share"
+        path="." />
+    <!-- Also allow internal cache path as fallback -->
+    <cache-path
+        name="apk_share_internal"
+        path="." />
+</paths>
