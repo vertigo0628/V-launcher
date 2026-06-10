@@ -349,7 +349,7 @@ fun HomeScreen(
                                 )
                             }
 
-                            // Standard Uninstall (no Shizuku needed — uses system prompt)
+                             // Standard Uninstall (no Shizuku needed — uses system prompt)
                             val uninstallContext = LocalContext.current
                             Button(
                                 onClick = {
@@ -368,6 +368,62 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text("🗑️ Uninstall App", color = Color.White)
+                            }
+
+                            // App Info + Share row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // App Info — opens system App Settings detail page
+                                Button(
+                                    onClick = {
+                                        appPendingAction?.let { app ->
+                                            val intent = android.content.Intent(
+                                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                            ).apply {
+                                                data = android.net.Uri.parse("package:${app.packageName}")
+                                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            uninstallContext.startActivity(intent)
+                                        }
+                                        appPendingAction = null
+                                        actionType = null
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E40AF)),
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                ) {
+                                    Text("ℹ️ App Info", fontSize = 12.sp, color = Color.White)
+                                }
+
+                                // Share App — shares the APK or Play Store link
+                                Button(
+                                    onClick = {
+                                        appPendingAction?.let { app ->
+                                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(android.content.Intent.EXTRA_SUBJECT, app.label)
+                                                putExtra(
+                                                    android.content.Intent.EXTRA_TEXT,
+                                                    "Check out ${app.label} on the Play Store:\nhttps://play.google.com/store/apps/details?id=${app.packageName}"
+                                                )
+                                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            uninstallContext.startActivity(
+                                                android.content.Intent.createChooser(shareIntent, "Share ${app.label} via")
+                                                    .apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+                                            )
+                                        }
+                                        appPendingAction = null
+                                        actionType = null
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0369A1)),
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                ) {
+                                    Text("↗️ Share App", fontSize = 12.sp, color = Color.White)
+                                }
                             }
 
                             // Shizuku Power Actions
