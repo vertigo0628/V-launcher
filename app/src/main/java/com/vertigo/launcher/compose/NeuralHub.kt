@@ -155,17 +155,24 @@ fun NeuralHub(
             Spacer(modifier = Modifier.height(48.dp))
             
             // System Vitals Grid
-            Row(
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                maxItemsInEachRow = 2
             ) {
+                // By providing a default minimum width, if the screen is too narrow or text is too big,
+                // the elements will drop down to the next row automatically.
+                val cardModifier = Modifier.weight(1f).defaultMinSize(minWidth = 140.dp)
+                
                 // RAM Card
                 SystemCard(
                     title = "MEMORY",
                     value = state.ramPercent,
                     detail = state.ramText,
                     color = Color(0xFFBD00FF), // Neon Purple
-                    modifier = Modifier.weight(1f)
+                    modifier = cardModifier
                 )
                 
                 // Storage Card
@@ -174,7 +181,7 @@ fun NeuralHub(
                     value = state.storagePercent,
                     detail = state.storageText,
                     color = Color(0xFFFF006E), // Neon Pink
-                    modifier = Modifier.weight(1f)
+                    modifier = cardModifier
                 )
             }
             
@@ -243,7 +250,7 @@ fun NeuralHub(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isShizukuAuthorized) Color(0xFF00F0FF).copy(alpha = 0.2f) else Color.Gray.copy(alpha = 0.1f)
                 ),
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp),
                 shape = RoundedCornerShape(16.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp, 
@@ -271,7 +278,7 @@ fun NeuralHub(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isShizukuAuthorized) Color(0xFFFF003C).copy(alpha = 0.2f) else Color.Gray.copy(alpha = 0.1f)
                 ),
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp),
                 shape = RoundedCornerShape(16.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp, 
@@ -387,9 +394,11 @@ fun SystemCard(
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            Row(
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(text = "$value%", color = Color.White, fontWeight = FontWeight.Bold)
                 Text(text = detail, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
