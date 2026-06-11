@@ -55,12 +55,24 @@ class SettingsFragment : PreferenceFragmentCompat() {
         findPreference<SwitchPreferenceCompat>("floating_assistant_enabled")
             ?.setOnPreferenceChangeListener { _, newValue ->
                 val enabled = newValue as Boolean
+
+                // Commit the new value NOW — before refreshFloatingButton() reads it,
+                // because SwitchPreference hasn't written it yet at this point.
+                com.vertigo.launcher.utils.StorageHelper
+                    .getSafeDefaultSharedPreferences(requireContext())
+                    .edit()
+                    .putBoolean("floating_assistant_enabled", enabled)
+                    .commit()  // synchronous commit so the read below sees it
+
                 if (enabled && !VLauncherAccessibilityService.isEnabled()) {
                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                    Toast.makeText(context, "Please enable 'V-launcher' in Accessibility", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Please enable 'V-launcher' in Accessibility Settings first", Toast.LENGTH_LONG).show()
+                } else {
+                    // Service is alive — refresh the overlay on main thread
+                    VLauncherAccessibilityService.refreshFloatingButton()
+                    val msg = if (enabled) "Floating Assistant ON" else "Floating Assistant OFF"
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 }
-                // Refresh the overlay immediately
-                VLauncherAccessibilityService.refreshFloatingButton()
                 true
             }
     }

@@ -166,18 +166,16 @@ class FloatingTerminalOverlay(
             pillView = container
             pillParams = params
 
-            // Entrance animation
+            // Entrance animation — bounces in, then fades to ghost
             container.alpha = 0f
-            container.scaleX = 0.5f
-            container.scaleY = 0.5f
+            container.scaleX = 0.4f
+            container.scaleY = 0.4f
             container.animate()
-                .alpha(0.85f).scaleX(1f).scaleY(1f)
-                .setDuration(350)
-                .setInterpolator(OvershootInterpolator(1.5f))
+                .alpha(1f).scaleX(1f).scaleY(1f)
+                .setDuration(400)
+                .setInterpolator(OvershootInterpolator(1.8f))
+                .withEndAction { scheduleIdleFade(container) }
                 .start()
-
-            // Fade to idle after 4s
-            scheduleIdleFade(container)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add pill view", e)
         }
@@ -191,8 +189,9 @@ class FloatingTerminalOverlay(
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     cancelIdleFade()
-                    v.animate().alpha(0.95f).setDuration(100).start()
-                    v.animate().scaleX(0.9f).scaleY(0.9f).setDuration(100).start()
+                    // Snap back from ghost to fully visible immediately
+                    v.animate().alpha(1f).setDuration(80).start()
+                    v.animate().scaleX(0.88f).scaleY(0.88f).setDuration(80).start()
 
                     initialX = params.x
                     initialY = params.y
@@ -240,11 +239,15 @@ class FloatingTerminalOverlay(
         if (isExpanded) return
         isExpanded = true
 
-        // Hide pill
-        pillView?.animate()?.alpha(0f)?.scaleX(0f)?.scaleY(0f)?.setDuration(150)
-            ?.withEndAction { pillView?.visibility = View.GONE }?.start()
-
-        createExpandedView()
+        // Morph pill → tiny dot → hide, then expand terminal
+        pillView?.animate()
+            ?.scaleX(0.15f)?.scaleY(0.15f)?.alpha(0f)
+            ?.setDuration(180)
+            ?.setInterpolator(AccelerateDecelerateInterpolator())
+            ?.withEndAction {
+                pillView?.visibility = View.INVISIBLE
+                createExpandedView()
+            }?.start()
     }
 
     private fun collapseTerminal() {
@@ -259,16 +262,25 @@ class FloatingTerminalOverlay(
         currentStreamJob = null
         isAiThinking = false
 
-        // Animate out expanded
-        expandedView?.animate()?.alpha(0f)?.scaleY(0.5f)?.setDuration(200)
-            ?.withEndAction { removeExpanded() }?.start()
-
-        // Show pill
-        pillView?.visibility = View.VISIBLE
-        pillView?.animate()?.alpha(0.85f)?.scaleX(1f)?.scaleY(1f)?.setDuration(250)
-            ?.setInterpolator(OvershootInterpolator(1.2f))?.start()
-
-        scheduleIdleFade(pillView ?: return)
+        // Collapse terminal → dot
+        expandedView?.animate()
+            ?.alpha(0f)?.scaleX(0.1f)?.scaleY(0.05f)
+            ?.setDuration(220)
+            ?.setInterpolator(AccelerateDecelerateInterpolator())
+            ?.withEndAction {
+                removeExpanded()
+                // Re-emerge pill from dot with overshoot
+                pillView?.scaleX = 0.1f
+                pillView?.scaleY = 0.1f
+                pillView?.alpha = 0f
+                pillView?.visibility = View.VISIBLE
+                pillView?.animate()
+                    ?.alpha(1f)?.scaleX(1f)?.scaleY(1f)
+                    ?.setDuration(300)
+                    ?.setInterpolator(OvershootInterpolator(1.5f))
+                    ?.withEndAction { scheduleIdleFade(pillView ?: return@withEndAction) }
+                    ?.start()
+            }?.start()
     }
 
     private fun createExpandedView() {
@@ -831,9 +843,10 @@ class FloatingTerminalOverlay(
     private fun scheduleIdleFade(view: View) {
         cancelIdleFade()
         idleFadeRunnable = Runnable {
-            view.animate().alpha(0.35f).setDuration(800).start()
+            // Fade to near-invisible ghost — barely a dot on screen
+            view.animate().alpha(0.08f).setDuration(1200).start()
         }
-        handler.postDelayed(idleFadeRunnable!!, 5000)
+        handler.postDelayed(idleFadeRunnable!!, 4000)
     }
 
     private fun cancelIdleFade() {
