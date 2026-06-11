@@ -186,7 +186,7 @@ fun VoiceAssistantWidget(
                                 .fillMaxWidth()
                                 .heightIn(max = maxHeightOverride ?: 450.dp) // Dynamic cap to avoid search bar
                         ) {
-                            items(chatHistory) { message ->
+                            items(chatHistory, key = { "${it.timestamp}_${it.role}" }) { message ->
                                 Column(modifier = Modifier.padding(bottom = 8.dp)) {
                                     if (message.role == "user") {
                                         Column(modifier = Modifier.padding(bottom = 4.dp)) {

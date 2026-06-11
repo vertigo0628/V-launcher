@@ -291,7 +291,7 @@ fun SearchOverlay(
                         end = 8.dp
                     )
                 ) {
-                    items(searchResults.size) { index ->
+                    items(searchResults.size, key = { searchResults[it].id }) { index ->
                         val result = searchResults[index]
                         SearchResultItem(
                             result = result,
@@ -340,18 +340,24 @@ fun SearchResultItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (result.type == com.vertigo.launcher.utils.SearchManager.ResultType.APP) {
-            // Load App Icon
-            AndroidView<android.widget.ImageView>(
-                factory = { context ->
-                    android.widget.ImageView(context).apply {
+            // Load App Icon asynchronously using a lightweight remembered AppModel wrapper
+            val context = LocalContext.current
+            val tempAppModel = remember(result.id) {
+                AppModel(
+                    label = result.title,
+                    packageName = result.id,
+                    iconLoader = {
                         try {
-                            val icon = context.packageManager.getApplicationIcon(result.id)
-                            setImageDrawable(icon)
+                            context.packageManager.getApplicationIcon(result.id)
                         } catch (e: Exception) {
-                            setImageResource(android.R.drawable.sym_def_app_icon)
+                            context.resources.getDrawable(android.R.drawable.sym_def_app_icon, null)
                         }
-                    }
-                },
+                    },
+                    category = com.vertigo.launcher.model.AppCategory.OTHER
+                )
+            }
+            AsyncAppIcon(
+                app = tempAppModel,
                 modifier = Modifier.size(32.dp)
             )
         } else {

@@ -29,6 +29,8 @@ import com.vertigo.launcher.logic.AppCommander
 import kotlinx.coroutines.launch
 import androidx.compose.ui.viewinterop.AndroidView
 
+import com.vertigo.launcher.compose.AsyncAppIcon
+
 class PermissionManagerActivity : ComponentActivity() {
     
     @OptIn(ExperimentalMaterial3Api::class)
@@ -133,7 +135,7 @@ class PermissionManagerActivity : ComponentActivity() {
                                 }
                             } else {
                                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                                    items(filteredApps) { app ->
+                                    items(filteredApps, key = { it.packageName }) { app ->
                                         AppItem(
                                             app = app, 
                                             isSystem = (app.category == com.vertigo.launcher.model.AppCategory.SYSTEM),
@@ -152,7 +154,7 @@ class PermissionManagerActivity : ComponentActivity() {
                                         }
                                     }
                                 } else {
-                                    items(permissions) { perm ->
+                                    items(permissions, key = { it.fullName }) { perm ->
                                         PermissionItem(
                                             permission = perm,
                                             onToggle = { isGranted ->
@@ -205,12 +207,8 @@ fun AppItem(app: AppModel, isSystem: Boolean = false, onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AndroidView(
-            factory = { ctx ->
-                android.widget.ImageView(ctx).apply {
-                    setImageDrawable(app.icon)
-                }
-            },
+        AsyncAppIcon(
+            app = app,
             modifier = Modifier.size(40.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
