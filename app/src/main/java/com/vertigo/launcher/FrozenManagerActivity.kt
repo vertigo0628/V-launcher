@@ -26,6 +26,8 @@ import com.vertigo.launcher.logic.AppCommander
 import kotlinx.coroutines.launch
 import androidx.compose.ui.viewinterop.AndroidView
 
+import com.vertigo.launcher.compose.AsyncAppIcon
+
 class FrozenManagerActivity : ComponentActivity() {
     
     @OptIn(ExperimentalMaterial3Api::class)
@@ -91,7 +93,7 @@ class FrozenManagerActivity : ComponentActivity() {
                             }
                         } else {
                             LazyColumn(contentPadding = PaddingValues(16.dp)) {
-                                items(frozenApps) { app ->
+                                items(frozenApps, key = { it.packageName }) { app ->
                                     FrozenAppItem(
                                         app = app,
                                         onUnfreeze = {
@@ -124,12 +126,8 @@ fun FrozenAppItem(app: AppModel, onUnfreeze: () -> Unit) {
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AndroidView(
-            factory = { ctx ->
-                android.widget.ImageView(ctx).apply {
-                    setImageDrawable(app.icon)
-                }
-            },
+        AsyncAppIcon(
+            app = app,
             modifier = Modifier.size(48.dp)
         )
         
