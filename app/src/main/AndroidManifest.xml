@@ -32,6 +32,9 @@
     <!-- Required to start Termux Ollama backend seamlessly -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     
+    <!-- Standard uninstallation prompt -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
     <!-- Shizuku-powered package management -->
     <uses-permission android:name="android.permission.INSTALL_PACKAGES"
         tools:ignore="ProtectedPermissions" />
