@@ -1,46 +1,65 @@
-# Built application files
+# ========================
+# Android Build Outputs
+# ========================
 *.apk
 *.ap_
 *.aab
-
-# Files for the ART/Dalvik VM
 *.dex
-
-# Java class files
 *.class
-
-# Generated files
 bin/
 gen/
 out/
-
-# Gradle files
-.gradle/
 build/
+app/build/
 
-# Local configuration file
+# ========================
+# Gradle
+# ========================
+.gradle/
+gradle-wrapper.jar
 local.properties
 
-# Android Studio
+# ========================
+# Android Studio / IntelliJ
+# ========================
 *.iml
-.idea/
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/libraries/
-.idea/caches/
-captures/
-
-# IntelliJ
 *.ipr
 *.iws
-
-# External native build folder
+.idea/
+captures/
 .externalNativeBuild/
 .cxx/
 
-# Google Services (e.g. keys)
+# ========================
+# Logs & Crash Reports
+# ========================
+*.log
+*.txt
+crash_logs*
+build_log*
+build_output*
+build_errors*
+compile_error*
+compile_output*
+app_logs*
+*.txt
+*.log
+
+# ========================
+# Google Services (keys)
+# ========================
 google-services.json
 
+# ========================
 # OS-specific
+# ========================
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# ========================
+# Keystore (never commit!)
+# ========================
+*.jks
+*.keystore
+release.properties
