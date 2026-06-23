@@ -70,7 +70,7 @@
 
         <!-- FileProvider for sharing APK files -->
         <provider
-            android:name="androidx.core.content.FileProvider"
+            android:name="com.vertigo.launcher.logic.filehunter.FileHunterFileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
