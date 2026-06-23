@@ -18,11 +18,14 @@ class VLauncherAccessibilityService : AccessibilityService() {
     private var bottomZone: View? = null
     private var leftZone: View? = null
     private var rightZone: View? = null
+    
+    private var floatingOverlay: FloatingTerminalOverlay? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
         setupZones()
+        refreshFloatingButton()
     }
 
     private fun setupZones() {
@@ -115,15 +118,38 @@ class VLauncherAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun internalRefreshFloatingButton() {
+        val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeDefaultSharedPreferences(this)
+        val enabled = prefs.getBoolean("floating_assistant_enabled", false)
+        
+        if (enabled) {
+            if (floatingOverlay == null) {
+                windowManager?.let { wm ->
+                    floatingOverlay = FloatingTerminalOverlay(this, wm)
+                }
+            }
+            if (floatingOverlay?.isVisible() == false) {
+                floatingOverlay?.show()
+            }
+        } else {
+            floatingOverlay?.hide()
+            floatingOverlay = null
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         bottomZone?.let { windowManager?.removeView(it) }
         leftZone?.let { windowManager?.removeView(it) }
         rightZone?.let { windowManager?.removeView(it) }
+        floatingOverlay?.hide()
+        floatingOverlay = null
         instance = null
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        floatingOverlay?.hide()
+        floatingOverlay = null
         instance = null
         return super.onUnbind(intent)
     }
@@ -149,6 +175,10 @@ class VLauncherAccessibilityService : AccessibilityService() {
 
         fun performBack() {
             instance?.performGlobalAction(GLOBAL_ACTION_BACK)
+        }
+        
+        fun refreshFloatingButton() {
+            instance?.internalRefreshFloatingButton()
         }
         
         fun isEnabled(): Boolean = instance != null
