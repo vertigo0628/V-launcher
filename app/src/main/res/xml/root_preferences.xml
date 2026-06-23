@@ -113,6 +113,11 @@
             app:summary="List and manage disabled system apps" />
 
         <Preference
+            app:key="file_hunter"
+            app:title="File Hunter"
+            app:summary="Browse and manage restricted data modules" />
+
+        <Preference
             app:key="reignite_services"
             app:title="🚀 RE-IGNITE SERVICES"
             app:summary="Fix Music &amp; Boost after package change" />
