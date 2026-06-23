@@ -289,14 +289,24 @@ fun FileHunterScreen(onClose: () -> Unit) {
         coroutineScope.launch {
             isLoading = true
             var successCount = 0
+            var hasAndroidDataFailure = false
             withContext(Dispatchers.IO) {
                 for (file in toDelete) {
                     if (FileHunterShizukuHelper.deleteFile(file.path, isShizukuPermitted)) {
                         successCount++
+                    } else if (file.path.contains("/Android/data")) {
+                        hasAndroidDataFailure = true
                     }
                 }
             }
-            snackbarHostState.showSnackbar("Deleted $successCount/${toDelete.size} items")
+            if (hasAndroidDataFailure) {
+                snackbarHostState.showSnackbar(
+                    "Cannot delete: Files in Android/data are protected by their owner apps",
+                    duration = SnackbarDuration.Long
+                )
+            } else {
+                snackbarHostState.showSnackbar("Deleted $successCount/${toDelete.size} items")
+            }
             exitSelectionMode()
             reloadCurrentPath()
             isLoading = false
@@ -311,17 +321,31 @@ fun FileHunterScreen(onClose: () -> Unit) {
             val action = clipboardAction!!
             val destPath = currentPath
             var successCount = 0
+            var moveFailedDueToAndroidData = false
             withContext(Dispatchers.IO) {
                 for (file in clipboardFiles) {
                     val ok = when (action) {
                         ClipboardAction.COPY -> FileHunterShizukuHelper.copyFileTo(file.path, destPath, isShizukuPermitted)
-                        ClipboardAction.MOVE -> FileHunterShizukuHelper.moveFileTo(file.path, destPath, isShizukuPermitted)
+                        ClipboardAction.MOVE -> {
+                            val result = FileHunterShizukuHelper.moveFileTo(file.path, destPath, isShizukuPermitted)
+                            if (!result && file.path.contains("/Android/data")) {
+                                moveFailedDueToAndroidData = true
+                            }
+                            result
+                        }
                     }
                     if (ok) successCount++
                 }
             }
-            val verb = if (action == ClipboardAction.COPY) "Copied" else "Moved"
-            snackbarHostState.showSnackbar("$verb $successCount/${clipboardFiles.size} items")
+            if (moveFailedDueToAndroidData) {
+                snackbarHostState.showSnackbar(
+                    "Move failed: Cannot delete original files from Android/data. Use Copy instead.",
+                    duration = SnackbarDuration.Long
+                )
+            } else {
+                val verb = if (action == ClipboardAction.COPY) "Copied" else "Moved"
+                snackbarHostState.showSnackbar("$verb $successCount/${clipboardFiles.size} items")
+            }
             clipboardFiles = emptyList()
             clipboardAction = null
             reloadCurrentPath()
