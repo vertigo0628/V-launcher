@@ -257,8 +257,7 @@ fun FileHunterScreen(onClose: () -> Unit) {
             var successCount = 0
             withContext(Dispatchers.IO) {
                 for (file in toDelete) {
-                    val isRestricted = file.path.contains("/Android/data")
-                    if (FileHunterShizukuHelper.deleteFile(file.path, isRestricted && isShizukuPermitted)) {
+                    if (FileHunterShizukuHelper.deleteFile(file.path, isShizukuPermitted)) {
                         successCount++
                     }
                 }
@@ -277,13 +276,12 @@ fun FileHunterScreen(onClose: () -> Unit) {
             isLoading = true
             val action = clipboardAction!!
             val destPath = currentPath
-            val isRestricted = destPath.contains("/Android/data") || clipboardFiles.any { it.path.contains("/Android/data") }
             var successCount = 0
             withContext(Dispatchers.IO) {
                 for (file in clipboardFiles) {
                     val ok = when (action) {
-                        ClipboardAction.COPY -> FileHunterShizukuHelper.copyFileTo(file.path, destPath, isRestricted && isShizukuPermitted)
-                        ClipboardAction.MOVE -> FileHunterShizukuHelper.moveFileTo(file.path, destPath, isRestricted && isShizukuPermitted)
+                        ClipboardAction.COPY -> FileHunterShizukuHelper.copyFileTo(file.path, destPath, isShizukuPermitted)
+                        ClipboardAction.MOVE -> FileHunterShizukuHelper.moveFileTo(file.path, destPath, isShizukuPermitted)
                     }
                     if (ok) successCount++
                 }
