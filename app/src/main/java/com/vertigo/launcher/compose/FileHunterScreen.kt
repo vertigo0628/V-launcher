@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
@@ -191,10 +192,19 @@ fun FileHunterScreen(onClose: () -> Unit) {
     }
 
     fun prepareFileUri(file: FileModel): Uri? {
-        val tempFile = FileHunterShizukuHelper.copyFileToCache(file.path, context)
-        return if (tempFile != null && tempFile.exists()) {
+        val isRestricted = !file.path.startsWith("/storage/emulated/0") ||
+                file.path.contains("/Android/data") ||
+                file.path.contains("/Android/obb")
+        
+        val fileToShare = if (isRestricted) {
+            FileHunterShizukuHelper.copyFileToCache(file.path, context)
+        } else {
+            File(file.path)
+        }
+
+        return if (fileToShare != null && fileToShare.exists()) {
             val authority = "${context.packageName}.fileprovider"
-            FileProvider.getUriForFile(context, authority, tempFile)
+            FileProvider.getUriForFile(context, authority, fileToShare)
         } else null
     }
 
@@ -204,8 +214,32 @@ fun FileHunterScreen(onClose: () -> Unit) {
             val uri = withContext(Dispatchers.IO) { prepareFileUri(file) }
             if (uri != null) {
                 try {
-                    val extension = MimeTypeMap.getFileExtensionFromUrl(file.name.replace(" ", "%20"))
-                    val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase()) ?: "*/*"
+                    val extension = file.name.substringAfterLast('.', "").lowercase()
+                    val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: when (extension) {
+                        "pdf" -> "application/pdf"
+                        "epub" -> "application/epub+zip"
+                        "txt" -> "text/plain"
+                        "doc", "docx" -> "application/msword"
+                        "xls", "xlsx" -> "application/vnd.ms-excel"
+                        "ppt", "pptx" -> "application/vnd.ms-powerpoint"
+                        "zip" -> "application/zip"
+                        "rar" -> "application/x-rar-compressed"
+                        "apk" -> "application/vnd.android.package-archive"
+                        "mp3" -> "audio/mpeg"
+                        "wav" -> "audio/wav"
+                        "ogg" -> "audio/ogg"
+                        "m4a" -> "audio/x-m4a"
+                        "flac" -> "audio/flac"
+                        "mp4" -> "video/mp4"
+                        "mkv" -> "video/x-matroska"
+                        "webm" -> "video/webm"
+                        "avi" -> "video/x-msvideo"
+                        "jpg", "jpeg" -> "image/jpeg"
+                        "png" -> "image/png"
+                        "webp" -> "image/webp"
+                        "gif" -> "image/gif"
+                        else -> "*/*"
+                    }
                     val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(uri, mimeType)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -255,15 +289,24 @@ fun FileHunterScreen(onClose: () -> Unit) {
         coroutineScope.launch {
             isLoading = true
             var successCount = 0
+            var hasAndroidDataFailure = false
             withContext(Dispatchers.IO) {
                 for (file in toDelete) {
-                    val isRestricted = file.path.contains("/Android/data")
-                    if (FileHunterShizukuHelper.deleteFile(file.path, isRestricted && isShizukuPermitted)) {
+                    if (FileHunterShizukuHelper.deleteFile(file.path, isShizukuPermitted)) {
                         successCount++
+                    } else if (file.path.contains("/Android/data")) {
+                        hasAndroidDataFailure = true
                     }
                 }
             }
-            snackbarHostState.showSnackbar("Deleted $successCount/${toDelete.size} items")
+            if (hasAndroidDataFailure) {
+                snackbarHostState.showSnackbar(
+                    "Cannot delete: Files in Android/data are protected by their owner apps",
+                    duration = SnackbarDuration.Long
+                )
+            } else {
+                snackbarHostState.showSnackbar("Deleted $successCount/${toDelete.size} items")
+            }
             exitSelectionMode()
             reloadCurrentPath()
             isLoading = false
@@ -277,19 +320,32 @@ fun FileHunterScreen(onClose: () -> Unit) {
             isLoading = true
             val action = clipboardAction!!
             val destPath = currentPath
-            val isRestricted = destPath.contains("/Android/data") || clipboardFiles.any { it.path.contains("/Android/data") }
             var successCount = 0
+            var moveFailedDueToAndroidData = false
             withContext(Dispatchers.IO) {
                 for (file in clipboardFiles) {
                     val ok = when (action) {
-                        ClipboardAction.COPY -> FileHunterShizukuHelper.copyFileTo(file.path, destPath, isRestricted && isShizukuPermitted)
-                        ClipboardAction.MOVE -> FileHunterShizukuHelper.moveFileTo(file.path, destPath, isRestricted && isShizukuPermitted)
+                        ClipboardAction.COPY -> FileHunterShizukuHelper.copyFileTo(file.path, destPath, isShizukuPermitted)
+                        ClipboardAction.MOVE -> {
+                            val result = FileHunterShizukuHelper.moveFileTo(file.path, destPath, isShizukuPermitted)
+                            if (!result && file.path.contains("/Android/data")) {
+                                moveFailedDueToAndroidData = true
+                            }
+                            result
+                        }
                     }
                     if (ok) successCount++
                 }
             }
-            val verb = if (action == ClipboardAction.COPY) "Copied" else "Moved"
-            snackbarHostState.showSnackbar("$verb $successCount/${clipboardFiles.size} items")
+            if (moveFailedDueToAndroidData) {
+                snackbarHostState.showSnackbar(
+                    "Move failed: Cannot delete original files from Android/data. Use Copy instead.",
+                    duration = SnackbarDuration.Long
+                )
+            } else {
+                val verb = if (action == ClipboardAction.COPY) "Copied" else "Moved"
+                snackbarHostState.showSnackbar("$verb $successCount/${clipboardFiles.size} items")
+            }
             clipboardFiles = emptyList()
             clipboardAction = null
             reloadCurrentPath()
@@ -696,20 +752,46 @@ fun FileListItem(
                     .background(Color.DarkGray.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (!file.isDirectory && (isImage || isVideo) && !file.path.contains("/Android/data")) {
-                    val request = ImageRequest.Builder(LocalContext.current)
-                        .data(File(file.path))
-                        .crossfade(true)
-                        .size(128)
-                    if (isVideo) {
-                        request.videoFrameMillis(1000)
+                val isRestricted = !file.path.startsWith("/storage/emulated/0") ||
+                        file.path.contains("/Android/data") ||
+                        file.path.contains("/Android/obb")
+                var localFile by remember(file.path) { mutableStateOf<File?>(if (isRestricted) null else File(file.path)) }
+                val ctx = LocalContext.current
+
+                if (!file.isDirectory && (isImage || isVideo) && file.size < 50_000_000L) {
+                    if (isRestricted && localFile == null) {
+                        LaunchedEffect(file.path) {
+                            withContext(Dispatchers.IO) {
+                                val cacheDir = ctx.externalCacheDir ?: ctx.cacheDir
+                                val thumbCache = File(cacheDir, "temp_" + file.name)
+                                if (thumbCache.exists() && thumbCache.length() > 0L) {
+                                    localFile = thumbCache
+                                } else {
+                                    localFile = FileHunterShizukuHelper.copyFileToCache(file.path, ctx)
+                                }
+                            }
+                        }
                     }
-                    AsyncImage(
-                        model = request.build(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp))
-                    )
+
+                    if (localFile != null) {
+                        val request = ImageRequest.Builder(LocalContext.current)
+                            .data(localFile)
+                            .crossfade(true)
+                            .size(128)
+                        if (isVideo) {
+                            request.videoFrameMillis(1000)
+                        }
+                        AsyncImage(
+                            model = request.build(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp))
+                        )
+                    } else {
+                        // Fallback icon while loading
+                        val icon = if (isVideo) Icons.Default.PlayArrow else Icons.Default.Image
+                        Icon(imageVector = icon, contentDescription = null, tint = PhotoIconColor, modifier = Modifier.size(28.dp))
+                    }
                 } else {
                     val icon = when {
                         file.isVault && file.isDirectory -> Icons.Default.Lock

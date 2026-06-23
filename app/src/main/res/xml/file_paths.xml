@@ -8,4 +8,8 @@
     <cache-path
         name="apk_share_internal"
         path="." />
+    <!-- Allows sharing files directly from standard external storage without copying -->
+    <external-path
+        name="external_files"
+        path="." />
 </paths>

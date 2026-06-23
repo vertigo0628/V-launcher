@@ -14,6 +14,7 @@
     <!-- Required to read wallpapers from storage -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     
     <!-- Required to set the wallpaper -->
@@ -69,7 +70,7 @@
 
         <!-- FileProvider for sharing APK files -->
         <provider
-            android:name="androidx.core.content.FileProvider"
+            android:name="com.vertigo.launcher.logic.filehunter.FileHunterFileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">

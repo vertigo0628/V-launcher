@@ -102,15 +102,37 @@ object FileHunterShizukuHelper {
 
         for (line in lines) {
             if (line.startsWith("total ")) continue
-            val parts = line.split(Regex("\\s+"), limit = 9)
+            val parts = line.split(Regex("\\s+"))
             if (parts.size < 8) continue
 
-            val name = parts.last().trim()
+            // Find the date column (matches YYYY-MM-DD)
+            var dateIndex = -1
+            for (i in 4..parts.lastIndex - 2) {
+                if (parts[i].matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) {
+                    dateIndex = i
+                    break
+                }
+            }
+
+            val name = if (dateIndex != -1) {
+                val timeString = parts[dateIndex + 1]
+                val searchStr = "${parts[dateIndex]} $timeString"
+                val pos = line.indexOf(searchStr)
+                if (pos != -1) {
+                    line.substring(pos + searchStr.length).trim()
+                } else {
+                    parts.drop(dateIndex + 2).joinToString(" ")
+                }
+            } else {
+                // Fallback to limit = 8 split
+                val fallbackParts = line.split(Regex("\\s+"), limit = 8)
+                fallbackParts.last().trim()
+            }
+
             if (name == "." || name == "..") continue
 
             val permissions = parts[0]
-            val sizeStr = parts.find { it.matches(Regex("\\d+")) }
-            val size = sizeStr?.toLongOrNull() ?: 0L
+            val size = parts.getOrNull(4)?.toLongOrNull() ?: 0L
             val isDirectory = permissions.startsWith("d")
             val isHidden = name.startsWith(".")
             val absolutePath = if (dirPath.endsWith("/")) "$dirPath$name" else "$dirPath/$name"
@@ -208,26 +230,42 @@ object FileHunterShizukuHelper {
      */
     fun copyFileToCache(sourcePath: String, context: Context): File? {
         val sourceFile = File(sourcePath)
-        val destFile = File(context.cacheDir, "temp_" + sourceFile.name)
+        // Use external cache dir if available so that Shizuku (running as shell user) can write to it.
+        // Falls back to internal cache dir.
+        val cacheDir = context.externalCacheDir ?: context.cacheDir
+        cacheDir.mkdirs()
+        val destFile = File(cacheDir, "temp_" + sourceFile.name)
 
         return try {
-            val inputStream = if (sourcePath.contains("/Android/data")) {
-                // Restricted: use Shizuku shell to read
-                val process = newProcessViaReflection("cat \"$sourcePath\"")
-                process?.inputStream
-            } else {
-                // Normal access
-                FileInputStream(sourcePath)
-            }
-
-            if (inputStream == null) return null
-
-            inputStream.use { input ->
-                FileOutputStream(destFile).use { output ->
-                    input.copyTo(output)
+            var copied = false
+            // Try Shizuku first to copy the file directly on the filesystem (bypasses all read permissions)
+            // Use array arguments to avoid shell escaping issues with spaces, quotes, parentheses, etc.
+            val process = newProcessViaReflection(arrayOf("cp", sourcePath, destFile.absolutePath))
+            if (process != null) {
+                process.waitFor()
+                if (process.exitValue() == 0) {
+                    val chmodProcess = newProcessViaReflection(arrayOf("chmod", "644", destFile.absolutePath))
+                    chmodProcess?.waitFor()
+                    if (destFile.exists() && destFile.length() > 0) {
+                        copied = true
+                    }
                 }
             }
-            destFile
+            
+            // Fallback to normal IO if Shizuku fails or is unavailable
+            if (!copied) {
+                FileInputStream(sourcePath).use { input ->
+                    FileOutputStream(destFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+
+            if (destFile.exists() && destFile.length() > 0) {
+                destFile
+            } else {
+                null
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             null
@@ -259,7 +297,7 @@ object FileHunterShizukuHelper {
      * from Kotlin programmers (making it "private").
      * We use a trick called Reflection to say "I know it's private, but let me use it anyway!"
      */
-    private fun newProcessViaReflection(command: String): Process? {
+    private fun newProcessViaReflection(cmd: Array<String>): Process? {
         return try {
             val method = Shizuku::class.java.getDeclaredMethod(
                 "newProcess",
@@ -271,7 +309,7 @@ object FileHunterShizukuHelper {
             @Suppress("UNCHECKED_CAST")
             method.invoke(
                 null,
-                arrayOf("sh", "-c", command),
+                cmd,
                 null as Array<String>?,
                 null as String?
             ) as? Process
@@ -281,23 +319,29 @@ object FileHunterShizukuHelper {
         }
     }
 
+    private fun newProcessViaReflection(command: String): Process? {
+        return newProcessViaReflection(arrayOf("sh", "-c", command))
+    }
+
     /**
      * Deletes a file or directory. Uses Shizuku if in restricted paths, or normal File API otherwise.
      */
     fun deleteFile(path: String, useShizuku: Boolean = false): Boolean {
         return try {
             if (useShizuku) {
-                val command = "rm -rf \"$path\""
-                val process = newProcessViaReflection(command)
+                val process = newProcessViaReflection(arrayOf("rm", "-rf", path))
                 process?.waitFor()
-                process?.exitValue() == 0
-            } else {
-                val file = File(path)
-                if (file.isDirectory) {
-                    file.deleteRecursively()
-                } else {
-                    file.delete()
+                if (process?.exitValue() == 0) {
+                    return true
                 }
+            }
+            
+            // Fallback to normal File API
+            val file = File(path)
+            if (file.isDirectory) {
+                file.deleteRecursively()
+            } else {
+                file.delete()
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -312,19 +356,21 @@ object FileHunterShizukuHelper {
     fun copyFileTo(sourcePath: String, destDir: String, useShizuku: Boolean = false): Boolean {
         return try {
             if (useShizuku) {
-                val command = "cp -r \"$sourcePath\" \"$destDir/\""
-                val process = newProcessViaReflection(command)
+                val process = newProcessViaReflection(arrayOf("cp", "-r", sourcePath, destDir))
                 process?.waitFor()
-                process?.exitValue() == 0
-            } else {
-                val src = File(sourcePath)
-                val dest = File(destDir, src.name)
-                if (src.isDirectory) {
-                    src.copyRecursively(dest, overwrite = true)
-                } else {
-                    src.copyTo(dest, overwrite = true)
-                    true
+                if (process?.exitValue() == 0) {
+                    return true
                 }
+            }
+            
+            // Fallback to normal IO
+            val src = File(sourcePath)
+            val dest = File(destDir, src.name)
+            if (src.isDirectory) {
+                src.copyRecursively(dest, overwrite = true)
+            } else {
+                src.copyTo(dest, overwrite = true)
+                true
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -339,27 +385,29 @@ object FileHunterShizukuHelper {
     fun moveFileTo(sourcePath: String, destDir: String, useShizuku: Boolean = false): Boolean {
         return try {
             if (useShizuku) {
-                val command = "mv \"$sourcePath\" \"$destDir/\""
-                val process = newProcessViaReflection(command)
+                val process = newProcessViaReflection(arrayOf("mv", sourcePath, destDir))
                 process?.waitFor()
-                process?.exitValue() == 0
-            } else {
-                val src = File(sourcePath)
-                val dest = File(destDir, src.name)
-                if (src.renameTo(dest)) {
-                    true
-                } else {
-                    // Fallback: copy then delete
-                    val copied = if (src.isDirectory) {
-                        src.copyRecursively(dest, overwrite = true)
-                    } else {
-                        src.copyTo(dest, overwrite = true)
-                        true
-                    }
-                    if (copied) {
-                        if (src.isDirectory) src.deleteRecursively() else src.delete()
-                    } else false
+                if (process?.exitValue() == 0) {
+                    return true
                 }
+            }
+            
+            // Fallback to normal IO
+            val src = File(sourcePath)
+            val dest = File(destDir, src.name)
+            if (src.renameTo(dest)) {
+                true
+            } else {
+                // Fallback: copy then delete
+                val copied = if (src.isDirectory) {
+                    src.copyRecursively(dest, overwrite = true)
+                } else {
+                    src.copyTo(dest, overwrite = true)
+                    true
+                }
+                if (copied) {
+                    if (src.isDirectory) src.deleteRecursively() else src.delete()
+                } else false
             }
         } catch (e: Exception) {
             e.printStackTrace()
