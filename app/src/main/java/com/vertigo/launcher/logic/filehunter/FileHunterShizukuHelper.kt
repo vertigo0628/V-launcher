@@ -109,8 +109,7 @@ object FileHunterShizukuHelper {
             if (name == "." || name == "..") continue
 
             val permissions = parts[0]
-            val sizeStr = parts.find { it.matches(Regex("\\d+")) }
-            val size = sizeStr?.toLongOrNull() ?: 0L
+            val size = parts.getOrNull(4)?.toLongOrNull() ?: 0L
             val isDirectory = permissions.startsWith("d")
             val isHidden = name.startsWith(".")
             val absolutePath = if (dirPath.endsWith("/")) "$dirPath$name" else "$dirPath/$name"
@@ -211,23 +210,26 @@ object FileHunterShizukuHelper {
         val destFile = File(context.cacheDir, "temp_" + sourceFile.name)
 
         return try {
-            val inputStream = if (sourcePath.contains("/Android/data")) {
-                // Restricted: use Shizuku shell to read
-                val process = newProcessViaReflection("cat \"$sourcePath\"")
-                process?.inputStream
+            // Try Shizuku to copy the file directly on the filesystem (bypasses all read permissions)
+            val command = "cp \"$sourcePath\" \"${destFile.absolutePath}\" && chmod 644 \"${destFile.absolutePath}\""
+            val process = newProcessViaReflection(command)
+            
+            if (process != null) {
+                process.waitFor()
             } else {
-                // Normal access
-                FileInputStream(sourcePath)
-            }
-
-            if (inputStream == null) return null
-
-            inputStream.use { input ->
-                FileOutputStream(destFile).use { output ->
-                    input.copyTo(output)
+                // Fallback to normal IO if Shizuku is unavailable
+                FileInputStream(sourcePath).use { input ->
+                    FileOutputStream(destFile).use { output ->
+                        input.copyTo(output)
+                    }
                 }
             }
-            destFile
+
+            if (destFile.exists() && destFile.length() > 0) {
+                destFile
+            } else {
+                null
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             null

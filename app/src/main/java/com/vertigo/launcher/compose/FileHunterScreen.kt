@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
@@ -694,20 +695,43 @@ fun FileListItem(
                     .background(Color.DarkGray.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (!file.isDirectory && (isImage || isVideo) && !file.path.contains("/Android/data")) {
-                    val request = ImageRequest.Builder(LocalContext.current)
-                        .data(File(file.path))
-                        .crossfade(true)
-                        .size(128)
-                    if (isVideo) {
-                        request.videoFrameMillis(1000)
+                val isRestricted = file.path.contains("/Android/data")
+                var localFile by remember(file.path) { mutableStateOf<File?>(if (isRestricted) null else File(file.path)) }
+                val ctx = LocalContext.current
+
+                if (!file.isDirectory && (isImage || isVideo) && file.size < 50_000_000L) {
+                    if (isRestricted && localFile == null) {
+                        LaunchedEffect(file.path) {
+                            withContext(Dispatchers.IO) {
+                                val thumbCache = File(ctx.cacheDir, "temp_" + file.name)
+                                if (thumbCache.exists() && thumbCache.length() > 0L) {
+                                    localFile = thumbCache
+                                } else {
+                                    localFile = FileHunterShizukuHelper.copyFileToCache(file.path, ctx)
+                                }
+                            }
+                        }
                     }
-                    AsyncImage(
-                        model = request.build(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp))
-                    )
+
+                    if (localFile != null) {
+                        val request = ImageRequest.Builder(LocalContext.current)
+                            .data(localFile)
+                            .crossfade(true)
+                            .size(128)
+                        if (isVideo) {
+                            request.videoFrameMillis(1000)
+                        }
+                        AsyncImage(
+                            model = request.build(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp))
+                        )
+                    } else {
+                        // Fallback icon while loading
+                        val icon = if (isVideo) Icons.Default.PlayArrow else Icons.Default.Image
+                        Icon(imageVector = icon, contentDescription = null, tint = PhotoIconColor, modifier = Modifier.size(28.dp))
+                    }
                 } else {
                     val icon = when {
                         file.isVault && file.isDirectory -> Icons.Default.Lock
