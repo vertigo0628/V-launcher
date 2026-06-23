@@ -40,7 +40,15 @@ A system-wide AI terminal overlay that floats on top of other applications, enab
 *   **Live Text Streaming**: Direct integrations with local `OllamaClient` showcasing live response generation and `<think>` block parsing.
 *   **Quick Clear (`🗑`)**: Instant button to wipe chat history, cancel active AI generations, and reset speech recognition state.
 
-### 🎨 5. Premium Layout & Customization
+### 📁 5. File Hunter (Shizuku-Powered File Manager)
+A powerful, integrated File Manager designed to uncover hidden media vaults and browse restricted application data without requiring root access.
+*   **Shizuku Integration:** Bypasses Android's Scoped Storage limitations, allowing you to browse, manage, and share restricted internal app folders like `/Android/data`.
+*   **Deep Vault Scanner:** Instantly searches storage for folders containing `.nomedia` files, immediately aggregating hidden vaults into an easy-to-navigate list.
+*   **Media Hunter:** Automatically scans "disguised" cache files (like `.bin` or `.tmp`) and reads their binary Hex headers. If it detects a hidden JPEG photo (`FF D8 FF`), it tags it and provides a visual thumbnail!
+*   **Multi-Select & Batch Actions:** Advanced multi-select mode to Batch Delete, Share, Copy, and Move files seamlessly.
+*   **Expert Mode Safety Dots:** Visual indicators (🟢 Safe, 🟡 Caution, ⚪ Unknown) help identify which system cache files are safe to delete and which might affect app settings.
+
+### 🎨 6. Premium Layout & Customization
 *   **Widget Stacking**: Drag and drop widgets on top of each other to stack them. Swipe horizontally to cycle.
 *   **Popup Widgets**: Double-tap or swipe on app icons to temporarily reveal their corresponding widget.
 *   **Smart Widgets**: Rules-based widgets that transition automatically depending on the time of day or weekend schedule.
