@@ -69,7 +69,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
                     Toast.makeText(context, "Please enable 'V-launcher' in Accessibility Settings first", Toast.LENGTH_LONG).show()
                 } else {
                     // Service is alive — refresh the overlay on main thread
-                    // VLauncherAccessibilityService.refreshFloatingButton()
+                    VLauncherAccessibilityService.refreshFloatingButton()
                     val msg = if (enabled) "Floating Assistant ON" else "Floating Assistant OFF"
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 }

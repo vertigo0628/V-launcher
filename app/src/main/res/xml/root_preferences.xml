@@ -72,6 +72,12 @@
 
     <PreferenceCategory app:title="AI &amp; Voice">
         <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="floating_assistant_enabled"
+            app:title="Floating Assistant"
+            app:summary="Enable the floating AI dynamic island overlay" />
+            
+        <SwitchPreferenceCompat
             app:defaultValue="true"
             app:key="voice_assistant_enabled"
             app:title="Voice Assistant"
