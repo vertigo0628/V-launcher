@@ -210,17 +210,22 @@ object FileHunterShizukuHelper {
         // Use external cache dir if available so that Shizuku (running as shell user) can write to it.
         // Falls back to internal cache dir.
         val cacheDir = context.externalCacheDir ?: context.cacheDir
+        cacheDir.mkdirs()
         val destFile = File(cacheDir, "temp_" + sourceFile.name)
 
         return try {
             var copied = false
             // Try Shizuku first to copy the file directly on the filesystem (bypasses all read permissions)
-            val command = "cp \"$sourcePath\" \"${destFile.absolutePath}\" && chmod 644 \"${destFile.absolutePath}\""
-            val process = newProcessViaReflection(command)
+            // Use array arguments to avoid shell escaping issues with spaces, quotes, parentheses, etc.
+            val process = newProcessViaReflection(arrayOf("cp", sourcePath, destFile.absolutePath))
             if (process != null) {
                 process.waitFor()
-                if (process.exitValue() == 0 && destFile.exists() && destFile.length() > 0) {
-                    copied = true
+                if (process.exitValue() == 0) {
+                    val chmodProcess = newProcessViaReflection(arrayOf("chmod", "644", destFile.absolutePath))
+                    chmodProcess?.waitFor()
+                    if (destFile.exists() && destFile.length() > 0) {
+                        copied = true
+                    }
                 }
             }
             
@@ -269,7 +274,7 @@ object FileHunterShizukuHelper {
      * from Kotlin programmers (making it "private").
      * We use a trick called Reflection to say "I know it's private, but let me use it anyway!"
      */
-    private fun newProcessViaReflection(command: String): Process? {
+    private fun newProcessViaReflection(cmd: Array<String>): Process? {
         return try {
             val method = Shizuku::class.java.getDeclaredMethod(
                 "newProcess",
@@ -281,7 +286,7 @@ object FileHunterShizukuHelper {
             @Suppress("UNCHECKED_CAST")
             method.invoke(
                 null,
-                arrayOf("sh", "-c", command),
+                cmd,
                 null as Array<String>?,
                 null as String?
             ) as? Process
@@ -291,14 +296,17 @@ object FileHunterShizukuHelper {
         }
     }
 
+    private fun newProcessViaReflection(command: String): Process? {
+        return newProcessViaReflection(arrayOf("sh", "-c", command))
+    }
+
     /**
      * Deletes a file or directory. Uses Shizuku if in restricted paths, or normal File API otherwise.
      */
     fun deleteFile(path: String, useShizuku: Boolean = false): Boolean {
         return try {
             if (useShizuku) {
-                val command = "rm -rf \"$path\""
-                val process = newProcessViaReflection(command)
+                val process = newProcessViaReflection(arrayOf("rm", "-rf", path))
                 process?.waitFor()
                 process?.exitValue() == 0
             } else {
@@ -322,8 +330,7 @@ object FileHunterShizukuHelper {
     fun copyFileTo(sourcePath: String, destDir: String, useShizuku: Boolean = false): Boolean {
         return try {
             if (useShizuku) {
-                val command = "cp -r \"$sourcePath\" \"$destDir/\""
-                val process = newProcessViaReflection(command)
+                val process = newProcessViaReflection(arrayOf("cp", "-r", sourcePath, destDir))
                 process?.waitFor()
                 process?.exitValue() == 0
             } else {
@@ -349,8 +356,7 @@ object FileHunterShizukuHelper {
     fun moveFileTo(sourcePath: String, destDir: String, useShizuku: Boolean = false): Boolean {
         return try {
             if (useShizuku) {
-                val command = "mv \"$sourcePath\" \"$destDir/\""
-                val process = newProcessViaReflection(command)
+                val process = newProcessViaReflection(arrayOf("mv", sourcePath, destDir))
                 process?.waitFor()
                 process?.exitValue() == 0
             } else {
