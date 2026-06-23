@@ -192,10 +192,19 @@ fun FileHunterScreen(onClose: () -> Unit) {
     }
 
     fun prepareFileUri(file: FileModel): Uri? {
-        val tempFile = FileHunterShizukuHelper.copyFileToCache(file.path, context)
-        return if (tempFile != null && tempFile.exists()) {
+        val isRestricted = !file.path.startsWith("/storage/emulated/0") ||
+                file.path.contains("/Android/data") ||
+                file.path.contains("/Android/obb")
+        
+        val fileToShare = if (isRestricted) {
+            FileHunterShizukuHelper.copyFileToCache(file.path, context)
+        } else {
+            File(file.path)
+        }
+
+        return if (fileToShare != null && fileToShare.exists()) {
             val authority = "${context.packageName}.fileprovider"
-            FileProvider.getUriForFile(context, authority, tempFile)
+            FileProvider.getUriForFile(context, authority, fileToShare)
         } else null
     }
 
@@ -205,8 +214,32 @@ fun FileHunterScreen(onClose: () -> Unit) {
             val uri = withContext(Dispatchers.IO) { prepareFileUri(file) }
             if (uri != null) {
                 try {
-                    val extension = MimeTypeMap.getFileExtensionFromUrl(file.name.replace(" ", "%20"))
-                    val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase()) ?: "*/*"
+                    val extension = file.name.substringAfterLast('.', "").lowercase()
+                    val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: when (extension) {
+                        "pdf" -> "application/pdf"
+                        "epub" -> "application/epub+zip"
+                        "txt" -> "text/plain"
+                        "doc", "docx" -> "application/msword"
+                        "xls", "xlsx" -> "application/vnd.ms-excel"
+                        "ppt", "pptx" -> "application/vnd.ms-powerpoint"
+                        "zip" -> "application/zip"
+                        "rar" -> "application/x-rar-compressed"
+                        "apk" -> "application/vnd.android.package-archive"
+                        "mp3" -> "audio/mpeg"
+                        "wav" -> "audio/wav"
+                        "ogg" -> "audio/ogg"
+                        "m4a" -> "audio/x-m4a"
+                        "flac" -> "audio/flac"
+                        "mp4" -> "video/mp4"
+                        "mkv" -> "video/x-matroska"
+                        "webm" -> "video/webm"
+                        "avi" -> "video/x-msvideo"
+                        "jpg", "jpeg" -> "image/jpeg"
+                        "png" -> "image/png"
+                        "webp" -> "image/webp"
+                        "gif" -> "image/gif"
+                        else -> "*/*"
+                    }
                     val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(uri, mimeType)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -695,7 +728,9 @@ fun FileListItem(
                     .background(Color.DarkGray.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                val isRestricted = file.path.contains("/Android/data")
+                val isRestricted = !file.path.startsWith("/storage/emulated/0") ||
+                        file.path.contains("/Android/data") ||
+                        file.path.contains("/Android/obb")
                 var localFile by remember(file.path) { mutableStateOf<File?>(if (isRestricted) null else File(file.path)) }
                 val ctx = LocalContext.current
 
@@ -703,7 +738,8 @@ fun FileListItem(
                     if (isRestricted && localFile == null) {
                         LaunchedEffect(file.path) {
                             withContext(Dispatchers.IO) {
-                                val thumbCache = File(ctx.cacheDir, "temp_" + file.name)
+                                val cacheDir = ctx.externalCacheDir ?: ctx.cacheDir
+                                val thumbCache = File(cacheDir, "temp_" + file.name)
                                 if (thumbCache.exists() && thumbCache.length() > 0L) {
                                     localFile = thumbCache
                                 } else {

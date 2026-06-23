@@ -207,17 +207,25 @@ object FileHunterShizukuHelper {
      */
     fun copyFileToCache(sourcePath: String, context: Context): File? {
         val sourceFile = File(sourcePath)
-        val destFile = File(context.cacheDir, "temp_" + sourceFile.name)
+        // Use external cache dir if available so that Shizuku (running as shell user) can write to it.
+        // Falls back to internal cache dir.
+        val cacheDir = context.externalCacheDir ?: context.cacheDir
+        val destFile = File(cacheDir, "temp_" + sourceFile.name)
 
         return try {
-            // Try Shizuku to copy the file directly on the filesystem (bypasses all read permissions)
+            var copied = false
+            // Try Shizuku first to copy the file directly on the filesystem (bypasses all read permissions)
             val command = "cp \"$sourcePath\" \"${destFile.absolutePath}\" && chmod 644 \"${destFile.absolutePath}\""
             val process = newProcessViaReflection(command)
-            
             if (process != null) {
                 process.waitFor()
-            } else {
-                // Fallback to normal IO if Shizuku is unavailable
+                if (process.exitValue() == 0 && destFile.exists() && destFile.length() > 0) {
+                    copied = true
+                }
+            }
+            
+            // Fallback to normal IO if Shizuku fails or is unavailable
+            if (!copied) {
                 FileInputStream(sourcePath).use { input ->
                     FileOutputStream(destFile).use { output ->
                         input.copyTo(output)
