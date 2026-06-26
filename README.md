@@ -6,7 +6,7 @@
 
 A premium, highly customizable Android launcher featuring a futuristic **Cyberpunk Neon aesthetic**, state-of-the-art gesture engines, and a **locally hosted AI Assistant ("Sunday")** powered by Ollama on Termux. 
 
-Designed for power users who demand strict privacy, system-wide ambient assistance, and a fluid, lag-free experience.
+Designed for power users who demand strict  privacy, system-wide ambient assistance, and a fluid, lag-free experience.
 
 ---
 
