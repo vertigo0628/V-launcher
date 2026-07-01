@@ -20,9 +20,7 @@ class OllamaClient {
     private val gson = Gson()
     private val mediaType = "application/json; charset=utf-8".toMediaType()
 
-    // Default configuration for the local Ollama instance
-    // The default model to use
-    private val defaultModel = "llama3.2:1b"
+    // No default model - always use what Ollama has installed
 
     data class OllamaRequest(
         val model: String,
@@ -45,72 +43,121 @@ class OllamaClient {
      */
     fun generateResponseStream(
         prompt: String, 
-        model: String = defaultModel, 
+        model: String,
         baseUrl: String = "http://127.0.0.1:11434",
         systemPrompt: String? = null
     ): Flow<String> = flow {
-        val endpoint = "${baseUrl.trimEnd('/')}/api/generate"
-        val requestData = OllamaRequest(model = model, prompt = prompt, stream = true, system = systemPrompt)
-        val jsonBody = gson.toJson(requestData)
-        val requestBody = jsonBody.toRequestBody(mediaType)
-
-        val request = Request.Builder()
-            .url(endpoint)
-            .post(requestBody)
-            .build()
-
-        val call = client.newCall(request)
+        // Try /api/generate first, then /api/chat as fallback
+        val generateEndpoint = "${baseUrl.trimEnd('/')}/api/generate"
+        val chatEndpoint = "${baseUrl.trimEnd('/')}/api/chat"
         
-        // Ensure network call is cancelled if coroutine is cancelled
-        val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
-        job?.invokeOnCompletion { 
-            if (it is kotlinx.coroutines.CancellationException) {
-                android.util.Log.d("OllamaClient", "Cancelling network call due to coroutine cancellation")
-                call.cancel() 
+        val generateBody = gson.toJson(OllamaRequest(model = model, prompt = prompt, stream = true, system = systemPrompt))
+        
+        val chatMessages = mutableListOf<Map<String, String>>()
+        if (systemPrompt != null) {
+            chatMessages.add(mapOf("role" to "system", "content" to systemPrompt))
+        }
+        chatMessages.add(mapOf("role" to "user", "content" to prompt))
+        val chatBody = gson.toJson(mapOf("model" to model, "messages" to chatMessages, "stream" to true))
+        
+        var shouldFallback = false
+        
+        // Attempt 1: /api/generate
+        try {
+            val result = executeStreamRequest(generateEndpoint, generateBody)
+            if (result == null) {
+                shouldFallback = true
+            } else {
+                result.forEach { emit(it) }
+            }
+        } catch (e: Exception) {
+            shouldFallback = true
+        }
+        
+        // Attempt 2: /api/chat (fallback)
+        if (shouldFallback) {
+            android.util.Log.w("OllamaClient", "/api/generate failed, falling back to /api/chat")
+            try {
+                val result = executeStreamRequest(chatEndpoint, chatBody)
+                result?.forEach { emit(it) }
+            } catch (e: Exception) {
+                android.util.Log.e("OllamaClient", "Connection error reaching $chatEndpoint", e)
+                throw e
             }
         }
+    }.flowOn(Dispatchers.IO)
+    
+    /**
+     * Executes a streaming HTTP request to the given endpoint.
+     * Returns null if the server returns 404 (signal to try fallback).
+     * Returns a list of text chunks on success.
+     */
+    private suspend fun executeStreamRequest(endpoint: String, jsonBody: String): List<String>? {
+        return kotlinx.coroutines.withContext(Dispatchers.IO) {
+            val requestBody = jsonBody.toRequestBody(mediaType)
+            val request = Request.Builder()
+                .url(endpoint)
+                .post(requestBody)
+                .build()
 
-        android.util.Log.d("OllamaClient", "Sending streaming request to $endpoint")
+            val call = client.newCall(request)
+            android.util.Log.d("OllamaClient", "Sending streaming request to $endpoint")
 
-        try {
             call.execute().use { response ->
+                if (response.code == 404) {
+                    android.util.Log.w("OllamaClient", "404 at $endpoint, will try fallback")
+                    return@withContext null // signal to try fallback
+                }
+                
                 if (!response.isSuccessful) {
-                    val errorMsg = "Ollama Error: ${response.code} ${response.message}"
-                    android.util.Log.e("OllamaClient", errorMsg)
-                    throw IOException(errorMsg)
+                    val body = response.body?.string() ?: ""
+                    android.util.Log.e("OllamaClient", "HTTP ${response.code} from $endpoint: $body")
+                    throw IOException("Ollama Error: ${response.code} ${response.message} - $body")
                 }
 
                 val source = response.body?.source() ?: throw IOException("Empty response body")
+                val chunks = mutableListOf<String>()
                 
-                while (currentCoroutineContext().isActive && !source.exhausted()) {
+                while (!source.exhausted()) {
                     val line = source.readUtf8Line()
+                    android.util.Log.d("OllamaClient", "RAW LINE: $line")
                     if (line != null && line.isNotBlank()) {
                         try {
-                            val chunk = gson.fromJson(line, OllamaResponse::class.java)
-                            emit(chunk.response)
-                            if (chunk.done) break
+                            val jsonObj = com.google.gson.JsonParser.parseString(line).asJsonObject
+                            // Check for Ollama error inside 200 response body
+                            if (jsonObj.has("error")) {
+                                val errMsg = jsonObj.get("error").asString
+                                android.util.Log.e("OllamaClient", "Ollama returned error in body: $errMsg")
+                                throw IOException("Ollama model error: $errMsg")
+                            }
+                            val text = when {
+                                jsonObj.has("response") -> jsonObj.get("response").asString
+                                jsonObj.has("message") && jsonObj.getAsJsonObject("message").has("content") ->
+                                    jsonObj.getAsJsonObject("message").get("content").asString
+                                else -> ""
+                            }
+                            if (text.isNotEmpty()) chunks.add(text)
+                            val done = jsonObj.has("done") && jsonObj.get("done").asBoolean
+                            if (done) break
+                        } catch (e: IOException) {
+                            throw e // re-throw real errors
                         } catch (e: Exception) {
                             android.util.Log.e("OllamaClient", "Error parsing chunk: $line", e)
                         }
                     }
                 }
-            }
-        } catch (e: Exception) {
-            if (e is java.io.IOException && call.isCanceled()) {
-                 android.util.Log.d("OllamaClient", "Stream cancelled successfully")
-            } else {
-                android.util.Log.e("OllamaClient", "Connection error reaching $endpoint", e)
-                throw e
+                android.util.Log.d("OllamaClient", "Stream finished. Total chunks: ${chunks.size}")
+                chunks
             }
         }
-    }.flowOn(Dispatchers.IO)
+    }
 
     /**
      * Wrapper for non-streaming usage or legacy calls.
      */
     suspend fun generateResponse(
         prompt: String, 
-        model: String = defaultModel, 
+        model: String,
         baseUrl: String = "http://127.0.0.1:11434"
     ): Result<String> {
         return withContext(Dispatchers.IO) {

@@ -102,6 +102,26 @@
             app:summary="Select the local or cloud model to use" />
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="Aesthetic &amp; Gestures">
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="scribble_search_enabled"
+            app:title="Scribble Search"
+            app:summary="Draw letters on home screen to search apps" />
+            
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="weather_particles_enabled"
+            app:title="Weather Particle Wallpaper"
+            app:summary="Dynamic particles matching local weather" />
+            
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="edge_panel_enabled"
+            app:title="Edge Swipe Panel"
+            app:summary="Slide-out drawer for favorites, toggles, and calculator" />
+    </PreferenceCategory>
+
     <PreferenceCategory app:title="Shizuku Power">
         <Preference
             app:key="shizuku_manager"

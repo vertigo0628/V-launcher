@@ -90,7 +90,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     data class WeatherState(
         val temp: String = "--°",
         val condition: String = "Loading...",
-        val iconRes: Int = android.R.drawable.ic_menu_today
+        val iconRes: Int = android.R.drawable.ic_menu_today,
+        val weatherCode: Int = -1 // -1 means unknown or loading
     )
 
     // --- Managers & Repositories ---
@@ -111,6 +112,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val locationHelper = com.vertigo.launcher.logic.LocationHelper(application)
     private val neuralInsightRepository = com.vertigo.launcher.data.NeuralInsightRepository(application)
     private val smartUsageManager = com.vertigo.launcher.utils.SmartUsageManager(application)
+    private val appUsageTracker = com.vertigo.launcher.utils.AppUsageTracker(application)
     private val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeSharedPreferences(application, "launcher_prefs")
 
     // Shizuku state
@@ -302,6 +304,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _dailyInsight = MutableStateFlow<List<WikiInsightItem>>(emptyList())
     val dailyInsight: StateFlow<List<WikiInsightItem>> = _dailyInsight.asStateFlow()
 
+    private val _appUsageStats = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val appUsageStats: StateFlow<Map<String, Long>> = _appUsageStats.asStateFlow()
+
+    fun fetchAppUsageStats() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val stats = appUsageTracker.getDailyUsageStats()
+            _appUsageStats.value = stats
+        }
+    }
+    
+    fun requestUsageStatsPermission() {
+        appUsageTracker.requestUsageStatsPermission()
+    }
+    
+    fun hasUsageStatsPermission(): Boolean {
+        return appUsageTracker.hasUsageStatsPermission()
+    }
+
     private val _currentHoliday = MutableStateFlow<String?>(null)
     val currentHoliday: StateFlow<String?> = _currentHoliday.asStateFlow()
 
@@ -475,7 +495,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private val preferenceChangeListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        // Placeholder for future preference reactions
+    }
+
     init {
+        prefs.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
         // Core data load
         loadApps(true)
         
@@ -534,6 +559,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         fetchTodayEvents()
         fetchWeather()
         fetchNeuralInsights()
+        if (prefs.getBoolean("app_usage_tracker_enabled", false)) {
+            fetchAppUsageStats()
+        }
     }
     
     fun onBackground() {
@@ -595,8 +623,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
+
         }
     }
+
+
+
     fun hideApp(app: AppModel) {
         preferencesManager.hideApp(app.packageName)
         loadApps() // Reload to refresh lists
@@ -1526,7 +1558,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 _weatherState.value = WeatherState(
                     temp = "${current.temperature}°",
                     condition = conditionText,
-                    iconRes = icon
+                    iconRes = icon,
+                    weatherCode = current.weatherCode
                 )
             }
         }
@@ -1719,8 +1752,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 android.util.Log.d("HomeViewModel", "Vision prompt built: ${userPrompt.take(200)}...")
 
                 // Step 3: Stream to Ollama (reuse existing pipeline)
-                val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeDefaultSharedPreferences(getApplication())
-                val selectedModel = prefs.getString("ollama_model_select", "llama3.2:1b") ?: "llama3.2:1b"
+                val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeSharedPreferences(getApplication(), "launcher_prefs")
+                val selectedModel = prefs.getString("ollama_model_select", "") ?: ""
                 val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
 
                 var fullResponse = ""
@@ -1771,9 +1804,32 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _isAiThinking.value = true
             _currentStreamingResponse.value = null // Keep null so UI shows "Thinking..."
             
-            val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeDefaultSharedPreferences(getApplication())
-            val selectedModel = prefs.getString("ollama_model_select", "llama3.2:1b") ?: "llama3.2:1b"
+            val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeSharedPreferences(getApplication(), "launcher_prefs")
+            val savedModel = prefs.getString("ollama_model_select", "") ?: ""
             val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
+            
+            // Auto-detect: fetch available models and resolve the best one to use
+            val selectedModel = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val modelsResult = ollamaClient.getAvailableModels(baseUrl)
+                if (modelsResult.isFailure) {
+                    return@withContext null // Ollama not reachable
+                }
+                val available = modelsResult.getOrNull() ?: emptyList()
+                when {
+                    available.isEmpty() -> null // no models installed
+                    savedModel.isNotBlank() && available.any { it.equals(savedModel, ignoreCase = true) } -> savedModel
+                    savedModel.isNotBlank() && available.any { it.startsWith(savedModel.substringBefore(":"), ignoreCase = true) } ->
+                        available.first { it.startsWith(savedModel.substringBefore(":"), ignoreCase = true) }
+                    else -> available.first() // auto-use whatever is installed
+                }
+            }
+            
+            if (selectedModel == null) {
+                val errorMsg = "⚠️ Ollama is not reachable at $baseUrl\n\nMake sure Ollama is running in Termux:\n`ollama serve`"
+                _chatHistory.value = _chatHistory.value + ChatMessage(role = "assistant", content = errorMsg)
+                _isAiThinking.value = false
+                return@launch
+            }
             
             var fullResponse = ""
             var hasReceivedFirstChunk = false

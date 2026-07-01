@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import android.provider.Settings
 import com.vertigo.launcher.service.VLauncherAccessibilityService
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun NeuralHub(
@@ -360,10 +361,114 @@ fun NeuralHub(
             MiniAppsPanel(viewModel = viewModel)
 
             Spacer(modifier = Modifier.height(24.dp))
+            
+            // App Usage Tracker (Digital Wellbeing)
+            val appUsageStats by (viewModel?.appUsageStats?.collectAsState() ?: mutableStateOf(emptyMap()))
+            val hasUsagePermission = viewModel?.hasUsageStatsPermission() ?: false
+            
+            AppUsageWidget(
+                usageStats = appUsageStats,
+                hasPermission = hasUsagePermission,
+                onRequestPermission = { viewModel?.requestUsageStatsPermission() },
+                apps = viewModel?.apps?.collectAsState()?.value ?: emptyList()
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
         } // end Column
             } // end Box (width constraint)
         } // end BoxWithConstraints
     } // end Main Background Box
+}
+
+@Composable
+fun AppUsageWidget(
+    usageStats: Map<String, Long>,
+    hasPermission: Boolean,
+    onRequestPermission: () -> Unit,
+    apps: List<com.vertigo.launcher.model.AppModel>
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0x1AFFFFFF))
+            .padding(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "⏱️ DIGITAL WELLBEING",
+                color = Color(0xFF00F0FF),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            if (!hasPermission) {
+                Text(
+                    text = "Usage access is required to show screen time statistics.",
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onRequestPermission,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F0FF).copy(alpha = 0.2f)),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F0FF))
+                ) {
+                    Text("Grant Permission", color = Color(0xFF00F0FF), fontSize = 12.sp)
+                }
+            } else if (usageStats.isEmpty()) {
+                Text(
+                    text = "No usage data available for the last 24 hours.",
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+            } else {
+                // Top 5 apps by usage
+                val topApps = usageStats.entries
+                    .sortedByDescending { it.value }
+                    .take(5)
+                
+                topApps.forEach { (packageName, timeMs) ->
+                    val app = apps.find { it.packageName == packageName }
+                    val label = app?.label ?: packageName.substringAfterLast('.')
+                    
+                    val hours = TimeUnit.MILLISECONDS.toHours(timeMs)
+                    val minutes = TimeUnit.MILLISECONDS.toMinutes(timeMs) % 60
+                    val timeStr = if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (app != null) {
+                            AsyncAppIcon(app = app, modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(
+                            text = label,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = timeStr,
+                            color = Color(0xFF10B981), // Neon Green
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

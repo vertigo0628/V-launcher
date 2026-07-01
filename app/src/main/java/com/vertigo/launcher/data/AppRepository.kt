@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 private const val TAG = "AppRepository"
 
 class AppRepository(private val context: Context) {
+    private val preferencesManager = com.vertigo.launcher.utils.PreferencesManager(context)
 
     suspend fun getInstalledApps(): List<AppModel> = withContext(Dispatchers.IO) {
         val packageManager = context.packageManager
@@ -113,9 +114,22 @@ class AppRepository(private val context: Context) {
     }
 
     private fun categorizeApp(applicationInfo: ApplicationInfo): AppCategory {
-        // System apps check first
-        if ((applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
-            (applicationInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0) {
+        val packageName = applicationInfo.packageName
+        
+        // 1. Check custom overrides from PreferencesManager first
+        preferencesManager.getAppCategoryOverride(packageName)?.let { overrideStr ->
+            try {
+                return AppCategory.valueOf(overrideStr)
+            } catch (e: Exception) {
+                // Ignore and fall through if invalid
+            }
+        }
+
+        // 2. System apps check
+        val isSystem = (applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
+                (applicationInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+        
+        if (isSystem) {
             // But if it's explicitly a game, still call it a game
             if ((applicationInfo.flags and ApplicationInfo.FLAG_IS_GAME) != 0) {
                 return AppCategory.GAMES
@@ -127,13 +141,74 @@ class AppRepository(private val context: Context) {
             return AppCategory.GAMES
         }
 
-        val packageName = applicationInfo.packageName.lowercase()
+        // 3. Native category mapping (Android 8.0 / API 26+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            when (applicationInfo.category) {
+                ApplicationInfo.CATEGORY_GAME -> return AppCategory.GAMES
+                ApplicationInfo.CATEGORY_AUDIO,
+                ApplicationInfo.CATEGORY_VIDEO,
+                ApplicationInfo.CATEGORY_IMAGE -> return AppCategory.MEDIA
+                ApplicationInfo.CATEGORY_SOCIAL -> return AppCategory.COMMUNICATION
+                ApplicationInfo.CATEGORY_NEWS -> return AppCategory.INTERNET
+                ApplicationInfo.CATEGORY_MAPS,
+                ApplicationInfo.CATEGORY_PRODUCTIVITY -> return AppCategory.UTILITIES
+            }
+        }
+
+        // 4. Custom Keyword Ruleset matching (package name checks)
+        val pkgLower = packageName.lowercase()
         return when {
-            packageName.contains("messaging") || packageName.contains("sms") || packageName.contains("whatsapp") || packageName.contains("telegram") -> AppCategory.COMMUNICATION
-            packageName.contains("chrome") || packageName.contains("browser") || packageName.contains("firefox") -> AppCategory.INTERNET
-            packageName.contains("camera") || packageName.contains("music") || packageName.contains("video") || packageName.contains("gallery") || packageName.contains("photos") || packageName.contains("youtube") -> AppCategory.MEDIA
-            packageName.contains("settings") || packageName.contains("config") -> AppCategory.SETTINGS
-            else -> AppCategory.UTILITIES
+            // Communication
+            pkgLower.contains("message") || pkgLower.contains("sms") || pkgLower.contains("whatsapp") || 
+            pkgLower.contains("telegram") || pkgLower.contains("signal") || pkgLower.contains("messenger") || 
+            pkgLower.contains("discord") || pkgLower.contains("slack") || pkgLower.contains("viber") || 
+            pkgLower.contains("line") || pkgLower.contains("skype") || pkgLower.contains("dialer") || 
+            pkgLower.contains("contacts") || pkgLower.contains("phone") || pkgLower.contains("mail") || 
+            pkgLower.contains("outlook") || pkgLower.contains("gmail") || pkgLower.contains("chat") ||
+            pkgLower.contains("wechat") -> AppCategory.COMMUNICATION
+
+            // Internet
+            pkgLower.contains("chrome") || pkgLower.contains("browser") || pkgLower.contains("firefox") || 
+            pkgLower.contains("opera") || pkgLower.contains("safari") || pkgLower.contains("edge") || 
+            pkgLower.contains("brave") || pkgLower.contains("duckduckgo") || pkgLower.contains("pinterest") || 
+            pkgLower.contains("reddit") || pkgLower.contains("twitter") || pkgLower.contains("tiktok") || 
+            pkgLower.contains("instagram") || pkgLower.contains("facebook") || pkgLower.contains("tumblr") -> AppCategory.INTERNET
+
+            // Games
+            pkgLower.contains("game") || pkgLower.contains("arcade") || pkgLower.contains("puzzle") || 
+            pkgLower.contains("action") || pkgLower.contains("rpg") || pkgLower.contains("simulation") || 
+            pkgLower.contains("strategy") || pkgLower.contains("board") || pkgLower.contains("card") || 
+            pkgLower.contains("angrybirds") || pkgLower.contains("pubg") || pkgLower.contains("clash") || 
+            pkgLower.contains("roblox") || pkgLower.contains("minecraft") || pkgLower.contains("sudoku") ||
+            pkgLower.contains("chess") || pkgLower.contains("solitaire") -> AppCategory.GAMES
+
+            // Media
+            pkgLower.contains("camera") || pkgLower.contains("music") || pkgLower.contains("video") || 
+            pkgLower.contains("gallery") || pkgLower.contains("photos") || pkgLower.contains("youtube") || 
+            pkgLower.contains("spotify") || pkgLower.contains("netflix") || pkgLower.contains("player") || 
+            pkgLower.contains("recorder") || pkgLower.contains("vlc") || pkgLower.contains("hulu") || 
+            pkgLower.contains("disney") || pkgLower.contains("twitch") || pkgLower.contains("tv") || 
+            pkgLower.contains("fm") || pkgLower.contains("radio") || pkgLower.contains("sound") ||
+            pkgLower.contains("deezer") || pkgLower.contains("primevideo") -> AppCategory.MEDIA
+
+            // Settings
+            pkgLower.contains("settings") || pkgLower.contains("config") || pkgLower.contains("setup") || 
+            pkgLower.contains("preference") || pkgLower.contains("control") || pkgLower.contains("customizer") -> AppCategory.SETTINGS
+
+            // System
+            pkgLower.contains("system") || pkgLower.contains("android") || pkgLower.contains("launcher") || 
+            pkgLower.contains("keyboard") || pkgLower.contains("inputmethod") || pkgLower.contains("provider") || 
+            pkgLower.contains("service") || pkgLower.contains("packageinstaller") -> AppCategory.SYSTEM
+
+            // Utilities
+            pkgLower.contains("calculator") || pkgLower.contains("calendar") || pkgLower.contains("clock") || 
+            pkgLower.contains("notes") || pkgLower.contains("weather") || pkgLower.contains("file") || 
+            pkgLower.contains("document") || pkgLower.contains("pdf") || pkgLower.contains("wallet") || 
+            pkgLower.contains("pay") || pkgLower.contains("map") || pkgLower.contains("drive") || 
+            pkgLower.contains("office") || pkgLower.contains("scan") || pkgLower.contains("keeps") ||
+            pkgLower.contains("weather") || pkgLower.contains("compass") || pkgLower.contains("tasks") -> AppCategory.UTILITIES
+
+            else -> AppCategory.OTHER
         }
     }
     suspend fun getFrozenApps(): List<AppModel> = withContext(Dispatchers.IO) {
