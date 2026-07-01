@@ -382,8 +382,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val aiUrlPref = findPreference<Preference>("ollama_base_url")
         val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeDefaultSharedPreferences(requireContext())
         
-        val currentModel = prefs.getString("ollama_model_select", "llama3.2:1b")
-        aiBrainPref?.summary = currentModel
+        val currentModel = prefs.getString("ollama_model_select", "")
+        aiBrainPref?.summary = if (currentModel.isNullOrBlank()) "Tap to select a model" else currentModel
         
         aiBrainPref?.setOnPreferenceClickListener {
             val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"

@@ -175,10 +175,50 @@ fun HomeScreen(
         }
     }
     
+    val locationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel?.refreshWeather()
+        }
+    }
+    
+    LaunchedEffect(Unit) {
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) 
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+    
     var showInlineSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showScribbleSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
     var showHiddenDrawer by remember { androidx.compose.runtime.mutableStateOf(false) }
     var activeFolder by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var showEdgePanel by remember { androidx.compose.runtime.mutableStateOf(false) }
     
+    val prefs = remember { com.vertigo.launcher.utils.StorageHelper.getSafeSharedPreferences(context, "launcher_prefs") }
+    
+    var scribbleSearchEnabled by remember { androidx.compose.runtime.mutableStateOf(prefs.getBoolean("scribble_search_enabled", true)) }
+    val glassmorphismEnabled = true
+    var weatherPrefs by remember { androidx.compose.runtime.mutableStateOf(prefs.getBoolean("weather_particles_enabled", true)) }
+    var edgePanelEnabled by remember { androidx.compose.runtime.mutableStateOf(prefs.getBoolean("edge_panel_enabled", false)) }
+
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, prefs) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                scribbleSearchEnabled = prefs.getBoolean("scribble_search_enabled", true)
+                weatherPrefs = prefs.getBoolean("weather_particles_enabled", true)
+                edgePanelEnabled = prefs.getBoolean("edge_panel_enabled", false)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     // --- Onion Drawer Depth Navigation ---
     // Depth 0 = base hidden apps, Depth 1+ = custom layers (peel inward)
     var currentDepth by remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -187,7 +227,9 @@ fun HomeScreen(
 
     // BackHandler: peel outward through onion layers
     BackHandler(enabled = true) {
-        if (showInlineSearch) {
+        if (showScribbleSearch) {
+            showScribbleSearch = false
+        } else if (showInlineSearch) {
             showInlineSearch = false
         } else if (showHiddenDrawer) {
             if (currentDepth > 0) {
@@ -201,6 +243,8 @@ fun HomeScreen(
             }
         } else if (activeFolder != null) {
             activeFolder = null
+        } else if (showEdgePanel) {
+            showEdgePanel = false
         } else if (showNeuralHub) {
             onNeuralHubToggle(false)
         } else if (showDrawer) {
@@ -214,30 +258,51 @@ fun HomeScreen(
     // Removed duplicate BackHandler — handled by the first BackHandler above
 
     var accumulatedDragY by remember { mutableFloatStateOf(0f) }
+    var accumulatedDragX by remember { mutableFloatStateOf(0f) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Transparent) // Show wallpaper
-            .pointerInput(showDrawer, showInlineSearch, showNeuralHub) {
-                if (!showDrawer && !showInlineSearch && !showNeuralHub) {
+            .pointerInput(showDrawer, showInlineSearch, showNeuralHub, showEdgePanel) {
+                if (!showDrawer && !showInlineSearch && !showNeuralHub && !showEdgePanel) {
                     detectDragGestures(
-                        onDragEnd = { accumulatedDragY = 0f },
-                        onDragCancel = { accumulatedDragY = 0f },
-                        onDrag = { change, dragAmount -> 
+                        onDragEnd = { accumulatedDragY = 0f; accumulatedDragX = 0f },
+                        onDragCancel = { accumulatedDragY = 0f; accumulatedDragX = 0f },
+                        onDrag = { _, dragAmount -> 
                             accumulatedDragY += dragAmount.y
+                            accumulatedDragX += dragAmount.x
+                            
+                            // Check horizontal drag for edge panel (swipe left from right edge)
+                            if (accumulatedDragX < -150f) {
+                                if (edgePanelEnabled) {
+                                    showEdgePanel = true
+                                    accumulatedDragX = 0f
+                                    accumulatedDragY = 0f
+                                }
+                            }
+                            
                             if (accumulatedDragY > 150f) {
                                 showInlineSearch = true
                                 accumulatedDragY = 0f
+                                accumulatedDragX = 0f
                             } else if (accumulatedDragY < -150f) {
                                 onDrawerToggle(true)
                                 accumulatedDragY = 0f
+                                accumulatedDragX = 0f
                             }
                         }
                     )
                 }
             }
     ) {
+        // Weather Particles Background (drawn over the system wallpaper but behind launcher UI)
+        if (weatherPrefs) {
+            WeatherAtmosphereOverlay(weatherCode = weatherState.weatherCode)
+        }
+        
+        // Blurred Background when Overlay is Open
+        
         // Mutable Grid State
         var appPendingAction by remember { androidx.compose.runtime.mutableStateOf<AppModel?>(null) }
         var actionType by remember { androidx.compose.runtime.mutableStateOf<String?>(null) } // "ADD" or "REMOVE"
@@ -354,9 +419,8 @@ fun HomeScreen(
                             Button(
                                 onClick = {
                                     appPendingAction?.let { app ->
-                                        val intent = android.content.Intent(android.content.Intent.ACTION_UNINSTALL_PACKAGE).apply {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_DELETE).apply {
                                             data = android.net.Uri.parse("package:${app.packageName}")
-                                            putExtra(android.content.Intent.EXTRA_RETURN_RESULT, true)
                                             addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                                         }
                                         uninstallContext.startActivity(intent)
@@ -770,14 +834,14 @@ fun HomeScreen(
             )
         }
         // Blur Animation for Home Screen Desktop
-        val isOverlayOpen = showDrawer || showNeuralHub || showInlineSearch || showHiddenDrawer || (lockedAppPending != null) || (actionType != null)
+        val isOverlayOpen = showDrawer || showNeuralHub || showInlineSearch || showHiddenDrawer || (lockedAppPending != null) || (actionType != null) || showScribbleSearch || showEdgePanel
         val blurRadius by animateDpAsState(
             targetValue = if (isOverlayOpen) 16.dp else 0.dp,
             animationSpec = tween(durationMillis = 300)
         )
         val desktopModifier = Modifier
             .blur(blurRadius)
-            .pointerInput(pinUnlocked) {
+            .pointerInput(pinUnlocked, scribbleSearchEnabled) {
                 detectTapGestures(
                     onDoubleTap = {
                         val isBaseProtected = viewModel?.isOnionLayerProtected(0) ?: true
@@ -787,6 +851,11 @@ fun HomeScreen(
                             showHiddenDrawer = true
                         } else {
                             showBiometricAuth = true
+                        }
+                    },
+                    onLongPress = {
+                        if (scribbleSearchEnabled) {
+                            showScribbleSearch = true
                         }
                     }
                 )
@@ -900,7 +969,6 @@ fun HomeScreen(
                             // Center would push expanded terminal further past the search bar
                             verticalArrangement = Arrangement.Top
                         ) {
-                            val configuration = LocalConfiguration.current
                             val screenWidthDp = configuration.screenWidthDp.dp
                             // On large screens, make the clock HUGE to fill the top space
                             val clockSize = if (isLargeScreen)
@@ -997,6 +1065,7 @@ fun HomeScreen(
         // PIN dialog for diving into a protected deeper layer
         var pendingProtectedDepth by remember { androidx.compose.runtime.mutableIntStateOf(-1) }
         // Observe protected layers so recomposition happens on toggle
+        @Suppress("UNUSED_VARIABLE")
         val protectedLayersState by viewModel?.protectedLayers?.collectAsState() ?: remember { mutableStateOf(emptySet<String>()) }
 
         // PIN Dialog side-effect integration
@@ -1209,8 +1278,7 @@ fun HomeScreen(
                                     if (currentDepth < maxDepth) {
                                         val nextDepth = currentDepth + 1
                                         val isNextProtected = viewModel?.isOnionLayerProtected(nextDepth) ?: false
-                                        val isPinSet = viewModel?.getPreferencesManager()?.isPinSet() ?: false
-                                        if (isNextProtected && isPinSet) {
+                                        if (isNextProtected) {
                                             pendingProtectedDepth = nextDepth
                                         } else {
                                             currentDepth = nextDepth
@@ -1495,6 +1563,27 @@ fun HomeScreen(
                 },
                 onClose = { showInlineSearch = false },
                 isSearching = isSearching
+            )
+        }
+        
+        // Edge Panel Overlay
+        EdgePanel(
+            isVisible = showEdgePanel,
+            onClose = { showEdgePanel = false }
+        )
+
+        // NEW: Scribble Search Overlay
+        AnimatedVisibility(
+            visible = showScribbleSearch,
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(300))
+        ) {
+            ScribbleSearchOverlay(
+                apps = allApps,
+                onAppClick = onAppClick,
+                onClose = { showScribbleSearch = false },
+                themeAccentColor = themeAccentColor,
+                glassmorphismEnabled = glassmorphismEnabled
             )
         }
         
@@ -1927,7 +2016,7 @@ fun AppDrawer(
     folders: Map<String, Set<String>> = emptyMap(),
     onFolderClick: (String) -> Unit = {},
     onDeleteFolder: (String) -> Unit = {},
-    viewModel: com.vertigo.launcher.ui.HomeViewModel? = null,
+    @Suppress("UNUSED_PARAMETER") viewModel: com.vertigo.launcher.ui.HomeViewModel? = null,
     showLabels: Boolean = true,
     showBadges: Boolean = true,
     gridSize: Int = 4,
@@ -2002,7 +2091,7 @@ fun AppDrawer(
                 modifier = Modifier.fillMaxSize()
             ) {
                 // Phase 13: Render Folders
-                folders.entries.forEach { (name, packages) ->
+                folders.entries.forEach { (name, _) ->
                     item(key = "folder_$name") {
                         val folderApps = folderAppsMap[name] ?: emptyList()
                         val folderNotifCount = if (showBadges) (folderApps.sumOf { notificationCounts[it.packageName] ?: 0 }) else 0

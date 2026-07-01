@@ -215,4 +215,32 @@ class PreferencesManager(context: Context) {
         folders.remove(folderName)
         saveFolders(folders)
     }
+
+    // --- Custom App Category Overrides ---
+    private val PREF_CATEGORY_OVERRIDES = "app_category_overrides"
+
+    fun getCategoryOverrides(): Map<String, String> {
+        val json = prefs.getString(PREF_CATEGORY_OVERRIDES, null) ?: return emptyMap()
+        val type = object : com.google.gson.reflect.TypeToken<Map<String, String>>() {}.type
+        return try {
+            gson.fromJson(json, type)
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    fun saveCategoryOverrides(overrides: Map<String, String>) {
+        val json = gson.toJson(overrides)
+        prefs.edit().putString(PREF_CATEGORY_OVERRIDES, json).apply()
+    }
+
+    fun saveAppCategoryOverride(packageName: String, categoryName: String) {
+        val overrides = getCategoryOverrides().toMutableMap()
+        overrides[packageName] = categoryName
+        saveCategoryOverrides(overrides)
+    }
+
+    fun getAppCategoryOverride(packageName: String): String? {
+        return getCategoryOverrides()[packageName]
+    }
 }

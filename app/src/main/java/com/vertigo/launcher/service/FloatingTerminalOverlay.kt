@@ -542,11 +542,11 @@ class FloatingTerminalOverlay(
         // Stop voice while AI responds
         stopListening()
 
-        // Get settings
+        // Get settings (synchronous — outside coroutine)
         val prefs = com.vertigo.launcher.utils.StorageHelper
             .getSafeDefaultSharedPreferences(context)
         val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
-        val model = prefs.getString("ollama_model_select", "llama3.2:1b") ?: "llama3.2:1b"
+        val savedModel = prefs.getString("ollama_model_select", "") ?: ""
 
         val systemPrompt = "You are Sunday, an advanced AI assistant integrated into the V-Launcher for Android. " +
             "Keep responses concise and helpful. You are speaking through a floating overlay terminal. " +
@@ -558,6 +558,32 @@ class FloatingTerminalOverlay(
         scrollToBottom()
 
         currentStreamJob = scope.launch {
+            // Resolve model inside coroutine so suspend calls are allowed
+            val model = if (savedModel.isNotBlank()) {
+                savedModel
+            } else {
+                // No model selected — auto-detect the first available model
+                try {
+                    val models = ollamaClient.getAvailableModels(baseUrl).getOrNull()
+                    if (models.isNullOrEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            updateStreamView(streamView, "⚠ No AI models found. Run 'ollama pull <model>' in Termux first.")
+                            chatMessages.add("assistant" to "⚠ No AI models found. Run 'ollama pull <model>' in Termux first.")
+                            finishStreaming()
+                        }
+                        return@launch
+                    }
+                    models.first()
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        updateStreamView(streamView, "⚠ Cannot reach Ollama at $baseUrl. Make sure 'ollama serve' is running in Termux.")
+                        chatMessages.add("assistant" to "⚠ Cannot reach Ollama at $baseUrl.")
+                        finishStreaming()
+                    }
+                    return@launch
+                }
+            }
+
             try {
                 ollamaClient.generateResponseStream(query, model, baseUrl, systemPrompt)
                     .catch { e ->
