@@ -45,21 +45,28 @@ fun WeatherAtmosphereOverlay(weatherCode: Int) {
             }
             1, 2, 3 -> {
                 // Partly Cloudy / Cloudy
-                RealisticClouds(density = if (weatherCode == 1) 0.5f else 1f)
+                // 1 = Mainly Clear, 2 = Partly Cloudy, 3 = Overcast
+                val density = when (weatherCode) {
+                    1 -> 0.3f
+                    2 -> 0.7f
+                    else -> 1.2f
+                }
+                RealisticClouds(density = density)
             }
             45, 48 -> {
                 // Foggy
                 RealisticFog()
             }
-            51, 53, 55, 61, 63, 65 -> {
-                // Drizzle & Rain
-                RealisticRain(isHeavy = weatherCode >= 63)
-                // Add dark clouds for rain
+            51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82 -> {
+                // Drizzle, Rain, and Rain Showers
+                val isHeavy = weatherCode == 65 || weatherCode == 67 || weatherCode == 82
+                RealisticRain(isHeavy = isHeavy)
                 RealisticClouds(density = 1f, isDark = true)
             }
-            71, 73, 75 -> {
-                // Snow
-                RealisticSnow(isHeavy = weatherCode == 75)
+            71, 73, 75, 77, 85, 86 -> {
+                // Snow and Snow Showers
+                val isHeavy = weatherCode == 75 || weatherCode == 86
+                RealisticSnow(isHeavy = isHeavy)
             }
             95, 96, 99 -> {
                 // Thunderstorm
@@ -76,53 +83,80 @@ fun RealisticClouds(density: Float, isDark: Boolean = false) {
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp.toFloat()
 
-    val cloudConfigs = remember(density) {
+    // Each cloud has a phase (0.0–1.0) representing where it starts in its journey
+    // This ensures clouds are already spread across the screen on first render
+    data class CloudLayer(
+        val yOffset: Float,
+        val sizeDp: Int,
+        val driftDurationMs: Int,
+        val opacity: Float,
+        val scaleX: Float = 1f,
+        val resourceVariant: Int = 0,
+        val initialPhase: Float = 0f  // 0.0 = starts at left edge, 0.5 = starts mid-screen
+    )
+
+    val cloudLayers = remember(density, isDark) {
         val base = mutableListOf(
-            CloudConfig(-300f, 40f,  340, 55000, if (isDark) 0.85f else 0.80f, resourceVariant = 0),
-            CloudConfig(-100f, 260f, 380, 38000, if (isDark) 0.90f else 0.85f, resourceVariant = 1),
-            CloudConfig(-250f, 480f, 280, 48000, if (isDark) 0.75f else 0.70f, -1f, resourceVariant = 0)
+            CloudLayer(30f,  420, 65000, if (isDark) 0.80f else 0.70f, resourceVariant = 0, initialPhase = 0.1f),
+            CloudLayer(200f, 480, 50000, if (isDark) 0.85f else 0.75f, resourceVariant = 1, initialPhase = 0.55f),
+            CloudLayer(400f, 360, 58000, if (isDark) 0.75f else 0.65f, -1f, resourceVariant = 0, initialPhase = 0.3f)
         )
-        if (density >= 1f) base.add(CloudConfig(80f, 680f, 300, 62000, if (isDark) 0.80f else 0.75f, resourceVariant = 1))
+        if (density >= 1f) {
+            base.add(CloudLayer(600f, 400, 72000, if (isDark) 0.78f else 0.68f, resourceVariant = 1, initialPhase = 0.75f))
+        }
         if (density > 1f) {
-            base.add(CloudConfig(-180f, 160f, 360, 44000, if (isDark) 0.90f else 0.85f, -1f, resourceVariant = 0))
-            base.add(CloudConfig(40f,  580f, 260, 52000, if (isDark) 0.80f else 0.75f, resourceVariant = 1))
+            base.add(CloudLayer(120f, 440, 55000, if (isDark) 0.85f else 0.72f, -1f, resourceVariant = 0, initialPhase = 0.45f))
+            base.add(CloudLayer(500f, 340, 62000, if (isDark) 0.78f else 0.65f, resourceVariant = 1, initialPhase = 0.85f))
         }
         base
     }
+
     Box(modifier = Modifier.fillMaxSize()) {
-        cloudConfigs.forEach { cloud ->
+        cloudLayers.forEach { cloud ->
+            // Total travel distance: from fully off-screen left to fully off-screen right
+            val cloudWidthDp = cloud.sizeDp.toFloat()
+            val totalTravel = screenWidthDp + cloudWidthDp
+
+            // Animate a 0→1 fraction over the drift duration
             val drift = rememberInfiniteTransition(label = "drift")
-            val x by drift.animateFloat(
-                initialValue = cloud.xOffsetStart,
-                targetValue = screenWidthDp + cloud.sizeDp + 100f,
+            val fraction by drift.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(cloud.speedFactor, easing = LinearEasing),
+                    animation = tween(cloud.driftDurationMs, easing = LinearEasing),
                     repeatMode = RepeatMode.Restart
-                ), label = "x"
+                ), label = "frac"
             )
+
+            // Apply phase offset and wrap with modulo for seamless looping
+            val wrappedFraction = (fraction + cloud.initialPhase) % 1f
+            // Map fraction to screen X: -cloudWidth → screenWidth
+            val x = -cloudWidthDp + (wrappedFraction * totalTravel)
+
+            // Gentle bobbing
             val bob = rememberInfiniteTransition(label = "bob")
             val dy by bob.animateFloat(
-                initialValue = -12f, targetValue = 12f,
+                initialValue = -8f, targetValue = 8f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(cloud.speedFactor / 8, easing = SineToggleEasing),
+                    animation = tween(cloud.driftDurationMs / 6, easing = SineToggleEasing),
                     repeatMode = RepeatMode.Reverse
                 ), label = "dy"
             )
 
-            // Pick the right drawable based on dark mode and variant
             val cloudRes = if (isDark) {
                 R.drawable.cloud_dark_storm
             } else {
                 if (cloud.resourceVariant == 0) R.drawable.cloud_realistic_1 else R.drawable.cloud_realistic_2
             }
 
+            // Elongated: width is the sizeDp, height is 35% of width (wide and flat)
             val wDp = cloud.sizeDp.dp
-            val hDp = (cloud.sizeDp * 0.65f).dp  // taller aspect ratio for realistic clouds
+            val hDp = (cloud.sizeDp * 0.35f).dp
 
             Image(
                 painter = painterResource(id = cloudRes),
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.FillBounds,
                 modifier = Modifier
                     .width(wDp)
                     .height(hDp)
