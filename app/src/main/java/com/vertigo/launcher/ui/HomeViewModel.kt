@@ -1550,10 +1550,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val lat = location?.latitude ?: 51.5074
             val long = location?.longitude ?: -0.1278
             
+            android.util.Log.d("HomeViewModel", "fetchWeather: coordinates = ($lat, $long). Using location: ${location != null}")
+            
             val response = weatherRepository.getCurrentWeather(lat, long)
-            response?.current?.let { current ->
+            if (response != null) {
+                val current = response.current
                 val conditionText = interpretWeatherCode(current.weatherCode)
                 val icon = getWeatherIcon(current.weatherCode)
+                
+                android.util.Log.d("HomeViewModel", "fetchWeather: Success. temp = ${current.temperature}°, code = ${current.weatherCode} ($conditionText)")
                 
                 _weatherState.value = WeatherState(
                     temp = "${current.temperature}°",
@@ -1561,6 +1566,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     iconRes = icon,
                     weatherCode = current.weatherCode
                 )
+            } else {
+                android.util.Log.e("HomeViewModel", "fetchWeather: Failed to fetch current weather (cache empty and network error)")
             }
         }
     }
@@ -1570,15 +1577,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         fetchWeather()
     }
     
-    // Simple WMO Code interpretation
+    // Comprehensive WMO Code interpretation
     private fun interpretWeatherCode(code: Int): String {
         return when (code) {
             0 -> "Clear Sky"
-            1, 2, 3 -> "Partly Cloudy"
+            1 -> "Mainly Clear"
+            2 -> "Partly Cloudy"
+            3 -> "Overcast"
             45, 48 -> "Foggy"
-            51, 53, 55 -> "Drizzle"
-            61, 63, 65 -> "Rain"
-            71, 73, 75 -> "Snow"
+            51, 53, 55, 56, 57 -> "Drizzle"
+            61, 63, 65, 66, 67, 80, 81, 82 -> "Rain"
+            71, 73, 75, 77, 85, 86 -> "Snow"
             95, 96, 99 -> "Thunderstorm"
             else -> "Unknown"
         }
@@ -1586,9 +1595,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     
     private fun getWeatherIcon(code: Int): Int {
         return when (code) {
-            0 -> android.R.drawable.ic_menu_day
-            1, 2, 3 -> android.R.drawable.ic_menu_sort_by_size // Cloud-like
-            else -> android.R.drawable.ic_menu_report_image // Rain-like
+            0, 1 -> android.R.drawable.ic_menu_day
+            2, 3 -> android.R.drawable.ic_menu_sort_by_size // Cloud-like
+            else -> android.R.drawable.ic_menu_report_image // Rain/Storm-like
         }
     }
     

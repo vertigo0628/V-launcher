@@ -45,21 +45,28 @@ fun WeatherAtmosphereOverlay(weatherCode: Int) {
             }
             1, 2, 3 -> {
                 // Partly Cloudy / Cloudy
-                RealisticClouds(density = if (weatherCode == 1) 0.5f else 1f)
+                // 1 = Mainly Clear, 2 = Partly Cloudy, 3 = Overcast
+                val density = when (weatherCode) {
+                    1 -> 0.3f
+                    2 -> 0.7f
+                    else -> 1.2f
+                }
+                RealisticClouds(density = density)
             }
             45, 48 -> {
                 // Foggy
                 RealisticFog()
             }
-            51, 53, 55, 61, 63, 65 -> {
-                // Drizzle & Rain
-                RealisticRain(isHeavy = weatherCode >= 63)
-                // Add dark clouds for rain
+            51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82 -> {
+                // Drizzle, Rain, and Rain Showers
+                val isHeavy = weatherCode == 65 || weatherCode == 67 || weatherCode == 82
+                RealisticRain(isHeavy = isHeavy)
                 RealisticClouds(density = 1f, isDark = true)
             }
-            71, 73, 75 -> {
-                // Snow
-                RealisticSnow(isHeavy = weatherCode == 75)
+            71, 73, 75, 77, 85, 86 -> {
+                // Snow and Snow Showers
+                val isHeavy = weatherCode == 75 || weatherCode == 86
+                RealisticSnow(isHeavy = isHeavy)
             }
             95, 96, 99 -> {
                 // Thunderstorm
