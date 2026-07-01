@@ -1752,7 +1752,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 android.util.Log.d("HomeViewModel", "Vision prompt built: ${userPrompt.take(200)}...")
 
                 // Step 3: Stream to Ollama (reuse existing pipeline)
-                val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeSharedPreferences(getApplication(), "launcher_prefs")
+                val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeDefaultSharedPreferences(getApplication())
                 val selectedModel = prefs.getString("ollama_model_select", "") ?: ""
                 val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
 
@@ -1804,7 +1804,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _isAiThinking.value = true
             _currentStreamingResponse.value = null // Keep null so UI shows "Thinking..."
             
-            val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeSharedPreferences(getApplication(), "launcher_prefs")
+            val prefs = com.vertigo.launcher.utils.StorageHelper.getSafeDefaultSharedPreferences(getApplication())
             val savedModel = prefs.getString("ollama_model_select", "") ?: ""
             val baseUrl = prefs.getString("ollama_base_url", "http://127.0.0.1:11434") ?: "http://127.0.0.1:11434"
             
